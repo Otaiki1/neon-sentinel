@@ -71,12 +71,27 @@ export class BootScene extends Phaser.Scene {
 
     // Load sprites from public folder
     this.load.image('hero', '/sprites/hero.svg');
+    
+    // Enemy sprites
     this.load.image('enemyGreen', '/sprites/enemy_green.svg');
     this.load.image('enemyYellow', '/sprites/enemy_yellow.svg');
+    this.load.image('enemyBlue', '/sprites/enemy_blue.svg');
+    this.load.image('enemyPurple', '/sprites/enemy_purple.svg');
+    this.load.image('enemyPurpleBoss', '/sprites/enemy_purple_boss.svg');
+    this.load.image('miniFinalBoss', '/sprites/mini_final_boss.svg');
+    this.load.image('mediumFinalBoss', '/sprites/medium_final_boss.svg');
+    this.load.image('finalBoss', '/sprites/final_boss.svg');
+    
+    // Bullet sprites
     this.load.image('greenBullet1', '/sprites/green_bullet_1.svg');
     this.load.image('greenBullet2', '/sprites/green_bullet_2.svg');
+    this.load.image('blueBullet', '/sprites/blue_bullet.svg');
+    
+    // Explosion sprites
     this.load.image('smallFire', '/sprites/small_fire.svg');
     this.load.image('mediumFire', '/sprites/medium_fire.svg');
+    this.load.image('bigFire', '/sprites/big_fire.svg');
+    this.load.image('greenFire', '/sprites/green_fire.svg');
   }
 
   create() {

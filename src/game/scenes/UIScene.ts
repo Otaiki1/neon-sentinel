@@ -5,6 +5,7 @@ import { GameScene } from './GameScene';
 export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
+  private layerText!: Phaser.GameObjects.Text;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -35,6 +36,15 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 4,
     });
 
+    // Layer display
+    this.layerText = this.add.text(20, 80, 'LAYER: Boot Sector', {
+      fontFamily: UI_CONFIG.pixelFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 4,
+    });
+
     // Game Over overlay (hidden initially)
     this.createGameOverOverlay();
 
@@ -44,6 +54,7 @@ export class UIScene extends Phaser.Scene {
     // Listen to registry changes
     this.registry.events.on('changedata-score', this.updateScore, this);
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
+    this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     
     // Listen for score submission from GameScene
@@ -159,6 +170,10 @@ export class UIScene extends Phaser.Scene {
     this.comboText.setText(`COMBO: ${value.toFixed(1)}x`);
   }
 
+  private updateLayer(_parent: Phaser.Data.DataManager, layerName: string) {
+    this.layerText.setText(`LAYER: ${layerName}`);
+  }
+
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {
     if (value) {
       const finalScore = this.registry.get('finalScore') || 0;
@@ -171,10 +186,10 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  private async onSubmitScore(score: number, walletAddress?: string) {
+  private async onSubmitScore(score: number, walletAddress?: string, deepestLayer?: number) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress);
+    submitScore(score, walletAddress, deepestLayer);
     
     // Show leaderboard after a short delay
     this.time.delayedCall(500, () => {
