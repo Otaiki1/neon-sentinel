@@ -1,0 +1,32 @@
+/* Landing Page Styles */
+.landing-page {
+  font-family: 'Press Start 2P', monospace;
+  color: #00ff00;
+  background-color: #000000;
+}
+
+/* Pixel text glow effect */
+.pixel-glow {
+  text-shadow: 
+    0 0 10px #00ff00,
+    0 0 20px #00ff00,
+    0 0 30px #00ff00;
+}
+
+/* Pixel border effect */
+.pixel-border {
+  border: 2px solid #00ff00;
+  box-shadow: 
+    0 0 10px rgba(0, 255, 0, 0.3),
+    inset 0 0 10px rgba(0, 255, 0, 0.1);
+}
+
+/* Button hover effect */
+.pixel-button:hover {
+  background-color: #00ff00;
+  color: #000000;
+  box-shadow: 
+    0 0 20px rgba(0, 255, 0, 0.5),
+    inset 0 0 20px rgba(0, 255, 0, 0.2);
+}
+
