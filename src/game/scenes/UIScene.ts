@@ -6,6 +6,7 @@ export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private layerText!: Phaser.GameObjects.Text;
+  private livesText!: Phaser.GameObjects.Text;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -23,8 +24,20 @@ export class UIScene extends Phaser.Scene {
   }
 
   create() {
-    // Score display (top-left) - VT323 for retro terminal feel
-    this.scoreText = this.add.text(20, 20, 'SCORE: 0', {
+    // Score display (top-left) - Much more prominent
+    this.scoreText = this.add.text(30, 30, 'SCORE: 0', {
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: 56,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 8,
+    });
+    this.scoreText.setOrigin(0, 0); // Top-left anchor
+    // Add glow effect using shadow
+    this.scoreText.setShadow(2, 2, '#00ff00', 8, true, true);
+
+    // Combo multiplier display (adjusted position to accommodate larger score)
+    this.comboText = this.add.text(30, 100, 'COMBO: 1.0x', {
       fontFamily: UI_CONFIG.scoreFont,
       fontSize: 24,
       color: UI_CONFIG.neonGreen,
@@ -32,22 +45,22 @@ export class UIScene extends Phaser.Scene {
       strokeThickness: 3,
     });
 
-    // Combo multiplier display
-    this.comboText = this.add.text(20, 50, 'COMBO: 1.0x', {
-      fontFamily: UI_CONFIG.scoreFont,
-      fontSize: 24,
-      color: UI_CONFIG.neonGreen,
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-
-    // Layer display - Oxanium for menu/subtitle style
-    this.layerText = this.add.text(20, 80, 'LAYER: Boot Sector', {
+    // Layer display - Oxanium for menu/subtitle style (adjusted position)
+    this.layerText = this.add.text(30, 130, 'LAYER: Boot Sector', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
       strokeThickness: 3,
+    });
+
+    // Lives display
+    this.livesText = this.add.text(30, 160, 'LIVES: 1', {
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: 32,
+      color: '#ff00ff', // Magenta/purple to stand out
+      stroke: '#000000',
+      strokeThickness: 5,
     });
 
     // Game Over overlay (hidden initially)
@@ -63,6 +76,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-score', this.updateScore, this);
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
+    this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
     
@@ -276,6 +290,10 @@ export class UIScene extends Phaser.Scene {
 
   private updateLayer(_parent: Phaser.Data.DataManager, layerName: string) {
     this.layerText.setText(`LAYER: ${layerName}`);
+  }
+
+  private updateLives(_parent: Phaser.Data.DataManager, value: number) {
+    this.livesText.setText(`LIVES: ${value}`);
   }
 
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {

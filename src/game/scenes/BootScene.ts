@@ -92,6 +92,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('mediumFire', '/sprites/medium_fire.svg');
     this.load.image('bigFire', '/sprites/big_fire.svg');
     this.load.image('greenFire', '/sprites/green_fire.svg');
+    
+    // Power-up sprites
+    this.load.image('power_up', '/sprites/power_up.svg');
+    this.load.image('power_up_2', '/sprites/power_up_2.svg');
+    this.load.image('orb', '/sprites/orb.svg');
   }
 
   create() {
@@ -101,4 +106,3 @@ export class BootScene extends Phaser.Scene {
     this.scene.launch('UIScene');
   }
 }
-
