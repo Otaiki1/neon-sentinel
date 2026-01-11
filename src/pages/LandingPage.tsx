@@ -268,6 +268,61 @@ function LandingPage() {
           </div>
         </div>
 
+        {/* About Section */}
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+            letterSpacing: '0.1em'
+          }}>
+            ABOUT
+          </h2>
+          <div className="space-y-4 text-sm md:text-base font-body text-neon-green">
+            <div>
+              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
+                THE GRID
+              </h3>
+              <p className="opacity-90 leading-relaxed">
+                Inside a collapsing digital megasystem called <strong>The Grid</strong>, autonomous security programs—<strong>Neon Sentinels</strong>—fight to contain a spreading corruption known as <strong>The Swarm</strong>.
+              </p>
+            </div>
+            
+            <div>
+              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
+                THE INFECTION
+              </h3>
+              <p className="opacity-90 leading-relaxed">
+                Each enemy color represents a deeper layer of system corruption. You don't "beat levels"—you push deeper into infected layers of the system until you hit a system collapse (death). The deeper you go, the more dangerous the corruption becomes.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
+                THE LAYERS
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                <div className="space-y-1 text-xs">
+                  <p><span className="text-green-500">🟢 Boot Sector</span> - Broken data fragments</p>
+                  <p><span className="text-yellow-500">🟡 Firewall</span> - Recompiled attack routines</p>
+                  <p><span className="text-blue-500">🔵 Security Core</span> - Hijacked security bots</p>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <p><span className="text-purple-500">🟣 Corrupted AI</span> - High-level AI cores</p>
+                  <p><span className="text-red-500">🔴 Kernel Breach</span> - System guardians taken over</p>
+                  <p><span className="text-red-600">⚫ System Collapse</span> - Final boss territory</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
+                YOUR MISSION
+              </h3>
+              <p className="opacity-90 leading-relaxed">
+                Survive as long as possible. Push deeper into the system. Score points by eliminating corrupted entities. Each layer introduces new enemy types and increasing difficulty. Build combos by staying alive. Reach the deepest layer and become a legend.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Footer Navigation */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
           <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
