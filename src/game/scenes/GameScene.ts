@@ -38,6 +38,7 @@ export class GameScene extends Phaser.Scene {
     private powerUpTimers: Map<string, Phaser.Time.TimerEvent> = new Map();
     private autoShootEnabled = false;
     private firepowerLevel = 0; // 0 = normal, 1+ = increased firepower (multiple bullets)
+    private isInvisible = false; // Invisibility power-up state
     private spaceKey!: Phaser.Input.Keyboard.Key;
     // Mobile touch controls
     private isTouching = false;
@@ -274,26 +275,55 @@ export class GameScene extends Phaser.Scene {
         // Handle blue enemy shooting and wall bouncing
         this.enemies.children.entries.forEach((enemyObj) => {
             const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
 
-            // Remove enemies that go off the right edge
-            if (enemy.x > gameWidth + 100) {
-                enemy.destroy();
-                return;
-            }
+            // Graduation bosses should not be destroyed and should continuously move toward player
+            if (isGraduationBoss) {
+                // Make graduation boss continuously move toward player
+                const speed = enemy.getData("speed") || 100;
+                const angle = Phaser.Math.Angle.Between(
+                    enemy.x,
+                    enemy.y,
+                    this.player.x,
+                    this.player.y
+                );
+                const velocityX = Math.cos(angle) * speed;
+                const velocityY = Math.sin(angle) * speed;
+                enemy.setVelocity(velocityX, velocityY);
 
-            // Bounce off left, top, and bottom walls
-            if (enemy.x < 0) {
-                enemy.setVelocityX(Math.abs(enemy.body!.velocity.x));
-            }
-            if (enemy.y < 0) {
-                enemy.setVelocityY(Math.abs(enemy.body!.velocity.y));
-            }
-            if (enemy.y > gameHeight) {
-                enemy.setVelocityY(-Math.abs(enemy.body!.velocity.y));
+                // Bounce off all walls (including right edge)
+                if (enemy.x < 0) {
+                    enemy.setVelocityX(Math.abs(enemy.body!.velocity.x));
+                }
+                if (enemy.x > gameWidth) {
+                    enemy.setVelocityX(-Math.abs(enemy.body!.velocity.x));
+                }
+                if (enemy.y < 0) {
+                    enemy.setVelocityY(Math.abs(enemy.body!.velocity.y));
+                }
+                if (enemy.y > gameHeight) {
+                    enemy.setVelocityY(-Math.abs(enemy.body!.velocity.y));
+                }
+            } else {
+                // Normal enemies: remove if they go off the right edge
+                if (enemy.x > gameWidth + 100) {
+                    enemy.destroy();
+                    return;
+                }
+
+                // Bounce off left, top, and bottom walls
+                if (enemy.x < 0) {
+                    enemy.setVelocityX(Math.abs(enemy.body!.velocity.x));
+                }
+                if (enemy.y < 0) {
+                    enemy.setVelocityY(Math.abs(enemy.body!.velocity.y));
+                }
+                if (enemy.y > gameHeight) {
+                    enemy.setVelocityY(-Math.abs(enemy.body!.velocity.y));
+                }
             }
 
             const canShoot = enemy.getData("canShoot");
-            const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
 
             if (canShoot && enemy.active) {
                 const lastShot = enemy.getData("lastShot") || 0;
@@ -392,8 +422,10 @@ export class GameScene extends Phaser.Scene {
             }
         } else {
             // Increased firepower: multiple bullets with spread
-            const bulletCount = 1 + this.firepowerLevel; // 2 bullets at level 1, 3 at level 2, etc.
-            const spreadAngle = Math.min(15 * this.firepowerLevel, 30); // Max 30 degree spread
+            // Round firepower level down to integer for bullet count
+            const firepowerLevelInt = Math.floor(this.firepowerLevel);
+            const bulletCount = 1 + firepowerLevelInt; // 2 bullets at level 1, 3 at level 2, etc.
+            const spreadAngle = Math.min(15 * firepowerLevelInt, 30); // Max 30 degree spread
 
             for (let i = 0; i < bulletCount; i++) {
                 const bullet = this.bullets.get(
@@ -406,9 +438,9 @@ export class GameScene extends Phaser.Scene {
                     bullet.setScale(0.6 * MOBILE_SCALE); // Slightly larger for visual impact
 
                     // Use different bullet sprites based on firepower level
-                    if (this.firepowerLevel === 1) {
+                    if (firepowerLevelInt === 1) {
                         bullet.setTexture("greenBullet2"); // Upgraded green bullet
-                    } else if (this.firepowerLevel >= 2) {
+                    } else if (firepowerLevelInt >= 2) {
                         bullet.setTexture("yellowBullet"); // Yellow bullet for high firepower
                         bullet.setScale(0.7 * MOBILE_SCALE); // Even larger
                     } else {
@@ -783,8 +815,13 @@ export class GameScene extends Phaser.Scene {
         e.setData("health", health);
 
         if (health <= 0) {
-            // Check if this was a graduation boss
+            // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
+
+            // If graduation boss, set flag to false BEFORE addScore (which calls updateLayer)
+            if (isGraduationBoss) {
+                this.graduationBossActive = false;
+            }
 
             // Enemy destroyed
             this.addScore(points * this.comboMultiplier);
@@ -795,7 +832,6 @@ export class GameScene extends Phaser.Scene {
 
             // If graduation boss was defeated, advance to next layer
             if (isGraduationBoss) {
-                this.graduationBossActive = false;
                 this.currentLayer = this.pendingLayer;
                 if (this.pendingLayer > this.deepestLayer) {
                     this.deepestLayer = this.pendingLayer;
@@ -803,7 +839,7 @@ export class GameScene extends Phaser.Scene {
                 this.registry.set("currentLayer", this.currentLayer);
                 this.registry.set(
                     "layerName",
-                    LAYER_CONFIG[this.pendingLayer as keyof typeof LAYER_CONFIG]
+                    LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG]
                         .name
                 );
 
@@ -817,6 +853,17 @@ export class GameScene extends Phaser.Scene {
                 // Resume normal enemy spawning
                 this.updateSpawnTimer();
 
+                // Debug log to verify layer progression
+                console.log(
+                    `Graduation boss defeated! Advanced to layer ${
+                        this.currentLayer
+                    }: ${
+                        LAYER_CONFIG[
+                            this.currentLayer as keyof typeof LAYER_CONFIG
+                        ].name
+                    }`
+                );
+
                 // Spawn multiple power-ups as reward
                 for (let i = 0; i < 3; i++) {
                     this.time.delayedCall(i * 200, () => {
@@ -828,13 +875,19 @@ export class GameScene extends Phaser.Scene {
                 }
             } else {
                 // Normal enemy - spawn power-ups as usual
-                // Spawn lives power-up (50% chance from all enemies)
+                // Spawn lives power-up (35% chance from all enemies)
                 if (Math.random() < POWERUP_CONFIG.livesSpawnChance) {
                     this.spawnLivesPowerUp(e.x, e.y);
                 }
-                // Spawn firepower power-up (30% chance from all enemies)
+                // Spawn firepower power-up (15% chance from all enemies)
                 else if (Math.random() < POWERUP_CONFIG.firepowerSpawnChance) {
                     this.spawnFirepowerPowerUp(e.x, e.y);
+                }
+                // Spawn invisibility power-up (15% chance from all enemies)
+                else if (
+                    Math.random() < POWERUP_CONFIG.invisibilitySpawnChance
+                ) {
+                    this.spawnInvisibilityPowerUp(e.x, e.y);
                 }
                 // Spawn other power-ups from purple/red enemies (25% chance)
                 else if (
@@ -897,6 +950,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     private takeDamage() {
+        // If player has invisibility power-up, ignore damage
+        if (this.isInvisible) {
+            return; // Invisible, no damage taken
+        }
+
         // Prevent multiple damage calls within 1000ms (invincibility period)
         // This matches the visual flash duration and prevents rapid damage
         const timeSinceLastHit = this.time.now - this.lastHitTime;
@@ -1174,6 +1232,48 @@ export class GameScene extends Phaser.Scene {
         this.powerUps.add(powerUp);
     }
 
+    private spawnInvisibilityPowerUp(x: number, y: number) {
+        const powerUpConfig = POWERUP_CONFIG.types.invisibility;
+
+        const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
+        powerUp.setScale(0.5 * MOBILE_SCALE);
+        powerUp.setTint(0x00ffff); // Cyan tint to distinguish as invisibility power-up
+        powerUp.setData("type", "invisibility");
+        powerUp.setData("config", powerUpConfig);
+
+        // Add floating animation
+        this.tweens.add({
+            targets: powerUp,
+            y: powerUp.y - 10,
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+        });
+
+        // Set timer to destroy power-up after 6 seconds if not consumed
+        // Start fade-out at 5 seconds, destroy at 6 seconds
+        const fadeOutTimer = this.time.delayedCall(5000, () => {
+            if (powerUp.active) {
+                // Fade out effect
+                this.tweens.add({
+                    targets: powerUp,
+                    alpha: 0,
+                    duration: 1000,
+                });
+            }
+        });
+
+        const despawnTimer = this.time.delayedCall(6000, () => {
+            if (powerUp && powerUp.active) {
+                powerUp.destroy();
+            }
+        });
+        powerUp.setData("despawnTimer", despawnTimer);
+        powerUp.setData("fadeOutTimer", fadeOutTimer);
+
+        this.powerUps.add(powerUp);
+    }
+
     private handlePlayerPowerUpCollision(
         _player: Phaser.Types.Physics.Arcade.GameObjectWithBody,
         powerUp: Phaser.Types.Physics.Arcade.GameObjectWithBody
@@ -1264,16 +1364,44 @@ export class GameScene extends Phaser.Scene {
             this.fireRateMultiplier *= config.fireRateMultiplier;
 
             const timer = this.time.delayedCall(config.duration, () => {
-                // Reset firepower level
+                // Reset firepower level (round down to handle fractional levels)
                 this.firepowerLevel = Math.max(
                     0,
-                    this.firepowerLevel - config.firepowerLevel
+                    Math.floor(
+                        (this.firepowerLevel - config.firepowerLevel) * 10
+                    ) / 10
                 );
                 // Reset fire rate multiplier (divide by the same amount)
                 this.fireRateMultiplier /= config.fireRateMultiplier;
                 this.powerUpTimers.delete("firepower");
             });
             this.powerUpTimers.set("firepower", timer);
+
+            // Visual feedback with larger explosion
+            this.createExplosion(this.player.x, this.player.y, "medium");
+            return; // Early return - no need for small explosion
+        } else if (powerUpType === "invisibility") {
+            // Cancel existing invisibility timer if any
+            if (this.powerUpTimers.has("invisibility")) {
+                this.powerUpTimers.get("invisibility")!.remove();
+            }
+            this.isInvisible = true;
+
+            // Visual effect: make player semi-transparent and pulsing
+            this.tweens.add({
+                targets: this.player,
+                alpha: 0.3,
+                duration: 200,
+                yoyo: true,
+                repeat: -1,
+            });
+
+            const timer = this.time.delayedCall(config.duration, () => {
+                this.isInvisible = false;
+                this.player.setAlpha(1);
+                this.powerUpTimers.delete("invisibility");
+            });
+            this.powerUpTimers.set("invisibility", timer);
 
             // Visual feedback with larger explosion
             this.createExplosion(this.player.x, this.player.y, "medium");
@@ -1395,6 +1523,8 @@ export class GameScene extends Phaser.Scene {
         this.scoreMultiplier = 1;
         this.autoShootEnabled = false;
         this.firepowerLevel = 0;
+        this.isInvisible = false;
+        this.player.setAlpha(1); // Reset player alpha
 
         // Reset touch controls
         this.isTouching = false;

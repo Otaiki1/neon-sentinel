@@ -137,8 +137,9 @@ export const SPAWN_CONFIG = {
 
 export const POWERUP_CONFIG = {
     spawnChance: 0.25, // Increased from 0.15 to 0.25 (more frequent)
-    livesSpawnChance: 0.5, // 50% chance for lives power-up from all enemies
-    firepowerSpawnChance: 0.3, // 30% chance for firepower power-up from all enemies
+    livesSpawnChance: 0.35, // 35% chance for lives power-up from all enemies
+    firepowerSpawnChance: 0.08, // 8% chance for firepower power-up from all enemies (reduced from 15%)
+    invisibilitySpawnChance: 0.15, // 15% chance for invisibility power-up from all enemies
     types: {
         speed: {
             key: "power_up",
@@ -166,8 +167,12 @@ export const POWERUP_CONFIG = {
         firepower: {
             key: "power_up_2", // Yellow power-up sprite
             duration: 15000, // 15 seconds
-            fireRateMultiplier: 0.4, // Much faster shooting (60% faster)
-            firepowerLevel: 1, // Increases firepower level (stacks)
+            fireRateMultiplier: 1.0, // Normal fire rate (2.5x slower than previous 0.4)
+            firepowerLevel: 0.5, // Increases firepower level by 0.5 (requires 2 power-ups for 1 full level)
+        },
+        invisibility: {
+            key: "power_up", // Using power_up sprite
+            duration: 10000, // 10 seconds of invincibility
         },
     },
 } as const;
