@@ -173,6 +173,9 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentLayer", this.currentLayer);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
+
+        // Show instruction modal on game start
+        this.showInstructionModal();
     }
 
     private drawBackgroundGrid() {
@@ -201,6 +204,78 @@ export class GameScene extends Phaser.Scene {
         // Horizontal lines
         for (let y = 0; y <= height; y += gridSize) {
             this.backgroundGrid.lineBetween(0, y, width, y);
+        }
+
+        // Draw faint progress bar at the bottom
+        this.drawProgressBar();
+    }
+
+    private drawProgressBar() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const progressBarHeight = 4;
+        const progressBarY = height - 20;
+        const progressBarWidth = width * 0.8; // 80% of screen width
+        const progressBarX = width * 0.1; // 10% from left
+
+        // Calculate progress based on current layer and score
+        const maxLayer = 6; // Maximum layer
+        const currentLayerConfig =
+            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
+        const nextLayerConfig =
+            this.currentLayer < maxLayer
+                ? LAYER_CONFIG[
+                      (this.currentLayer + 1) as keyof typeof LAYER_CONFIG
+                  ]
+                : null;
+
+        let progress = 0;
+        if (nextLayerConfig) {
+            // Progress within current layer
+            const currentThreshold = currentLayerConfig.scoreThreshold || 0;
+            const nextThreshold = nextLayerConfig.scoreThreshold || 0;
+            const progressInLayer =
+                (this.score - currentThreshold) /
+                (nextThreshold - currentThreshold);
+            progress =
+                (this.currentLayer - 1) / maxLayer + progressInLayer / maxLayer;
+        } else {
+            // Max layer reached
+            progress = 1.0;
+        }
+
+        progress = Math.max(0, Math.min(1, progress)); // Clamp between 0 and 1
+
+        // Background bar (faint)
+        this.backgroundGrid.fillStyle(0x00ff00, 0.1);
+        this.backgroundGrid.fillRect(
+            progressBarX,
+            progressBarY,
+            progressBarWidth,
+            progressBarHeight
+        );
+
+        // Progress fill (faint)
+        this.backgroundGrid.fillStyle(0x00ff00, 0.3);
+        this.backgroundGrid.fillRect(
+            progressBarX,
+            progressBarY,
+            progressBarWidth * progress,
+            progressBarHeight
+        );
+
+        // Layer markers (faint vertical lines)
+        this.backgroundGrid.lineStyle(1, 0x00ff00, 0.2);
+        for (let layer = 1; layer <= maxLayer; layer++) {
+            const markerX =
+                progressBarX +
+                (progressBarWidth * (layer - 1)) / (maxLayer - 1);
+            this.backgroundGrid.lineBetween(
+                markerX,
+                progressBarY - 2,
+                markerX,
+                progressBarY + progressBarHeight + 2
+            );
         }
     }
 
@@ -1174,6 +1249,176 @@ export class GameScene extends Phaser.Scene {
         );
     }
 
+    private showInstructionModal() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
+
+        // Pause the game
+        this.physics.pause();
+        this.isPaused = true;
+        this.registry.set("isPaused", true);
+
+        // Dark overlay
+        const overlay = this.add.rectangle(
+            width / 2,
+            height / 2,
+            width,
+            height,
+            0x000000,
+            0.8
+        );
+
+        // Modal background
+        const modalWidth = Math.min(500 * uiScale, width - 40);
+        const modalHeight = Math.min(400 * uiScale, height - 40);
+        const modalBg = this.add.rectangle(
+            width / 2,
+            height / 2,
+            modalWidth,
+            modalHeight,
+            0x000000,
+            0.95
+        );
+        modalBg.setStrokeStyle(3, 0x00ff00);
+
+        // Title
+        const title = this.add.text(
+            width / 2,
+            height / 2 - 150 * uiScale,
+            "HOW TO PLAY",
+            {
+                fontFamily: UI_CONFIG.logoFont,
+                fontSize: 32 * uiScale,
+                color: UI_CONFIG.neonGreen,
+                stroke: "#000000",
+                strokeThickness: 4,
+            }
+        );
+        title.setOrigin(0.5, 0.5);
+
+        // Instructions
+        const instructions = [
+            "WASD or Arrow Keys: Move",
+            "Spacebar or Click: Shoot",
+            "Defeat enemies to score points",
+            "Collect power-ups for bonuses",
+            "Survive as long as possible!",
+        ];
+
+        const instructionTexts: Phaser.GameObjects.Text[] = [];
+        instructions.forEach((instruction, index) => {
+            const text = this.add.text(
+                width / 2,
+                height / 2 - 80 * uiScale + index * 30 * uiScale,
+                instruction,
+                {
+                    fontFamily: UI_CONFIG.menuFont,
+                    fontSize: 16 * uiScale,
+                    color: UI_CONFIG.neonGreen,
+                    stroke: "#000000",
+                    strokeThickness: 2,
+                }
+            );
+            text.setOrigin(0.5, 0.5);
+            instructionTexts.push(text);
+        });
+
+        // Mobile landscape mode advice
+        let landscapeText: Phaser.GameObjects.Text | null = null;
+        if (MOBILE_SCALE < 1.0) {
+            landscapeText = this.add.text(
+                width / 2,
+                height / 2 + 100 * uiScale,
+                "💡 Landscape mode recommended for better gameplay",
+                {
+                    fontFamily: UI_CONFIG.menuFont,
+                    fontSize: 14 * uiScale,
+                    color: "#ffaa00", // Orange/yellow for attention
+                    stroke: "#000000",
+                    strokeThickness: 2,
+                    align: "center",
+                }
+            );
+            landscapeText.setOrigin(0.5, 0.5);
+        }
+
+        // Start button
+        const buttonWidth = 200 * uiScale;
+        const buttonHeight = 50 * uiScale;
+        const buttonBg = this.add.rectangle(
+            width / 2,
+            height / 2 + 150 * uiScale,
+            buttonWidth,
+            buttonHeight,
+            0x001100,
+            0.9
+        );
+        buttonBg.setStrokeStyle(2, 0x00ff00);
+        buttonBg.setInteractive({ useHandCursor: true });
+
+        const buttonText = this.add.text(
+            width / 2,
+            height / 2 + 150 * uiScale,
+            "START GAME",
+            {
+                fontFamily: UI_CONFIG.menuFont,
+                fontSize: 20 * uiScale,
+                color: UI_CONFIG.neonGreen,
+                stroke: "#000000",
+                strokeThickness: 2,
+            }
+        );
+        buttonText.setOrigin(0.5, 0.5);
+
+        // Hover effects
+        buttonBg.on("pointerover", () => {
+            buttonBg.setFillStyle(0x003300, 0.95);
+            buttonBg.setStrokeStyle(3, 0x00ff00);
+        });
+
+        buttonBg.on("pointerout", () => {
+            buttonBg.setFillStyle(0x001100, 0.9);
+            buttonBg.setStrokeStyle(2, 0x00ff00);
+        });
+
+        // Click handler to start game
+        const startGame = () => {
+            // Remove all modal elements
+            overlay.destroy();
+            modalBg.destroy();
+            title.destroy();
+            instructionTexts.forEach((text) => text.destroy());
+            if (landscapeText) landscapeText.destroy();
+            buttonBg.destroy();
+            buttonText.destroy();
+
+            // Resume game
+            this.physics.resume();
+            this.isPaused = false;
+            this.registry.set("isPaused", false);
+        };
+
+        buttonBg.on("pointerdown", startGame);
+
+        // Also allow ESC or Space to start
+        const escKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes.ESC
+        );
+        const spaceKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes.SPACE
+        );
+
+        const handleKey = () => {
+            escKey.off("down", handleKey);
+            spaceKey.off("down", handleKey);
+            startGame();
+        };
+
+        escKey.once("down", handleKey);
+        spaceKey.once("down", handleKey);
+    }
+
     private showAnnouncement(
         title: string,
         subtitle: string,
@@ -1643,6 +1888,9 @@ export class GameScene extends Phaser.Scene {
 
         // Update layer based on score
         this.updateLayer();
+
+        // Update progress bar
+        this.drawProgressBar();
 
         this.registry.set("score", this.score);
         this.registry.set("comboMultiplier", this.comboMultiplier);

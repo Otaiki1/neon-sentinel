@@ -284,6 +284,7 @@ export class UIScene extends Phaser.Scene {
   private createLeaderboardPanel() {
     const width = this.scale.width;
     const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
 
     // Background panel
     const panelBg = this.add.rectangle(
@@ -306,8 +307,61 @@ export class UIScene extends Phaser.Scene {
     });
     title.setOrigin(0.5, 0.5);
 
+    // Close button (X) - positioned at top-right of panel
+    const closeButtonSize = 30 * uiScale;
+    const closeButtonBg = this.add.circle(
+      width / 2 + (width - 100) / 2 - 20,
+      height / 2 + 150 - 140,
+      closeButtonSize / 2,
+      0x000000,
+      0.9
+    );
+    closeButtonBg.setStrokeStyle(2, 0x00ff00);
+    closeButtonBg.setInteractive({ useHandCursor: true });
+
+    // X icon (two diagonal lines)
+    const line1 = this.add.line(
+      0, 0,
+      -closeButtonSize / 3, -closeButtonSize / 3,
+      closeButtonSize / 3, closeButtonSize / 3,
+      0x00ff00,
+      1
+    );
+    line1.setLineWidth(3);
+    const line2 = this.add.line(
+      0, 0,
+      closeButtonSize / 3, -closeButtonSize / 3,
+      -closeButtonSize / 3, closeButtonSize / 3,
+      0x00ff00,
+      1
+    );
+    line2.setLineWidth(3);
+
+    const closeButton = this.add.container(
+      width / 2 + (width - 100) / 2 - 20,
+      height / 2 + 150 - 140,
+      [closeButtonBg, line1, line2]
+    );
+
+    // Hover effects
+    closeButtonBg.on('pointerover', () => {
+      closeButtonBg.setFillStyle(0x001100, 0.95);
+      closeButtonBg.setStrokeStyle(3, 0x00ff00);
+    });
+
+    closeButtonBg.on('pointerout', () => {
+      closeButtonBg.setFillStyle(0x000000, 0.9);
+      closeButtonBg.setStrokeStyle(2, 0x00ff00);
+    });
+
+    // Click handler to close leaderboard
+    closeButtonBg.on('pointerdown', () => {
+      this.leaderboardPanel.setVisible(false);
+      this.leaderboardVisible = false;
+    });
+
     // Leaderboard entries will be created dynamically
-    this.leaderboardPanel = this.add.container(0, 0, [panelBg, title]);
+    this.leaderboardPanel = this.add.container(0, 0, [panelBg, title, closeButton]);
     this.leaderboardPanel.setVisible(false);
   }
 
