@@ -39,6 +39,10 @@ export class GameScene extends Phaser.Scene {
     private autoShootEnabled = false;
     private firepowerLevel = 0; // 0 = normal, 1+ = increased firepower (multiple bullets)
     private spaceKey!: Phaser.Input.Keyboard.Key;
+    // Mobile touch controls
+    private isTouching = false;
+    private touchTargetX = 0;
+    private touchTargetY = 0;
 
     constructor() {
         super({ key: "GameScene" });
@@ -85,12 +89,35 @@ export class GameScene extends Phaser.Scene {
             Phaser.Input.Keyboard.KeyCodes.SPACE
         );
 
-        // Mouse input for shooting
-        this.input.on("pointerdown", () => {
-            if (!this.isPaused && !this.gameOver) {
-                this.shoot();
-            }
-        });
+        // Mobile touch controls: tap and hold to move and auto-shoot
+        if (MOBILE_SCALE < 1.0) {
+            // Only enable touch controls on mobile devices
+            this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+                if (!this.isPaused && !this.gameOver) {
+                    this.isTouching = true;
+                    this.touchTargetX = pointer.worldX;
+                    this.touchTargetY = pointer.worldY;
+                }
+            });
+
+            this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+                if (this.isTouching && !this.isPaused && !this.gameOver) {
+                    this.touchTargetX = pointer.worldX;
+                    this.touchTargetY = pointer.worldY;
+                }
+            });
+
+            this.input.on("pointerup", () => {
+                this.isTouching = false;
+            });
+        } else {
+            // Desktop: mouse click for shooting
+            this.input.on("pointerdown", () => {
+                if (!this.isPaused && !this.gameOver) {
+                    this.shoot();
+                }
+            });
+        }
 
         // Collisions
         this.physics.add.overlap(
@@ -195,11 +222,14 @@ export class GameScene extends Phaser.Scene {
                 this.lastFired = time + currentFireRate;
             }
         } else {
-            // Manual shooting with spacebar or mouse
-            if (
-                (this.spaceKey.isDown || this.input.activePointer.isDown) &&
-                time > this.lastFired
-            ) {
+            // Mobile: auto-shoot when touch is held
+            // Desktop: manual shooting with spacebar or mouse
+            const shouldShoot =
+                MOBILE_SCALE < 1.0
+                    ? this.isTouching // Mobile: auto-shoot while touching
+                    : this.spaceKey.isDown || this.input.activePointer.isDown; // Desktop: manual
+
+            if (shouldShoot && time > this.lastFired) {
                 this.shoot();
                 this.lastFired = time + currentFireRate;
             }
@@ -304,23 +334,37 @@ export class GameScene extends Phaser.Scene {
         // Calculate speed with power-up multiplier
         const currentSpeed = PLAYER_CONFIG.speed * this.speedMultiplier;
 
-        // Arrow keys or WASD
-        if (this.cursors.left!.isDown || this.wasd["A"].isDown) {
-            velocityX = -currentSpeed;
-        } else if (this.cursors.right!.isDown || this.wasd["D"].isDown) {
-            velocityX = currentSpeed;
-        }
+        // Mobile touch controls: move towards touch position
+        if (MOBILE_SCALE < 1.0 && this.isTouching) {
+            const dx = this.touchTargetX - this.player.x;
+            const dy = this.touchTargetY - this.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (this.cursors.up!.isDown || this.wasd["W"].isDown) {
-            velocityY = -currentSpeed;
-        } else if (this.cursors.down!.isDown || this.wasd["S"].isDown) {
-            velocityY = currentSpeed;
-        }
+            // Only move if not already at target (with small threshold)
+            if (distance > 5) {
+                // Normalize direction and apply speed
+                velocityX = (dx / distance) * currentSpeed;
+                velocityY = (dy / distance) * currentSpeed;
+            }
+        } else {
+            // Desktop: Arrow keys or WASD
+            if (this.cursors.left!.isDown || this.wasd["A"].isDown) {
+                velocityX = -currentSpeed;
+            } else if (this.cursors.right!.isDown || this.wasd["D"].isDown) {
+                velocityX = currentSpeed;
+            }
 
-        // Normalize diagonal movement
-        if (velocityX !== 0 && velocityY !== 0) {
-            velocityX *= 0.707; // 1/sqrt(2)
-            velocityY *= 0.707;
+            if (this.cursors.up!.isDown || this.wasd["W"].isDown) {
+                velocityY = -currentSpeed;
+            } else if (this.cursors.down!.isDown || this.wasd["S"].isDown) {
+                velocityY = currentSpeed;
+            }
+
+            // Normalize diagonal movement
+            if (velocityX !== 0 && velocityY !== 0) {
+                velocityX *= 0.707; // 1/sqrt(2)
+                velocityY *= 0.707;
+            }
         }
 
         this.player.setVelocity(velocityX, velocityY);
@@ -840,28 +884,31 @@ export class GameScene extends Phaser.Scene {
 
     private handlePlayerEnemyCollision(
         _player: Phaser.Types.Physics.Arcade.GameObjectWithBody,
-        enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody
+        _enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody
     ) {
         if (this.gameOver) return;
 
-        const e = enemy as Phaser.Physics.Arcade.Sprite;
-
         // Player takes damage (loses 1 life)
+        // The takeDamage() method already creates an explosion at player position
         this.takeDamage();
 
-        // Destroy the enemy
-        const enemyType = e.getData("type");
-        const isBoss = e.getData("isBoss") || false;
-
-        // Create explosion for the enemy
-        const explosionSize = this.getExplosionSize(enemyType, isBoss);
-        this.createExplosion(e.x, e.y, explosionSize);
-
-        // Destroy the enemy
-        e.destroy();
+        // Enemy is NOT destroyed - it continues to exist and can damage player again
+        // This makes enemies more dangerous and requires players to shoot them
     }
 
     private takeDamage() {
+        // Prevent multiple damage calls within 1000ms (invincibility period)
+        // This matches the visual flash duration and prevents rapid damage
+        const timeSinceLastHit = this.time.now - this.lastHitTime;
+        if (timeSinceLastHit < 1000) {
+            return; // Still in invincibility period, ignore damage
+        }
+
+        // Safety check: ensure lives is a valid number
+        if (this.lives <= 0) {
+            return; // Already dead, don't process damage
+        }
+
         // Reset combo
         this.comboMultiplier = 1;
         this.lastHitTime = this.time.now;
@@ -871,8 +918,14 @@ export class GameScene extends Phaser.Scene {
         this.createExplosion(this.player.x, this.player.y, "medium");
 
         // Reduce lives by exactly 1
+        const previousLives = this.lives;
         this.lives -= 1;
         this.registry.set("lives", this.lives);
+
+        // Debug: Log lives to help diagnose
+        console.log(
+            `Player took damage. Lives: ${previousLives} -> ${this.lives}`
+        );
 
         // Game over only when lives equals 0
         if (this.lives === 0) {
@@ -882,7 +935,8 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("finalScore", this.score);
             this.registry.set("deepestLayer", this.deepestLayer);
 
-            // Stop all movement
+            // Stop all movement and touch controls
+            this.isTouching = false;
             this.player.setVelocity(0, 0);
             this.enemies.children.entries.forEach((enemy) => {
                 const e = enemy as Phaser.Physics.Arcade.Sprite;
@@ -1012,6 +1066,27 @@ export class GameScene extends Phaser.Scene {
             repeat: -1,
         });
 
+        // Set timer to destroy power-up after 6 seconds if not consumed
+        // Start fade-out at 5 seconds, destroy at 6 seconds
+        const fadeOutTimer = this.time.delayedCall(5000, () => {
+            if (powerUp.active) {
+                // Fade out effect
+                this.tweens.add({
+                    targets: powerUp,
+                    alpha: 0,
+                    duration: 1000,
+                });
+            }
+        });
+
+        const despawnTimer = this.time.delayedCall(6000, () => {
+            if (powerUp && powerUp.active) {
+                powerUp.destroy();
+            }
+        });
+        powerUp.setData("despawnTimer", despawnTimer);
+        powerUp.setData("fadeOutTimer", fadeOutTimer);
+
         this.powerUps.add(powerUp);
     }
 
@@ -1032,6 +1107,27 @@ export class GameScene extends Phaser.Scene {
             yoyo: true,
             repeat: -1,
         });
+
+        // Set timer to destroy power-up after 6 seconds if not consumed
+        // Start fade-out at 5 seconds, destroy at 6 seconds
+        const fadeOutTimer = this.time.delayedCall(5000, () => {
+            if (powerUp.active) {
+                // Fade out effect
+                this.tweens.add({
+                    targets: powerUp,
+                    alpha: 0,
+                    duration: 1000,
+                });
+            }
+        });
+
+        const despawnTimer = this.time.delayedCall(6000, () => {
+            if (powerUp && powerUp.active) {
+                powerUp.destroy();
+            }
+        });
+        powerUp.setData("despawnTimer", despawnTimer);
+        powerUp.setData("fadeOutTimer", fadeOutTimer);
 
         this.powerUps.add(powerUp);
     }
@@ -1054,6 +1150,27 @@ export class GameScene extends Phaser.Scene {
             repeat: -1,
         });
 
+        // Set timer to destroy power-up after 6 seconds if not consumed
+        // Start fade-out at 5 seconds, destroy at 6 seconds
+        const fadeOutTimer = this.time.delayedCall(5000, () => {
+            if (powerUp.active) {
+                // Fade out effect
+                this.tweens.add({
+                    targets: powerUp,
+                    alpha: 0,
+                    duration: 1000,
+                });
+            }
+        });
+
+        const despawnTimer = this.time.delayedCall(6000, () => {
+            if (powerUp && powerUp.active) {
+                powerUp.destroy();
+            }
+        });
+        powerUp.setData("despawnTimer", despawnTimer);
+        powerUp.setData("fadeOutTimer", fadeOutTimer);
+
         this.powerUps.add(powerUp);
     }
 
@@ -1064,6 +1181,21 @@ export class GameScene extends Phaser.Scene {
         const p = powerUp as Phaser.Physics.Arcade.Sprite;
         const powerUpType = p.getData("type") as string;
         const config = p.getData("config");
+
+        // Clear despawn and fade-out timers if they exist
+        const despawnTimer = p.getData("despawnTimer") as
+            | Phaser.Time.TimerEvent
+            | undefined;
+        if (despawnTimer) {
+            despawnTimer.remove();
+        }
+
+        const fadeOutTimer = p.getData("fadeOutTimer") as
+            | Phaser.Time.TimerEvent
+            | undefined;
+        if (fadeOutTimer) {
+            fadeOutTimer.remove();
+        }
 
         // Remove power-up
         p.destroy();
@@ -1197,7 +1329,8 @@ export class GameScene extends Phaser.Scene {
 
         if (this.isPaused) {
             this.physics.pause();
-            // Stop all movement
+            // Stop all movement and touch controls
+            this.isTouching = false;
             this.player.setVelocity(0, 0);
             this.enemies.children.entries.forEach((enemy) => {
                 const e = enemy as Phaser.Physics.Arcade.Sprite;
@@ -1262,6 +1395,9 @@ export class GameScene extends Phaser.Scene {
         this.scoreMultiplier = 1;
         this.autoShootEnabled = false;
         this.firepowerLevel = 0;
+
+        // Reset touch controls
+        this.isTouching = false;
 
         // Clear power-up timers
         this.powerUpTimers.forEach((timer) => timer.remove());

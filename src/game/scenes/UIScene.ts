@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { UI_CONFIG } from '../config';
+import { UI_CONFIG, MOBILE_SCALE } from '../config';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -10,58 +10,82 @@ export class UIScene extends Phaser.Scene {
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
-  private restartText!: Phaser.GameObjects.Text;
-  private returnToMenuText!: Phaser.GameObjects.Text;
   private pauseContainer!: Phaser.GameObjects.Container;
   private pauseText!: Phaser.GameObjects.Text;
-  private resumeText!: Phaser.GameObjects.Text;
-  private pauseMenuText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
   private leaderboardVisible = false;
+  // Buttons
+  private pauseButton!: Phaser.GameObjects.Container;
+  private restartButton!: Phaser.GameObjects.Container;
+  private menuButton!: Phaser.GameObjects.Container;
+  private resumeButton!: Phaser.GameObjects.Container;
 
   constructor() {
     super({ key: 'UIScene' });
   }
 
   create() {
-    // Score display (top-left) - Much more prominent
-    this.scoreText = this.add.text(30, 30, 'SCORE: 0', {
+    // Mobile UI scaling - reduce sizes on mobile
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0; // 60% size on mobile
+    const baseX = MOBILE_SCALE < 1.0 ? 15 : 30; // Closer to edge on mobile
+    const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
+    const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
+
+    // Score display (top-left) - Scaled for mobile
+    this.scoreText = this.add.text(baseX, baseY, 'SCORE: 0', {
       fontFamily: UI_CONFIG.scoreFont,
-      fontSize: 56,
+      fontSize: 56 * uiScale,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 8,
+      strokeThickness: 8 * uiScale,
     });
     this.scoreText.setOrigin(0, 0); // Top-left anchor
-    // Add glow effect using shadow
-    this.scoreText.setShadow(2, 2, '#00ff00', 8, true, true);
+    // Add glow effect using shadow (reduced on mobile)
+    if (MOBILE_SCALE >= 1.0) {
+      this.scoreText.setShadow(2, 2, '#00ff00', 8, true, true);
+    } else {
+      this.scoreText.setShadow(1, 1, '#00ff00', 4, true, true);
+      this.scoreText.setAlpha(0.9); // Slightly transparent on mobile to reduce obstruction
+    }
 
     // Combo multiplier display (adjusted position to accommodate larger score)
-    this.comboText = this.add.text(30, 100, 'COMBO: 1.0x', {
+    this.comboText = this.add.text(baseX, baseY + lineSpacing * 2, 'COMBO: 1.0x', {
       fontFamily: UI_CONFIG.scoreFont,
-      fontSize: 24,
+      fontSize: 24 * uiScale,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: 3 * uiScale,
     });
+    if (MOBILE_SCALE < 1.0) {
+      this.comboText.setAlpha(0.85); // Slightly transparent on mobile
+    }
 
     // Layer display - Oxanium for menu/subtitle style (adjusted position)
-    this.layerText = this.add.text(30, 130, 'LAYER: Boot Sector', {
+    this.layerText = this.add.text(baseX, baseY + lineSpacing * 3, 'LAYER: Boot Sector', {
       fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.small,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
       color: UI_CONFIG.neonGreen,
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: 3 * uiScale,
     });
+    if (MOBILE_SCALE < 1.0) {
+      this.layerText.setAlpha(0.85); // Slightly transparent on mobile
+    }
 
     // Lives display
-    this.livesText = this.add.text(30, 160, 'LIVES: 1', {
+    this.livesText = this.add.text(baseX, baseY + lineSpacing * 4, 'LIVES: 1', {
       fontFamily: UI_CONFIG.scoreFont,
-      fontSize: 32,
+      fontSize: 32 * uiScale,
       color: '#ff00ff', // Magenta/purple to stand out
       stroke: '#000000',
-      strokeThickness: 5,
+      strokeThickness: 5 * uiScale,
     });
+    if (MOBILE_SCALE < 1.0) {
+      this.livesText.setAlpha(0.85); // Slightly transparent on mobile
+    }
+
+    // Pause button (top-right corner)
+    this.createPauseButton();
 
     // Game Over overlay (hidden initially)
     this.createGameOverOverlay();
@@ -146,33 +170,35 @@ export class UIScene extends Phaser.Scene {
     });
     this.finalScoreText.setOrigin(0.5, 0.5);
 
-    // Restart instruction - Oxanium for buttons/menus
-    this.restartText = this.add.text(width / 2, height / 2 + 30, 'PRESS R TO RESTART', {
-      fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.small,
-      color: UI_CONFIG.neonGreen,
-      stroke: '#000000',
-      strokeThickness: 4,
+    // Restart button
+    this.restartButton = this.createButton(
+      width / 2,
+      height / 2 + 30,
+      'RESTART',
+      180,
+      45,
+      18
+    );
+    const restartBg = this.restartButton.list[0] as Phaser.GameObjects.Rectangle;
+    restartBg.on('pointerdown', () => {
+      this.restartGame();
     });
-    this.restartText.setOrigin(0.5, 0.5);
 
-    // Return to menu instruction
-    this.returnToMenuText = this.add.text(width / 2, height / 2 + 70, 'PRESS M TO RETURN TO MENU', {
-      fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.small,
-      color: UI_CONFIG.neonGreen,
-      stroke: '#000000',
-      strokeThickness: 4,
-    });
-    this.returnToMenuText.setOrigin(0.5, 0.5);
-
-    // Blinking effect for text
-    this.tweens.add({
-      targets: [this.restartText, this.returnToMenuText],
-      alpha: 0.5,
-      duration: 500,
-      yoyo: true,
-      repeat: -1,
+    // Menu button
+    this.menuButton = this.createButton(
+      width / 2,
+      height / 2 + 90,
+      'MENU',
+      180,
+      45,
+      18
+    );
+    const menuBg = this.menuButton.list[0] as Phaser.GameObjects.Rectangle;
+    menuBg.on('pointerdown', () => {
+      const gameScene = this.scene.get('GameScene') as GameScene;
+      if (gameScene) {
+        gameScene.returnToMenu();
+      }
     });
 
     // Create container and hide it initially
@@ -180,8 +206,8 @@ export class UIScene extends Phaser.Scene {
       overlay,
       this.gameOverText,
       this.finalScoreText,
-      this.restartText,
-      this.returnToMenuText,
+      this.restartButton,
+      this.menuButton,
     ]);
     this.gameOverContainer.setVisible(false);
   }
@@ -211,41 +237,46 @@ export class UIScene extends Phaser.Scene {
     });
     this.pauseText.setOrigin(0.5, 0.5);
 
-    // Resume instruction - Oxanium for buttons/menus
-    this.resumeText = this.add.text(width / 2, height / 2 - 20, 'PRESS ESC TO RESUME', {
-      fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.medium,
-      color: UI_CONFIG.neonGreen,
-      stroke: '#000000',
-      strokeThickness: 4,
+    // Resume button
+    this.resumeButton = this.createButton(
+      width / 2,
+      height / 2 - 10,
+      'RESUME',
+      180,
+      45,
+      18
+    );
+    const resumeBg = this.resumeButton.list[0] as Phaser.GameObjects.Rectangle;
+    resumeBg.on('pointerdown', () => {
+      const gameScene = this.scene.get('GameScene') as GameScene;
+      if (gameScene && gameScene.scene.isActive()) {
+        gameScene.togglePause();
+      }
     });
-    this.resumeText.setOrigin(0.5, 0.5);
 
-    // Return to menu instruction
-    this.pauseMenuText = this.add.text(width / 2, height / 2 + 40, 'PRESS M TO RETURN TO MENU', {
-      fontFamily: UI_CONFIG.menuFont,
-      fontSize: UI_CONFIG.fontSize.small,
-      color: UI_CONFIG.neonGreen,
-      stroke: '#000000',
-      strokeThickness: 4,
-    });
-    this.pauseMenuText.setOrigin(0.5, 0.5);
-
-    // Blinking effect for text
-    this.tweens.add({
-      targets: [this.resumeText, this.pauseMenuText],
-      alpha: 0.6,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
+    // Menu button
+    const pauseMenuButton = this.createButton(
+      width / 2,
+      height / 2 + 50,
+      'MENU',
+      180,
+      45,
+      18
+    );
+    const pauseMenuBg = pauseMenuButton.list[0] as Phaser.GameObjects.Rectangle;
+    pauseMenuBg.on('pointerdown', () => {
+      const gameScene = this.scene.get('GameScene') as GameScene;
+      if (gameScene) {
+        gameScene.returnToMenu();
+      }
     });
 
     // Create container and hide it initially
     this.pauseContainer = this.add.container(0, 0, [
       overlay,
       this.pauseText,
-      this.resumeText,
-      this.pauseMenuText,
+      this.resumeButton,
+      pauseMenuButton,
     ]);
     this.pauseContainer.setVisible(false);
   }
@@ -280,6 +311,96 @@ export class UIScene extends Phaser.Scene {
     this.leaderboardPanel.setVisible(false);
   }
 
+  // Helper function to create styled buttons
+  private createButton(
+    x: number,
+    y: number,
+    text: string,
+    width: number = 200,
+    height: number = 50,
+    fontSize: number = 18
+  ): Phaser.GameObjects.Container {
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
+    const scaledWidth = width * uiScale;
+    const scaledHeight = height * uiScale;
+    const scaledFontSize = fontSize * uiScale;
+
+    // Button background
+    const bg = this.add.rectangle(0, 0, scaledWidth, scaledHeight, 0x000000, 0.9);
+    bg.setStrokeStyle(2, 0x00ff00);
+
+    // Button text
+    const buttonText = this.add.text(0, 0, text, {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: scaledFontSize,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    buttonText.setOrigin(0.5, 0.5);
+
+    // Create container
+    const button = this.add.container(x, y, [bg, buttonText]);
+
+    // Make interactive
+    bg.setInteractive({ useHandCursor: true });
+
+    // Hover effects
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x001100, 0.95);
+      bg.setStrokeStyle(3, 0x00ff00);
+    });
+
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x000000, 0.9);
+      bg.setStrokeStyle(2, 0x00ff00);
+    });
+
+    return button;
+  }
+
+  // Create pause button in top-right corner
+  private createPauseButton() {
+    const width = this.scale.width;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const buttonSize = 50 * uiScale;
+
+    // Button background (circular)
+    const bg = this.add.circle(0, 0, buttonSize / 2, 0x000000, 0.9);
+    bg.setStrokeStyle(2, 0x00ff00);
+
+    // Pause icon (two vertical bars)
+    const bar1 = this.add.rectangle(-8 * uiScale, 0, 6 * uiScale, 20 * uiScale, 0x00ff00);
+    const bar2 = this.add.rectangle(8 * uiScale, 0, 6 * uiScale, 20 * uiScale, 0x00ff00);
+
+    this.pauseButton = this.add.container(width - 40 * uiScale, 40 * uiScale, [bg, bar1, bar2]);
+
+    // Make interactive
+    bg.setInteractive({ useHandCursor: true });
+
+    // Hover effects
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x001100, 0.95);
+      bg.setStrokeStyle(3, 0x00ff00);
+    });
+
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x000000, 0.9);
+      bg.setStrokeStyle(2, 0x00ff00);
+    });
+
+    // Click handler
+    bg.on('pointerdown', () => {
+      const gameOver = this.registry.get('gameOver');
+      if (!gameOver) {
+        const gameScene = this.scene.get('GameScene') as GameScene;
+        if (gameScene && gameScene.scene.isActive()) {
+          gameScene.togglePause();
+        }
+      }
+    });
+  }
+
   private updateScore(_parent: Phaser.Data.DataManager, value: number) {
     this.scoreText.setText(`SCORE: ${value.toLocaleString()}`);
   }
@@ -302,18 +423,22 @@ export class UIScene extends Phaser.Scene {
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
+      this.pauseButton.setVisible(false); // Hide pause button when game over
     } else {
       this.gameOverContainer.setVisible(false);
       this.leaderboardPanel.setVisible(false);
       this.leaderboardVisible = false;
+      this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
   }
 
   private onPauseChanged(_parent: Phaser.Data.DataManager, isPaused: boolean) {
     if (isPaused && !this.registry.get('gameOver')) {
       this.pauseContainer.setVisible(true);
+      this.pauseButton.setVisible(false); // Hide pause button when paused
     } else {
       this.pauseContainer.setVisible(false);
+      this.pauseButton.setVisible(true); // Show pause button when resumed
     }
   }
 
