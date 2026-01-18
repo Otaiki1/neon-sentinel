@@ -13,7 +13,20 @@ function GamePage() {
     useEffect(() => {
         if (!gameContainerRef.current) return;
 
+        const updateViewportSize = () => {
+            if (!gameContainerRef.current) return;
+            const viewport = window.visualViewport;
+            const newWidth = viewport?.width || window.innerWidth;
+            const newHeight = viewport?.height || window.innerHeight;
+            gameContainerRef.current.style.width = `${newWidth}px`;
+            gameContainerRef.current.style.height = `${newHeight}px`;
+            if (gameInstanceRef.current) {
+                gameInstanceRef.current.scale.resize(newWidth, newHeight);
+            }
+        };
+
         // Initialize Phaser game
+        updateViewportSize();
         const game = initGame(gameContainerRef.current);
         gameInstanceRef.current = game;
 
@@ -25,22 +38,19 @@ function GamePage() {
         // Expose navigation function to game
         (game as any).returnToMenu = handleReturnToMenu;
 
-        // Handle window resize
-        const handleResize = () => {
-            if (game && game.scale && gameContainerRef.current) {
-                const newWidth =
-                    gameContainerRef.current.clientWidth || window.innerWidth;
-                const newHeight =
-                    gameContainerRef.current.clientHeight || window.innerHeight;
-                game.scale.resize(newWidth, newHeight);
-            }
-        };
-
-        window.addEventListener("resize", handleResize);
+        // Handle window resize / orientation
+        window.addEventListener("resize", updateViewportSize);
+        window.addEventListener("orientationchange", updateViewportSize);
+        window.visualViewport?.addEventListener("resize", updateViewportSize);
 
         // Cleanup on unmount
         return () => {
-            window.removeEventListener("resize", handleResize);
+            window.removeEventListener("resize", updateViewportSize);
+            window.removeEventListener("orientationchange", updateViewportSize);
+            window.visualViewport?.removeEventListener(
+                "resize",
+                updateViewportSize
+            );
             if (gameInstanceRef.current) {
                 gameInstanceRef.current.destroy(true);
                 gameInstanceRef.current = null;

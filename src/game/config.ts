@@ -77,7 +77,7 @@ export const LAYER_CONFIG = {
         bossChance: 0,
         gridColor: 0x00ff00, // Green
         healthMultiplier: 1.0, // Base health
-        bossSpeedMultiplier: 0.75, // Slower bosses for early sector pacing
+        bossSpeedMultiplier: 0.5, // Slower bosses for early sector pacing
         spawnRateMultiplier: 1.0, // Base spawn rate
     },
     2: {

@@ -15,6 +15,11 @@ export class UIScene extends Phaser.Scene {
   private leaderboardPanel!: Phaser.GameObjects.Container;
   private leaderboardVisible = false;
   private leaderboardAutoHideTimer?: Phaser.Time.TimerEvent;
+  private settingsContainer!: Phaser.GameObjects.Container;
+  private settingsVisible = false;
+  private sensitivityValueText!: Phaser.GameObjects.Text;
+  private readonly joystickSensitivityKey =
+    'neon-sentinel-joystick-sensitivity';
   // Buttons
   private pauseButton!: Phaser.GameObjects.Container;
   private restartButton!: Phaser.GameObjects.Container;
@@ -31,6 +36,14 @@ export class UIScene extends Phaser.Scene {
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30; // Closer to edge on mobile
     const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
     const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
+
+    const storedSensitivity = Number(
+      localStorage.getItem(this.joystickSensitivityKey)
+    );
+    const initialSensitivity = Number.isFinite(storedSensitivity)
+      ? Phaser.Math.Clamp(storedSensitivity, 0.5, 2)
+      : 1;
+    this.registry.set('joystickSensitivity', initialSensitivity);
 
     // Score display (top-left) - Scaled for mobile
     this.scoreText = this.add.text(baseX, baseY, 'SCORE: 0', {
@@ -87,6 +100,9 @@ export class UIScene extends Phaser.Scene {
 
     // Pause overlay (hidden initially)
     this.createPauseOverlay();
+
+    // Settings overlay (hidden initially)
+    this.createSettingsOverlay();
 
     // Leaderboard panel (hidden initially)
     this.createLeaderboardPanel();
@@ -266,14 +282,123 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
+    // Settings button
+    const settingsButton = this.createButton(
+      width / 2,
+      height / 2 + 110,
+      'SETTINGS',
+      180,
+      45,
+      18
+    );
+    const settingsBg = settingsButton.list[0] as Phaser.GameObjects.Rectangle;
+    settingsBg.on('pointerdown', () => {
+      this.toggleSettings();
+    });
+
     // Create container and hide it initially
     this.pauseContainer = this.add.container(0, 0, [
       overlay,
       this.pauseText,
       this.resumeButton,
       pauseMenuButton,
+      settingsButton,
     ]);
     this.pauseContainer.setVisible(false);
+  }
+
+  private createSettingsOverlay() {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
+
+    const panelWidth = 320 * uiScale;
+    const panelHeight = 200 * uiScale;
+    const panelX = width / 2;
+    const panelY = height / 2 - 40 * uiScale;
+
+    const panelBg = this.add.rectangle(
+      panelX,
+      panelY,
+      panelWidth,
+      panelHeight,
+      0x000000,
+      0.95
+    );
+    panelBg.setStrokeStyle(2, 0x00ff00);
+
+    const title = this.add.text(panelX, panelY - 60 * uiScale, 'SETTINGS', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.medium * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    title.setOrigin(0.5, 0.5);
+
+    const label = this.add.text(panelX, panelY - 15 * uiScale, 'JOYSTICK SENSITIVITY', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    label.setOrigin(0.5, 0.5);
+
+    const initialSensitivity = (this.registry.get('joystickSensitivity') as number) || 1;
+    this.sensitivityValueText = this.add.text(panelX, panelY + 20 * uiScale, `${initialSensitivity.toFixed(1)}x`, {
+      fontFamily: UI_CONFIG.scoreFont,
+      fontSize: UI_CONFIG.fontSize.medium * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    this.sensitivityValueText.setOrigin(0.5, 0.5);
+
+    const minusButton = this.createButton(
+      panelX - 70 * uiScale,
+      panelY + 70 * uiScale,
+      '-',
+      50,
+      40,
+      20
+    );
+    const plusButton = this.createButton(
+      panelX + 70 * uiScale,
+      panelY + 70 * uiScale,
+      '+',
+      50,
+      40,
+      20
+    );
+
+    const minusBg = minusButton.list[0] as Phaser.GameObjects.Rectangle;
+    const plusBg = plusButton.list[0] as Phaser.GameObjects.Rectangle;
+    minusBg.on('pointerdown', () => this.adjustSensitivity(-0.1));
+    plusBg.on('pointerdown', () => this.adjustSensitivity(0.1));
+
+    this.settingsContainer = this.add.container(0, 0, [
+      panelBg,
+      title,
+      label,
+      this.sensitivityValueText,
+      minusButton,
+      plusButton,
+    ]);
+    this.settingsContainer.setVisible(false);
+  }
+
+  private toggleSettings() {
+    this.settingsVisible = !this.settingsVisible;
+    this.settingsContainer.setVisible(this.settingsVisible);
+  }
+
+  private adjustSensitivity(delta: number) {
+    const current = (this.registry.get('joystickSensitivity') as number) || 1;
+    const next = Phaser.Math.Clamp(Number((current + delta).toFixed(2)), 0.5, 2);
+    this.registry.set('joystickSensitivity', next);
+    localStorage.setItem(this.joystickSensitivityKey, String(next));
+    this.sensitivityValueText.setText(`${next.toFixed(1)}x`);
   }
 
   private createLeaderboardPanel() {
@@ -539,6 +664,8 @@ export class UIScene extends Phaser.Scene {
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
       this.pauseButton.setVisible(false); // Hide pause button when game over
+      this.settingsContainer.setVisible(false);
+      this.settingsVisible = false;
     } else {
       this.gameOverContainer.setVisible(false);
       this.hideLeaderboard();
@@ -552,6 +679,8 @@ export class UIScene extends Phaser.Scene {
       this.pauseButton.setVisible(false); // Hide pause button when paused
     } else {
       this.pauseContainer.setVisible(false);
+      this.settingsContainer.setVisible(false);
+      this.settingsVisible = false;
       this.pauseButton.setVisible(true); // Show pause button when resumed
     }
   }

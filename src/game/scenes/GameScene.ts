@@ -42,9 +42,21 @@ export class GameScene extends Phaser.Scene {
     private isInvisible = false; // Invisibility power-up state
     private spaceKey!: Phaser.Input.Keyboard.Key;
     // Mobile touch controls
-    private isTouching = false;
-    private touchTargetX = 0;
-    private touchTargetY = 0;
+    private joystickBase?: Phaser.GameObjects.Arc;
+    private joystickThumb?: Phaser.GameObjects.Arc;
+    private joystickPointerId: number | null = null;
+    private joystickVector = new Phaser.Math.Vector2(0, 0);
+    private joystickTargetVector = new Phaser.Math.Vector2(0, 0);
+    private joystickBaseX = 0;
+    private joystickBaseY = 0;
+    private joystickBaseRadius = 0;
+    private joystickThumbRadius = 0;
+    private fireButton?: Phaser.GameObjects.Arc;
+    private fireButtonText?: Phaser.GameObjects.Text;
+    private firePointerId: number | null = null;
+    private isFiringButtonDown = false;
+    private readonly joystickSensitivityKey =
+        "neon-sentinel-joystick-sensitivity";
 
     constructor() {
         super({ key: "GameScene" });
@@ -91,27 +103,9 @@ export class GameScene extends Phaser.Scene {
             Phaser.Input.Keyboard.KeyCodes.SPACE
         );
 
-        // Mobile touch controls: tap and hold to move and auto-shoot
+        // Mobile touch controls: joystick + fire button
         if (MOBILE_SCALE < 1.0) {
-            // Only enable touch controls on mobile devices
-            this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-                if (!this.isPaused && !this.gameOver) {
-                    this.isTouching = true;
-                    this.touchTargetX = pointer.worldX;
-                    this.touchTargetY = pointer.worldY;
-                }
-            });
-
-            this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-                if (this.isTouching && !this.isPaused && !this.gameOver) {
-                    this.touchTargetX = pointer.worldX;
-                    this.touchTargetY = pointer.worldY;
-                }
-            });
-
-            this.input.on("pointerup", () => {
-                this.isTouching = false;
-            });
+            this.createMobileControls();
         } else {
             // Desktop: mouse click for shooting
             this.input.on("pointerdown", () => {
@@ -173,6 +167,15 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentLayer", this.currentLayer);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
+        if (this.registry.get("joystickSensitivity") === undefined) {
+            const stored = Number(
+                localStorage.getItem(this.joystickSensitivityKey)
+            );
+            const sensitivity = Number.isFinite(stored)
+                ? Phaser.Math.Clamp(stored, 0.5, 2)
+                : 1;
+            this.registry.set("joystickSensitivity", sensitivity);
+        }
 
         // Show instruction modal on game start
         this.showInstructionModal();
@@ -303,7 +306,7 @@ export class GameScene extends Phaser.Scene {
             // Desktop: manual shooting with spacebar or mouse
             const shouldShoot =
                 MOBILE_SCALE < 1.0
-                    ? this.isTouching // Mobile: auto-shoot while touching
+                    ? this.isFiringButtonDown // Mobile: fire button held
                     : this.spaceKey.isDown || this.input.activePointer.isDown; // Desktop: manual
 
             if (shouldShoot && time > this.lastFired) {
@@ -454,17 +457,19 @@ export class GameScene extends Phaser.Scene {
         // Calculate speed with power-up multiplier
         const currentSpeed = PLAYER_CONFIG.speed * this.speedMultiplier;
 
-        // Mobile touch controls: move towards touch position
-        if (MOBILE_SCALE < 1.0 && this.isTouching) {
-            const dx = this.touchTargetX - this.player.x;
-            const dy = this.touchTargetY - this.player.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            // Only move if not already at target (with small threshold)
-            if (distance > 5) {
-                // Normalize direction and apply speed
-                velocityX = (dx / distance) * currentSpeed;
-                velocityY = (dy / distance) * currentSpeed;
+        // Mobile joystick controls
+        if (MOBILE_SCALE < 1.0) {
+            const sensitivity = Phaser.Math.Clamp(
+                (this.registry.get("joystickSensitivity") as number) || 1,
+                0.5,
+                2
+            );
+            // Smooth joystick movement for more fluid control
+            this.joystickVector.lerp(this.joystickTargetVector, 0.2);
+            const magnitude = this.joystickVector.length();
+            if (magnitude > 0.05) {
+                velocityX = this.joystickVector.x * currentSpeed * sensitivity;
+                velocityY = this.joystickVector.y * currentSpeed * sensitivity;
             }
         } else {
             // Desktop: Arrow keys or WASD
@@ -488,6 +493,162 @@ export class GameScene extends Phaser.Scene {
         }
 
         this.player.setVelocity(velocityX, velocityY);
+    }
+
+    private createMobileControls() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const uiScale = MOBILE_SCALE < 1.0 ? 0.9 : 1.0;
+
+        // Enable multi-touch so joystick + fire can be used together
+        this.input.addPointer(2);
+
+        this.joystickBaseRadius = 55 * uiScale;
+        this.joystickThumbRadius = 22 * uiScale;
+        this.joystickBaseX = 90 * uiScale;
+        this.joystickBaseY = height - 90 * uiScale;
+
+        this.joystickBase = this.add.circle(
+            this.joystickBaseX,
+            this.joystickBaseY,
+            this.joystickBaseRadius,
+            0x001100,
+            0.6
+        );
+        this.joystickBase.setStrokeStyle(2, 0x00ff00, 0.7);
+        this.joystickBase.setScrollFactor(0);
+        this.joystickBase.setDepth(1000);
+        this.joystickBase.setInteractive(
+            new Phaser.Geom.Circle(0, 0, this.joystickBaseRadius),
+            Phaser.Geom.Circle.Contains
+        );
+
+        this.joystickThumb = this.add.circle(
+            this.joystickBaseX,
+            this.joystickBaseY,
+            this.joystickThumbRadius,
+            0x00ff00,
+            0.8
+        );
+        this.joystickThumb.setScrollFactor(0);
+        this.joystickThumb.setDepth(1001);
+        this.joystickThumb.setInteractive(
+            new Phaser.Geom.Circle(0, 0, this.joystickThumbRadius),
+            Phaser.Geom.Circle.Contains
+        );
+
+        const fireRadius = 45 * uiScale;
+        const fireX = width - 90 * uiScale;
+        const fireY = height - 90 * uiScale;
+        this.fireButton = this.add.circle(fireX, fireY, fireRadius, 0x003300, 0.8);
+        this.fireButton.setStrokeStyle(2, 0x00ff00, 0.8);
+        this.fireButton.setScrollFactor(0);
+        this.fireButton.setDepth(1000);
+        this.fireButton.setInteractive(
+            new Phaser.Geom.Circle(0, 0, fireRadius),
+            Phaser.Geom.Circle.Contains
+        );
+
+        this.fireButtonText = this.add.text(fireX, fireY, "FIRE", {
+            fontFamily: UI_CONFIG.menuFont,
+            fontSize: 16 * uiScale,
+            color: UI_CONFIG.neonGreen,
+            stroke: "#000000",
+            strokeThickness: 3,
+        });
+        this.fireButtonText.setOrigin(0.5, 0.5);
+        this.fireButtonText.setScrollFactor(0);
+        this.fireButtonText.setDepth(1001);
+        this.fireButtonText.setInteractive({ useHandCursor: true });
+
+        this.joystickBase.on(
+            "pointerdown",
+            (pointer: Phaser.Input.Pointer) => {
+                if (this.isPaused || this.gameOver) return;
+                this.joystickPointerId = pointer.id;
+                this.updateJoystick(pointer);
+            }
+        );
+
+        this.joystickThumb.on(
+            "pointerdown",
+            (pointer: Phaser.Input.Pointer) => {
+                if (this.isPaused || this.gameOver) return;
+                this.joystickPointerId = pointer.id;
+                this.updateJoystick(pointer);
+            }
+        );
+
+        this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+            if (this.joystickPointerId === pointer.id) {
+                this.updateJoystick(pointer);
+            }
+        });
+
+        this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+            if (this.joystickPointerId === pointer.id) {
+                this.resetJoystick();
+            }
+            if (this.firePointerId === pointer.id) {
+                this.isFiringButtonDown = false;
+                this.firePointerId = null;
+                this.fireButton?.setFillStyle(0x003300, 0.8);
+            }
+        });
+
+        this.input.on("pointerupoutside", (pointer: Phaser.Input.Pointer) => {
+            if (this.joystickPointerId === pointer.id) {
+                this.resetJoystick();
+            }
+            if (this.firePointerId === pointer.id) {
+                this.isFiringButtonDown = false;
+                this.firePointerId = null;
+                this.fireButton?.setFillStyle(0x003300, 0.8);
+            }
+        });
+
+        const handleFireDown = (pointer: Phaser.Input.Pointer) => {
+            if (this.isPaused || this.gameOver) return;
+            this.isFiringButtonDown = true;
+            this.firePointerId = pointer.id;
+            this.fireButton?.setFillStyle(0x00ff00, 0.9);
+        };
+
+        this.fireButton.on("pointerdown", handleFireDown);
+        this.fireButtonText.on("pointerdown", handleFireDown);
+    }
+
+    private updateJoystick(pointer: Phaser.Input.Pointer) {
+        if (!this.joystickBase || !this.joystickThumb) return;
+
+        const dx = pointer.x - this.joystickBaseX;
+        const dy = pointer.y - this.joystickBaseY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const maxDistance = this.joystickBaseRadius - this.joystickThumbRadius;
+        const clampedDistance = Math.min(distance, maxDistance);
+        const angle = Math.atan2(dy, dx);
+        const offsetX = Math.cos(angle) * clampedDistance;
+        const offsetY = Math.sin(angle) * clampedDistance;
+
+        this.joystickThumb.setPosition(
+            this.joystickBaseX + offsetX,
+            this.joystickBaseY + offsetY
+        );
+        this.joystickTargetVector.set(
+            offsetX / maxDistance,
+            offsetY / maxDistance
+        );
+    }
+
+    private resetJoystick() {
+        this.joystickPointerId = null;
+        this.joystickTargetVector.set(0, 0);
+        if (this.joystickThumb) {
+            this.joystickThumb.setPosition(
+                this.joystickBaseX,
+                this.joystickBaseY
+            );
+        }
     }
 
     private shoot() {
@@ -1147,7 +1308,6 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("deepestLayer", this.deepestLayer);
 
             // Stop all movement and touch controls
-            this.isTouching = false;
             this.player.setVelocity(0, 0);
             this.enemies.children.entries.forEach((enemy) => {
                 const e = enemy as Phaser.Physics.Arcade.Sprite;
@@ -1326,13 +1486,22 @@ export class GameScene extends Phaser.Scene {
         title.setOrigin(0.5, 0.5);
 
         // Instructions
-        const instructions = [
-            "WASD or Arrow Keys: Move",
-            "Spacebar or Click: Shoot",
-            "Defeat enemies to score points",
-            "Collect power-ups for bonuses",
-            "Survive as long as possible!",
-        ];
+        const instructions =
+            MOBILE_SCALE < 1.0
+                ? [
+                      "Joystick: Move",
+                      "Fire button: Shoot",
+                      "Defeat enemies to score points",
+                      "Collect power-ups for bonuses",
+                      "Survive as long as possible!",
+                  ]
+                : [
+                      "WASD or Arrow Keys: Move",
+                      "Spacebar or Click: Shoot",
+                      "Defeat enemies to score points",
+                      "Collect power-ups for bonuses",
+                      "Survive as long as possible!",
+                  ];
 
         const instructionTexts: Phaser.GameObjects.Text[] = [];
         instructions.forEach((instruction, index) => {
@@ -1909,7 +2078,9 @@ export class GameScene extends Phaser.Scene {
 
     private addScore(points: number) {
         // Apply score multiplier from power-ups
-        const adjustedPoints = Math.floor(points * this.scoreMultiplier);
+        const adjustedPoints = Math.floor(
+            points * this.scoreMultiplier * this.comboMultiplier
+        );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
         this.lastHitTime = this.time.now;
@@ -1956,7 +2127,6 @@ export class GameScene extends Phaser.Scene {
         if (this.isPaused) {
             this.physics.pause();
             // Stop all movement and touch controls
-            this.isTouching = false;
             this.player.setData("prePauseVelocity", {
                 x: this.player.body?.velocity.x || 0,
                 y: this.player.body?.velocity.y || 0,
@@ -1994,6 +2164,10 @@ export class GameScene extends Phaser.Scene {
                 });
                 p.setVelocity(0, 0);
             });
+            this.isFiringButtonDown = false;
+            this.firePointerId = null;
+            this.fireButton?.setFillStyle(0x003300, 0.8);
+            this.resetJoystick();
         } else {
             this.physics.resume();
             const playerVelocity = this.player.getData("prePauseVelocity") as
@@ -2092,7 +2266,10 @@ export class GameScene extends Phaser.Scene {
         this.player.setAlpha(1); // Reset player alpha
 
         // Reset touch controls
-        this.isTouching = false;
+        this.isFiringButtonDown = false;
+        this.firePointerId = null;
+        this.fireButton?.setFillStyle(0x003300, 0.8);
+        this.resetJoystick();
 
         // Clear power-up timers
         this.powerUpTimers.forEach((timer) => timer.remove());
