@@ -10,6 +10,7 @@ import { http } from "viem";
 import { mainnet } from "viem/chains";
 import App from "./App";
 import "./index.css";
+import { registerSW } from "virtual:pwa-register";
 
 const config = createConfig({
   chains: [mainnet],
@@ -20,6 +21,8 @@ const config = createConfig({
 });
 
 const queryClient = new QueryClient();
+
+registerSW({ immediate: true });
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
