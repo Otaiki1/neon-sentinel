@@ -6,7 +6,7 @@ export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private layerText!: Phaser.GameObjects.Text;
-  private livesText!: Phaser.GameObjects.Text;
+  private livesOrb!: Phaser.GameObjects.Graphics;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -73,17 +73,11 @@ export class UIScene extends Phaser.Scene {
       this.layerText.setAlpha(0.85); // Slightly transparent on mobile
     }
 
-    // Lives display
-    this.livesText = this.add.text(baseX, baseY + lineSpacing * 4, 'LIVES: 1', {
-      fontFamily: UI_CONFIG.scoreFont,
-      fontSize: 32 * uiScale,
-      color: '#ff00ff', // Magenta/purple to stand out
-      stroke: '#000000',
-      strokeThickness: 5 * uiScale,
-    });
-    if (MOBILE_SCALE < 1.0) {
-      this.livesText.setAlpha(0.85); // Slightly transparent on mobile
-    }
+    // Lives display (orb indicators only)
+    const livesX = baseX + 10 * uiScale;
+    const livesY = baseY + lineSpacing * 4 + 8 * uiScale;
+    this.livesOrb = this.add.graphics();
+    this.renderLivesOrbs(1, livesX, livesY, uiScale);
 
     // Pause button (top-right corner)
     this.createPauseButton();
@@ -489,7 +483,53 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updateLives(_parent: Phaser.Data.DataManager, value: number) {
-    this.livesText.setText(`LIVES: ${value}`);
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0;
+    const baseX = MOBILE_SCALE < 1.0 ? 15 : 30;
+    const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
+    const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
+    const livesX = baseX + 10 * uiScale;
+    const livesY = baseY + lineSpacing * 4 + 8 * uiScale;
+
+    this.renderLivesOrbs(value, livesX, livesY, uiScale);
+  }
+
+  private renderLivesOrbs(lives: number, x: number, y: number, uiScale: number) {
+    const radius = 10 * uiScale;
+    const spacing = 26 * uiScale;
+    const maxOrbs = 4;
+    const clampedLives = Math.max(0, Math.min(lives, maxOrbs * 5));
+
+    this.livesOrb.clear();
+    for (let i = 0; i < maxOrbs; i += 1) {
+      const segment = clampedLives - i * 5;
+      if (segment <= 0) {
+        break;
+      }
+      const progress = Math.min(segment, 5);
+      const orbX = x + i * spacing;
+      const color = this.getOrbColor(progress);
+
+      this.livesOrb.fillStyle(color, 1);
+      this.livesOrb.fillCircle(orbX, y, radius);
+      this.livesOrb.lineStyle(2 * uiScale, 0x001100, 0.8);
+      this.livesOrb.strokeCircle(orbX, y, radius);
+    }
+  }
+
+  private getOrbColor(progress: number): number {
+    const palette = [
+      0xff1a1a, // red
+      0xff7a00, // orange
+      0xffff00, // yellow
+      0x00ff66, // green
+    ];
+    const clamped = Math.max(0, Math.min(progress, 5));
+    const t = clamped / 5;
+
+    const start = Phaser.Display.Color.ValueToColor(palette[0]);
+    const end = Phaser.Display.Color.ValueToColor(palette[palette.length - 1]);
+    const blended = Phaser.Display.Color.Interpolate.ColorWithColor(start, end, 100, Math.round(t * 100));
+    return Phaser.Display.Color.GetColor(blended.r, blended.g, blended.b);
   }
 
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {
