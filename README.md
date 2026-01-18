@@ -21,8 +21,9 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: Compete for top scores
 -   **Wallet Integration**: Connect wallet or play anonymously
--   **Mobile Support**: Touch controls with responsive scaling
+-   **Mobile Support**: On-screen joystick + fire button with adjustable sensitivity
 -   **Neon Aesthetic**: Retro brutalist design with neon green theme
+-   **PWA Ready**: Installable app with service worker auto-updates
 
 ---
 
@@ -92,7 +93,9 @@ neon-sentinel/
 
 ### Mobile Controls
 
--   **Tap and Hold**: Move (auto-shoots while held)
+-   **Virtual Joystick**: Move your Sentinel
+-   **Fire Button**: Shoot
+-   **Pause Button**: Top-right
 -   **Landscape mode recommended**
 
 ### Gameplay
@@ -124,8 +127,10 @@ neon-sentinel/
 -   **Game Engine**: Phaser 3.90.0
 -   **Build Tool**: Vite 5.1.4
 -   **Styling**: Tailwind CSS 3.4.0
--   **Wallet**: Dynamic Labs SDK v4
+-   **Wallet**: Dynamic Labs SDK v4 + Wagmi + viem
 -   **Routing**: React Router DOM 7.12.0
+-   **Data**: TanStack Query 5
+-   **PWA**: Vite PWA + Workbox
 
 ---
 
@@ -168,7 +173,7 @@ All game configuration is in `src/game/config.ts`:
 
 -   `PLAYER_CONFIG`: Player speed, bullet speed, fire rate, lives
 -   `ENEMY_CONFIG`: Enemy stats, health, speed, points
--   `LAYER_CONFIG`: Layer thresholds, enemies, difficulty multipliers
+-   `LAYER_CONFIG`: Layer thresholds, enemies, difficulty + boss multipliers
 -   `SPAWN_CONFIG`: Spawn rates, intervals, max enemies
 -   `POWERUP_CONFIG`: Power-up types, durations, effects
 -   `UI_CONFIG`: Fonts, colors, sizes
@@ -181,7 +186,8 @@ See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documen
 
 The game is fully optimized for mobile devices:
 
--   **Touch Controls**: Tap and hold to move and auto-shoot
+-   **Touch Controls**: On-screen joystick + fire button
+-   **Sensitivity Settings**: Adjustable joystick sensitivity in pause menu
 -   **Responsive Scaling**: All sprites scaled to 50% on mobile
 -   **UI Optimization**: Scaled-down UI elements for better visibility
 -   **Landscape Mode**: Recommended for best gameplay experience
@@ -190,10 +196,10 @@ The game is fully optimized for mobile devices:
 
 ## 🏆 Leaderboards
 
--   **Weekly Reset**: Leaderboards reset every ISO week
--   **Top 10**: Displayed on game over screen
+-   **Weekly Reset**: Leaderboards reset every ISO week (localStorage)
+-   **Top 10**: Displayed on game over screen with auto-hide
 -   **Wallet Integration**: Connect wallet to attach address to scores
--   **Anonymous Mode**: Play without wallet (scores hidden)
+-   **Anonymous Mode**: Play without wallet (scores show as "Anonymous")
 
 ---
 
@@ -210,6 +216,14 @@ yarn build
 
 # Preview production build
 yarn preview
+```
+
+### Environment Variables
+
+Create a `.env` file with:
+
+```
+VITE_DYNAMIC_ENVIRONMENT_ID=your_dynamic_labs_environment_id
 ```
 
 ### Code Style
@@ -233,6 +247,7 @@ Currently no automated tests. Manual testing recommended for:
 ## 🐛 Known Issues
 
 -   Leaderboard uses localStorage (mock implementation)
+-   Anonymous scores still appear as "Anonymous" on the local leaderboard
 -   No sound effects or music
 -   Limited sprite variety for some power-ups
 

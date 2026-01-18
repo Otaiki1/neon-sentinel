@@ -31,9 +31,11 @@ This document provides comprehensive technical documentation for developers work
 - **Game Engine**: Phaser 3.90.0
 - **Build Tool**: Vite 5.1.4
 - **Styling**: Tailwind CSS 3.4.0
-- **Wallet Integration**: Dynamic Labs SDK v4
+- **Wallet Integration**: Dynamic Labs SDK v4 + Wagmi + viem
 - **Routing**: React Router DOM 7.12.0
 - **State Management**: Phaser Registry + React Context
+- **Data**: TanStack Query 5
+- **PWA**: Vite PWA + Workbox
 
 ### Project Structure
 
@@ -51,7 +53,9 @@ neon-sentinel/
 │   │   ├── LandingPage.tsx     # Main menu
 │   │   └── GamePage.tsx        # Game container
 │   ├── components/        # React components
-│   │   └── WalletConnectionModal.tsx
+│   │   ├── WalletConnectionModal.tsx
+│   │   ├── StoryModal.tsx
+│   │   └── Methods.tsx
 │   ├── services/         # Business logic
 │   │   └── scoreService.ts     # Leaderboard logic
 │   └── assets/           # Static assets
@@ -184,6 +188,7 @@ LAYER_CONFIG = {
 
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
+- `bossSpeedMultiplier`: Applied to boss base speed per layer
 - `spawnRateMultiplier`: Applied to spawn timer intervals
 - `scoreThreshold`: Score required to trigger graduation boss
 - `gridColor`: Background grid line color (visual indicator)
@@ -301,13 +306,15 @@ function isMobileDevice(): boolean {
 **Movement**:
 ```typescript
 // Desktop: WASD or Arrow Keys
-// Mobile: Touch and hold (moves toward touch point)
+// Mobile: Virtual joystick (multi-touch enabled)
+// Sensitivity: registry key `joystickSensitivity` (0.5x - 2.0x), stored in localStorage
 // Speed: PLAYER_CONFIG.speed * speedMultiplier
 ```
 
 **Shooting**:
 ```typescript
-// Manual: Spacebar or mouse click
+// Manual: Spacebar or mouse click (desktop)
+// Mobile: Fire button held down
 // Auto: When autoShootEnabled flag is true
 // Fire Rate: PLAYER_CONFIG.fireRate / fireRateMultiplier
 // Bullet Count: 1 + Math.floor(firepowerLevel)
@@ -344,7 +351,8 @@ function isMobileDevice(): boolean {
 
 **Enemy Behavior**:
 - **Movement**: Moves toward player, bounces off top/bottom/left walls
-- **Shooting**: Blue enemies shoot every 1.5 seconds
+- **Graduation Boss Movement**: Bounces off all walls (including right edge)
+- **Shooting**: Blue enemies shoot every 1.5 seconds; graduation bosses fire a 3-bullet spread
 - **Health Bars**: Dynamic health bars above all enemies
 - **Destruction**: Destroyed when health reaches 0 or goes off-screen right
 
@@ -356,7 +364,7 @@ function isMobileDevice(): boolean {
 - **Group**: `bullets` (Phaser.Physics.Arcade.Group)
 - **Max Size**: 100 (supports multiple bullets per shot)
 - **Speed**: PLAYER_CONFIG.bulletSpeed (600)
-- **Direction**: Horizontal right
+- **Direction**: Forward with optional spread at higher firepower
 - **Multi-shot**: Based on `firepowerLevel` (0.5 increments)
 
 **Enemy Bullets**:
@@ -364,7 +372,7 @@ function isMobileDevice(): boolean {
 - **Max Size**: 30
 - **Speed**: ENEMY_CONFIG.blue.bulletSpeed (250)
 - **Direction**: Toward player
-- **Shooter**: Only blue enemies
+- **Shooter**: Blue enemies and graduation bosses
 
 ### Power-Up System
 
@@ -403,7 +411,8 @@ function isMobileDevice(): boolean {
 **Score Calculation**:
 ```typescript
 basePoints = enemy.points;
-adjustedPoints = Math.floor(basePoints * comboMultiplier * scoreMultiplier);
+// addScore is called with basePoints * comboMultiplier
+adjustedPoints = Math.floor(basePoints * comboMultiplier * comboMultiplier * scoreMultiplier);
 totalScore += adjustedPoints;
 ```
 
@@ -412,6 +421,7 @@ totalScore += adjustedPoints;
 // Starts at 1.0x
 // Increases by 0.1x per enemy destroyed
 // Resets to 1.0x on player hit
+// Slowly decays after 10s without scoring (combo *= 0.99 per update tick)
 ```
 
 **Layer Progression**:
@@ -497,8 +507,8 @@ update() {
     // Handle input
     handlePlayerMovement();
     
-    // Auto-shoot if enabled or mobile touch
-    if (autoShootEnabled || (isTouching && MOBILE_SCALE < 1.0)) {
+    // Auto-shoot if enabled; otherwise use mobile fire button or desktop input
+    if (autoShootEnabled || fireButtonHeld || spaceKeyDown || pointerDown) {
         shoot();
     }
     
@@ -521,10 +531,12 @@ update() {
 **Purpose**: UI overlay
 
 **Key Properties**:
-- `scoreText`, `comboText`, `layerText`, `livesText`: UI text elements
+- `scoreText`, `comboText`, `layerText`: UI text elements
+- `livesOrb`: Lives orb indicator graphic
 - `gameOverContainer`: Game over modal
 - `pauseContainer`: Pause modal
-- `leaderboardPanel`: Leaderboard display
+- `settingsContainer`: Joystick settings panel
+- `leaderboardPanel`: Leaderboard display (auto-hide timer)
 - `pauseButton`: Pause button
 
 **Key Methods**:
@@ -535,8 +547,10 @@ update() {
 - `updateLives()`: Updates lives display
 - `onGameOver()`: Shows game over modal
 - `onPauseChanged()`: Shows/hides pause modal
-- `showLeaderboard()`: Displays leaderboard
+- `showLeaderboard()`: Displays leaderboard (auto-hides after delay)
 - `createLeaderboardPanel()`: Creates leaderboard UI
+- `createSettingsOverlay()`: Creates joystick sensitivity settings
+- `adjustSensitivity()`: Updates sensitivity and localStorage
 - `createPauseButton()`: Creates pause button
 - `createButton()`: Button creation helper
 
@@ -635,6 +649,7 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `deepestLayer`: Deepest layer reached
 - `isPaused`: Pause state
 - `walletAddress`: Connected wallet address
+- `joystickSensitivity`: Mobile joystick sensitivity (0.5x - 2.0x)
 
 **Usage**:
 ```typescript
@@ -663,6 +678,7 @@ registry.events.on('changedata-score', callback);
 - `leaderboard`: Leaderboard data
 - `currentWeek`: Current ISO week number
 - `showWalletModal`: Wallet modal visibility
+- `showStoryModal`: Story modal visibility
 
 **GamePage**:
 - `gameRef`: Reference to Phaser game instance
@@ -775,13 +791,17 @@ function isMobileDevice(): boolean {
 **Implementation**: `GameScene.ts`
 
 **Touch Events**:
-- `pointerdown`: Start touch, set `isTouching = true`
-- `pointermove`: Update touch target position
-- `pointerup`: End touch, set `isTouching = false`
+- `pointerdown`: Capture joystick or fire button pointer
+- `pointermove`: Update joystick vector
+- `pointerup`: Reset joystick or stop firing
 
 **Behavior**:
-- Player moves toward touch point
-- Auto-shoots while touching
+- Player moves based on joystick vector
+- Fire button enables continuous firing
+- Multi-touch allows moving and firing simultaneously
+
+**Settings**:
+- Joystick sensitivity is adjustable (0.5x - 2.0x) and persisted in localStorage
 - Movement speed: Same as keyboard input
 
 ### Mobile UI
@@ -790,7 +810,7 @@ function isMobileDevice(): boolean {
 - Score: 56px → 33.6px (60% scale)
 - Combo: 24px → 14.4px
 - Layer: 12px → 7.2px
-- Lives: 32px → 19.2px
+- Lives: Orb indicators scale with UI (no numeric text)
 
 **Opacity**: 85-90% on mobile to reduce obstruction
 
@@ -831,6 +851,11 @@ if (returnToMenu) returnToMenu();
 - Stored in localStorage: `neon-sentinel-user-mode`
 - Scores submitted without wallet address
 - Leaderboard shows "Anonymous"
+
+**Onboarding State**:
+- Wallet modal seen: `neon-sentinel-wallet-modal-seen`
+- Story modal seen: `neon-sentinel-story-modal-seen`
+- Joystick sensitivity: `neon-sentinel-joystick-sensitivity`
 
 ### Score Service
 
@@ -878,10 +903,18 @@ yarn preview
 - TypeScript support
 - PostCSS for Tailwind
 - Asset handling for SVGs
+- PWA manifest + service worker via `vite-plugin-pwa`
+- Dev server allowlist for ngrok
+
+### PWA Support
+
+- Service worker registered in `src/main.tsx` via `virtual:pwa-register`
+- Auto-update enabled with `registerType: 'autoUpdate'`
+- Icons and manifest defined in `vite.config.ts`
 
 ### Environment Variables
 
-Currently none required. Wallet configuration is handled via Dynamic Labs SDK.
+`VITE_DYNAMIC_ENVIRONMENT_ID` is required for Dynamic Labs wallet integration.
 
 ---
 

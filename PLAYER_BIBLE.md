@@ -51,14 +51,16 @@ As a Neon Sentinel, your mission is to:
 - **M**: Return to Menu
 
 #### Mobile
-- **Tap and Hold**: Move your Sentinel (auto-shoots while held)
+- **Virtual Joystick**: Move your Sentinel
+- **Fire Button**: Shoot
+- **Pause Button**: Top-right
 - **Landscape mode recommended** for better gameplay
 
 ### Gameplay Basics
 
 1. **Movement**: Your Sentinel starts near the bottom-left of the screen. Move with WASD or arrow keys to dodge enemies and their bullets.
 
-2. **Shooting**: Press Spacebar or click to shoot green laser bullets. Bullets travel horizontally to the right to hit enemies spawning from the right side.
+2. **Shooting**: Press Spacebar/click on desktop or hold the Fire button on mobile. Bullets travel horizontally to the right to hit enemies spawning from the right side.
 
 3. **Enemies**: Enemies spawn from the right side and move toward you. They bounce off the top, bottom, and left walls. Destroy them with your bullets to score points.
 
@@ -120,6 +122,7 @@ Each enemy type represents a different level of system corruption. Understanding
 **Graduation Bosses** are special bosses that must be defeated to advance to the next system layer. They are:
 - **3x larger** than normal bosses
 - **10x tougher** (10x health multiplier)
+- **Can shoot**: Fires a 3-bullet spread pattern
 - **Unique**: Each layer has a specific graduation boss type
 - **Required**: You MUST defeat them to progress to the next layer
 
@@ -200,7 +203,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 
 ## ⚡ Power-Ups & System Exploits
 
-Power-ups are "system exploits" that grant temporary advantages. They spawn when enemies are destroyed (25% chance from purple/red enemies) or as special Life Orbs.
+Power-ups are "system exploits" that grant temporary advantages. Most power-ups can drop from purple/red enemies, while **Life Orbs**, **Firepower**, and **Invisibility** can drop from any enemy.
 
 ### 🟢 Speed Boost
 - **Sprite**: Green power-up icon
@@ -253,7 +256,12 @@ Power-ups are "system exploits" that grant temporary advantages. They spawn when
 
 ### Power-Up Mechanics
 
-- **Despawn Timer**: All power-ups (except Life Orbs) disappear after **6 seconds** if not collected
+- **Drop Chances**:
+  - **Life Orbs**: 35% from any enemy
+  - **Firepower**: 8% from any enemy
+  - **Invisibility**: 15% from any enemy
+  - **Other Power-Ups**: 25% from purple/red enemies or bosses
+- **Despawn Timer**: All power-ups (including Life Orbs) disappear after **6 seconds** if not collected
 - **Fade Out**: Power-ups start fading at **5 seconds**, then disappear at **6 seconds**
 - **Floating Animation**: Power-ups float up and down to make them more visible
 - **Priority**: Life Orbs > Invisibility > Firepower > Score Multiplier > Speed/Fire Rate > Auto-Shoot
@@ -276,18 +284,19 @@ Power-ups are "system exploits" that grant temporary advantages. They spawn when
 - **Starting Combo**: 1.0x
 - **Combo Increase**: +0.1x for each enemy destroyed
 - **Combo Reset**: Resets to 1.0x if you get hit
+- **Combo Decay**: Slowly decays if you go too long without scoring
 - **Strategy**: Avoid getting hit to maintain high combos for maximum points!
 
 ### Score Multiplier Power-Up
 
 - **Effect**: 2x multiplier for 15 seconds
 - **Stacking**: Combines with combo multiplier
-- **Example**: 2x score power-up + 2.0x combo = **4x total multiplier**
+- **Example**: 2x score power-up + 2.0x combo = **8x total multiplier**
 
 ### Final Score Calculation
 
 ```
-Final Score = (Base Points × Combo Multiplier × Score Multiplier) × Layer Bonus
+Final Score = Base Points × Combo Multiplier × Combo Multiplier × Score Multiplier
 ```
 
 ---
@@ -334,7 +343,7 @@ Final Score = (Base Points × Combo Multiplier × Score Multiplier) × Layer Bon
 ### Weekly Leaderboard
 
 - **Reset**: Leaderboard resets every week (ISO week number)
-- **Display**: Top 10 players shown on game over screen
+- **Display**: Top 10 players shown on game over screen (auto-hides after a few seconds)
 - **Ranking**: Based on highest score
 - **Deepest Layer**: Also tracked—shows how far you progressed
 
@@ -342,7 +351,7 @@ Final Score = (Base Points × Combo Multiplier × Score Multiplier) × Layer Bon
 
 - **X Button**: Click the X in the top-right to close the leaderboard
 - **Wallet Integration**: Connect your wallet to attach your address to scores
-- **Anonymous Mode**: Play without a wallet, but scores are hidden and you can't claim rewards
+- **Anonymous Mode**: Play without a wallet (scores display as "Anonymous")
 
 ### Titles & Achievements
 
@@ -359,7 +368,7 @@ Final Score = (Base Points × Combo Multiplier × Score Multiplier) × Layer Bon
 - **Score**: Top-left, large green text
 - **Combo**: Below score, shows current multiplier
 - **Layer**: Shows current system layer name
-- **Lives**: Purple/magenta text, shows remaining lives
+- **Lives**: Orb indicators (each orb shows up to 5 lives, max 4 orbs shown)
 - **Progress Bar**: Faint bar at bottom tracking layer progress
 
 ### Announcements
@@ -411,7 +420,8 @@ Final Score = (Base Points × Combo Multiplier × Score Multiplier) × Layer Bon
 ## 📱 Mobile Tips
 
 - **Landscape Mode**: Highly recommended for better gameplay
-- **Touch Controls**: Tap and hold to move—auto-shoots while held
+- **Touch Controls**: Use the joystick to move and the fire button to shoot
+- **Pause Button**: Top-right, includes joystick sensitivity settings
 - **UI Scaling**: UI elements are scaled down on mobile to reduce obstruction
 - **Sprite Scaling**: All sprites are 50% size on mobile for better performance
 
