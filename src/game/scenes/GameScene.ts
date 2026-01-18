@@ -1158,6 +1158,9 @@ export class GameScene extends Phaser.Scene {
                 b.setVelocity(0, 0);
             });
 
+            // Remove health bars so they don't linger after game over
+            this.destroyAllEnemyHealthBars();
+
             // Pause physics
             this.physics.pause();
 
@@ -1201,6 +1204,27 @@ export class GameScene extends Phaser.Scene {
 
         // Initial health bar update
         this.updateEnemyHealthBar(enemy);
+    }
+
+    private destroyEnemyHealthBar(enemy: Phaser.Physics.Arcade.Sprite) {
+        const healthBarBg = enemy.getData("healthBarBg") as
+            | Phaser.GameObjects.Graphics
+            | undefined;
+        const healthBarFill = enemy.getData("healthBarFill") as
+            | Phaser.GameObjects.Graphics
+            | undefined;
+
+        if (healthBarBg) healthBarBg.destroy();
+        if (healthBarFill) healthBarFill.destroy();
+
+        enemy.setData("healthBarBg", undefined);
+        enemy.setData("healthBarFill", undefined);
+    }
+
+    private destroyAllEnemyHealthBars() {
+        this.enemies.children.entries.forEach((enemy) => {
+            this.destroyEnemyHealthBar(enemy as Phaser.Physics.Arcade.Sprite);
+        });
     }
 
     private updateEnemyHealthBar(enemy: Phaser.Physics.Arcade.Sprite) {
@@ -1933,21 +1957,87 @@ export class GameScene extends Phaser.Scene {
             this.physics.pause();
             // Stop all movement and touch controls
             this.isTouching = false;
+            this.player.setData("prePauseVelocity", {
+                x: this.player.body?.velocity.x || 0,
+                y: this.player.body?.velocity.y || 0,
+            });
             this.player.setVelocity(0, 0);
             this.enemies.children.entries.forEach((enemy) => {
                 const e = enemy as Phaser.Physics.Arcade.Sprite;
+                e.setData("prePauseVelocity", {
+                    x: e.body?.velocity.x || 0,
+                    y: e.body?.velocity.y || 0,
+                });
                 e.setVelocity(0, 0);
             });
             this.bullets.children.entries.forEach((bullet) => {
                 const b = bullet as Phaser.Physics.Arcade.Sprite;
+                b.setData("prePauseVelocity", {
+                    x: b.body?.velocity.x || 0,
+                    y: b.body?.velocity.y || 0,
+                });
                 b.setVelocity(0, 0);
             });
             this.enemyBullets.children.entries.forEach((bullet) => {
                 const b = bullet as Phaser.Physics.Arcade.Sprite;
+                b.setData("prePauseVelocity", {
+                    x: b.body?.velocity.x || 0,
+                    y: b.body?.velocity.y || 0,
+                });
                 b.setVelocity(0, 0);
+            });
+            this.powerUps.children.entries.forEach((powerUp) => {
+                const p = powerUp as Phaser.Physics.Arcade.Sprite;
+                p.setData("prePauseVelocity", {
+                    x: p.body?.velocity.x || 0,
+                    y: p.body?.velocity.y || 0,
+                });
+                p.setVelocity(0, 0);
             });
         } else {
             this.physics.resume();
+            const playerVelocity = this.player.getData("prePauseVelocity") as
+                | { x: number; y: number }
+                | undefined;
+            if (playerVelocity) {
+                this.player.setVelocity(playerVelocity.x, playerVelocity.y);
+            }
+            this.enemies.children.entries.forEach((enemy) => {
+                const e = enemy as Phaser.Physics.Arcade.Sprite;
+                const velocity = e.getData("prePauseVelocity") as
+                    | { x: number; y: number }
+                    | undefined;
+                if (velocity) {
+                    e.setVelocity(velocity.x, velocity.y);
+                }
+            });
+            this.bullets.children.entries.forEach((bullet) => {
+                const b = bullet as Phaser.Physics.Arcade.Sprite;
+                const velocity = b.getData("prePauseVelocity") as
+                    | { x: number; y: number }
+                    | undefined;
+                if (velocity) {
+                    b.setVelocity(velocity.x, velocity.y);
+                }
+            });
+            this.enemyBullets.children.entries.forEach((bullet) => {
+                const b = bullet as Phaser.Physics.Arcade.Sprite;
+                const velocity = b.getData("prePauseVelocity") as
+                    | { x: number; y: number }
+                    | undefined;
+                if (velocity) {
+                    b.setVelocity(velocity.x, velocity.y);
+                }
+            });
+            this.powerUps.children.entries.forEach((powerUp) => {
+                const p = powerUp as Phaser.Physics.Arcade.Sprite;
+                const velocity = p.getData("prePauseVelocity") as
+                    | { x: number; y: number }
+                    | undefined;
+                if (velocity) {
+                    p.setVelocity(velocity.x, velocity.y);
+                }
+            });
         }
     }
 
@@ -1985,6 +2075,7 @@ export class GameScene extends Phaser.Scene {
         this.player.setVelocity(0, 0);
 
         // Clear enemies and bullets
+        this.destroyAllEnemyHealthBars();
         this.enemies.clear(true, true);
         this.bullets.clear(true, true);
         this.enemyBullets.clear(true, true);
