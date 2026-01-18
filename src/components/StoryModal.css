@@ -1,0 +1,151 @@
+/* Story Modal Styles */
+
+.story-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(3px);
+}
+
+.story-modal-content {
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid #00ff00;
+  max-width: 720px;
+  width: 92%;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 30px rgba(0, 255, 0, 0.35);
+  animation: storyModalIn 0.35s ease-out;
+}
+
+@keyframes storyModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.story-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.75rem;
+  border-bottom: 2px solid #00ff00;
+  background: rgba(0, 255, 0, 0.06);
+}
+
+.story-modal-title {
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.story-modal-close {
+  background: transparent;
+  border: 2px solid #00ff00;
+  color: #00ff00;
+  font-size: 1.75rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.story-modal-close:hover {
+  background: #00ff00;
+  color: #000000;
+  transform: scale(1.05);
+}
+
+.story-modal-body {
+  padding: 1.75rem;
+}
+
+.story-modal-terminal {
+  background: #041007;
+  border: 1px solid rgba(0, 255, 0, 0.6);
+  padding: 1.5rem;
+  min-height: 230px;
+  max-height: 360px;
+  overflow-y: auto;
+  color: #7dff7d;
+  font-family: "Courier New", Courier, monospace;
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.3);
+  box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.08);
+}
+
+.story-modal-text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.story-modal-cursor {
+  display: inline-block;
+  width: 9px;
+  height: 1.1em;
+  margin-left: 4px;
+  background: #00ff00;
+  animation: storyCursorBlink 1s steps(1) infinite;
+  vertical-align: bottom;
+}
+
+@keyframes storyCursorBlink {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.story-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.story-modal-button {
+  border: 2px solid #00ff00;
+  background: rgba(0, 0, 0, 0.9);
+  color: #00ff00;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.story-modal-button-primary:hover {
+  background: #00ff00;
+  color: #000000;
+}
+
+.story-modal-button-secondary {
+  border-color: rgba(0, 255, 0, 0.5);
+  color: rgba(0, 255, 0, 0.8);
+}
+
+.story-modal-button-secondary:hover {
+  border-color: #00ff00;
+  color: #00ff00;
+  background: rgba(0, 255, 0, 0.08);
+}
+

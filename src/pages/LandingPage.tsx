@@ -4,10 +4,12 @@ import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreServ
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
 import WalletConnectionModal from '../components/WalletConnectionModal';
+import StoryModal from '../components/StoryModal';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
 const USER_MODE_KEY = 'neon-sentinel-user-mode';
+const STORY_MODAL_SEEN_KEY = 'neon-sentinel-story-modal-seen';
 
 export type UserMode = 'wallet' | 'anonymous';
 
@@ -25,6 +27,7 @@ function LandingPage() {
   const [leaderboard, setLeaderboard] = useState<Array<{ score: number; playerName: string }>>([]);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
@@ -57,6 +60,11 @@ function LandingPage() {
     handleCloseModal();
   };
 
+  const handleCloseStoryModal = () => {
+    setShowStoryModal(false);
+    localStorage.setItem(STORY_MODAL_SEEN_KEY, 'true');
+  };
+
 
   // Update user mode when wallet connects
   useEffect(() => {
@@ -64,6 +72,16 @@ function LandingPage() {
       setUserMode('wallet');
     }
   }, [primaryWallet]);
+
+  useEffect(() => {
+    const hasSeenStory = localStorage.getItem(STORY_MODAL_SEEN_KEY) === 'true';
+    const userMode = getUserMode();
+    const isWalletConnected = !!primaryWallet;
+
+    if (!hasSeenStory && !showWalletModal && (userMode || isWalletConnected)) {
+      setShowStoryModal(true);
+    }
+  }, [primaryWallet, showWalletModal]);
 
   // Generate weekly sector name based on week number
   const weeklySectorNames = [
@@ -97,6 +115,14 @@ function LandingPage() {
   ];
   const currentLayerIndex = 1; // Currently at Layer 2 (Firewall)
   const nextLayerThreshold = layers[currentLayerIndex + 1]?.threshold || 1000;
+  const storyText = [
+    '> BOOT SECTOR ONLINE...',
+    '> THE GRID IS COLLAPSING UNDER A CORRUPTION KNOWN AS THE SWARM.',
+    '> YOU ARE A NEON SENTINEL, A SECURITY PROGRAM BUILT TO CONTAIN IT.',
+    '> EACH LAYER YOU ENTER IS DEEPER, DARKER, AND MORE DEADLY.',
+    '> DESTROY CORRUPTED ENTITIES. SURVIVE. PUSH THE SYSTEM BACK.',
+    '> SIGNAL LOST IN: 00:00:03...'
+  ].join('\n');
 
   return (
     <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
@@ -397,6 +423,11 @@ function LandingPage() {
         isOpen={showWalletModal}
         onClose={handleCloseModal}
         onAnonymous={handleAnonymous}
+      />
+      <StoryModal
+        isOpen={showStoryModal}
+        onClose={handleCloseStoryModal}
+        storyText={storyText}
       />
     </div>
   );
