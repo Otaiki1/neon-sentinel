@@ -746,15 +746,17 @@ export class GameScene extends Phaser.Scene {
         const boss = this.physics.add.sprite(x, y, bossKey);
         boss.setScale(0.6 * MOBILE_SCALE);
 
-        // Scale boss health based on current layer
+        // Scale boss health and speed based on current layer
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const scaledHealth = Math.ceil(health * healthMultiplier);
+        const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
+        const scaledSpeed = Math.max(40, Math.round(speed * speedMultiplier));
 
         boss.setData("type", bossType);
         boss.setData("points", points);
-        boss.setData("speed", speed);
+        boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
         boss.setData("canShoot", false);
@@ -773,8 +775,8 @@ export class GameScene extends Phaser.Scene {
             this.player.y
         );
 
-        const velocityX = Math.cos(angle) * speed;
-        const velocityY = Math.sin(angle) * speed;
+        const velocityX = Math.cos(angle) * scaledSpeed;
+        const velocityY = Math.sin(angle) * scaledSpeed;
         boss.setVelocity(velocityX, velocityY);
 
         // Show announcement card for regular boss incoming
@@ -856,15 +858,17 @@ export class GameScene extends Phaser.Scene {
         const boss = this.physics.add.sprite(x, y, bossKey);
         boss.setScale(0.7 * 3 * MOBILE_SCALE); // 3x larger for graduation bosses, scaled for mobile
 
-        // Scale boss health based on target layer
+        // Scale boss health and speed based on target layer
         const layerConfig =
             LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const scaledHealth = Math.ceil(health * healthMultiplier * 10); // 10x toughness for graduation bosses
+        const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
+        const scaledSpeed = Math.max(40, Math.round(speed * speedMultiplier));
 
         boss.setData("type", bossType);
         boss.setData("points", points);
-        boss.setData("speed", speed);
+        boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
         boss.setData("canShoot", true); // Graduation bosses can shoot
@@ -886,8 +890,8 @@ export class GameScene extends Phaser.Scene {
             this.player.y
         );
 
-        const velocityX = Math.cos(angle) * speed;
-        const velocityY = Math.sin(angle) * speed;
+        const velocityX = Math.cos(angle) * scaledSpeed;
+        const velocityY = Math.sin(angle) * scaledSpeed;
         boss.setVelocity(velocityX, velocityY);
 
         // Visual effect - screen flash and shake

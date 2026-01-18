@@ -77,6 +77,7 @@ export const LAYER_CONFIG = {
         bossChance: 0,
         gridColor: 0x00ff00, // Green
         healthMultiplier: 1.0, // Base health
+        bossSpeedMultiplier: 0.75, // Slower bosses for early sector pacing
         spawnRateMultiplier: 1.0, // Base spawn rate
     },
     2: {
@@ -86,6 +87,7 @@ export const LAYER_CONFIG = {
         bossChance: 0,
         gridColor: 0xffff00, // Yellow
         healthMultiplier: 1.3, // 30% more health
+        bossSpeedMultiplier: 0.85,
         spawnRateMultiplier: 1.2, // 20% more enemies
     },
     3: {
@@ -95,6 +97,7 @@ export const LAYER_CONFIG = {
         bossChance: 0,
         gridColor: 0x00aaff, // Blue
         healthMultiplier: 1.6, // 60% more health
+        bossSpeedMultiplier: 0.95,
         spawnRateMultiplier: 1.5, // 50% more enemies
     },
     4: {
@@ -104,6 +107,7 @@ export const LAYER_CONFIG = {
         bossChance: 0.01, // 1% chance for purple boss
         gridColor: 0xaa00ff, // Purple
         healthMultiplier: 2.0, // 2x health
+        bossSpeedMultiplier: 1.05,
         spawnRateMultiplier: 2.0, // 2x enemies
     },
     5: {
@@ -113,6 +117,7 @@ export const LAYER_CONFIG = {
         bossChance: 0.05, // 5% chance for mini/medium boss
         gridColor: 0xff3333, // Red
         healthMultiplier: 2.5, // 2.5x health
+        bossSpeedMultiplier: 1.15,
         spawnRateMultiplier: 2.5, // 2.5x enemies
     },
     6: {
@@ -122,6 +127,7 @@ export const LAYER_CONFIG = {
         bossChance: 0.1, // 10% chance for final boss
         gridColor: 0xff0000, // Bright red
         healthMultiplier: 3.0, // 3x health
+        bossSpeedMultiplier: 1.25,
         spawnRateMultiplier: 3.0, // 3x enemies
     },
 } as const;
