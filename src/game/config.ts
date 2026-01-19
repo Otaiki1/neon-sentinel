@@ -526,7 +526,7 @@ export const SESSION_REWARDS = {
         durationMinutes: 0.5,
         scoreMultiplier: 1.2,
         comboStartBoost: 1.5,
-        description: "Daily Awakening - First 5 minutes get 1.2x score",
+        description: "Daily Awakening - First 30 seconds get 1.2x score",
     },
     sessionMilestones: [
         { hours: 1, reward: { bonusScore: 500, type: "session_1h" } },
@@ -543,6 +543,68 @@ export const SESSION_REWARDS = {
             cosmetic: "week_warrior_skin",
         },
     },
+} as const;
+
+export const ROTATING_LAYER_MODIFIERS = {
+    standard: {
+        name: "Standard Grid",
+        description: "Normal gameplay",
+        enemySpawnRate: 1.0,
+        modifiers: [],
+    },
+    firewall: {
+        name: "Firewall Layer",
+        description: "Movement restricted - speed capped at 70%",
+        enemySpawnRate: 1.2,
+        modifiers: [{ type: "speed_cap", value: 0.7 }],
+    },
+    memory_leak: {
+        name: "Memory Leak",
+        description: "Random glitches - periodic input lag",
+        enemySpawnRate: 0.9,
+        modifiers: [
+            { type: "input_delay", value: 0.1, frequency: "random_5s" },
+            { type: "screen_glitch", intensity: 0.3 },
+        ],
+    },
+    encrypted: {
+        name: "Encrypted Zone",
+        description: "Delayed feedback - input responds 200ms later",
+        enemySpawnRate: 1.1,
+        modifiers: [{ type: "input_lag", value: 0.2 }],
+    },
+    lag_spike: {
+        name: "Lag Spike",
+        description: "Occasional freezes - game pauses for 0.5s randomly",
+        enemySpawnRate: 1.3,
+        modifiers: [{ type: "random_pause", duration: 0.5, frequency: "every_30s" }],
+    },
+    void: {
+        name: "The Void",
+        description: "Screen partially darkened - only center 60% visible",
+        enemySpawnRate: 1.0,
+        modifiers: [{ type: "vision_limit", radius: 200 }],
+    },
+    temporal: {
+        name: "Temporal Anomaly",
+        description: "Time warps - score multiplier tied to speed (faster = better)",
+        enemySpawnRate: 1.0,
+        modifiers: [{ type: "speed_score_link", ratio: 0.1 }],
+    },
+} as const;
+
+export const ROTATING_LAYER_SCHEDULE = {
+    durationHours: 3.5,
+    announceBeforeMinutes: 15,
+    rotationOrder: [
+        "standard",
+        "firewall",
+        "memory_leak",
+        "encrypted",
+        "lag_spike",
+        "void",
+        "temporal",
+    ],
 } as const;
 
 export const SPAWN_CONFIG = {

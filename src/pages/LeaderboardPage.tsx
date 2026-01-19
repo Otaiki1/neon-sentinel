@@ -4,6 +4,7 @@ import logoImage from '../assets/logo.png';
 import {
   fetchWeeklyCategoryLeaderboard,
   fetchAllTimeCategoryLeaderboard,
+  fetchWeeklyChallengeLeaderboard,
   getFeaturedWeeklyCategories,
   getCurrentISOWeek,
   type LeaderboardCategoryKey,
@@ -24,6 +25,7 @@ function LeaderboardPage() {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [featuredBoards, setFeaturedBoards] = useState<CategoryBoard[]>([]);
   const [allTimeBoards, setAllTimeBoards] = useState<CategoryBoard[]>([]);
+  const [challengeLeaders, setChallengeLeaders] = useState<ScoreEntry[]>([]);
   const [badges, setBadges] = useState<string[]>([]);
   const [cosmetics, setCosmetics] = useState<string[]>([]);
   const [selectedCosmetic, setSelectedCosmeticState] = useState<string>('none');
@@ -48,6 +50,7 @@ function LeaderboardPage() {
         entries: fetchAllTimeCategoryLeaderboard(key),
       }))
     );
+    setChallengeLeaders(fetchWeeklyChallengeLeaderboard());
     setBadges(getUnlockedBadges());
     setCosmetics(getUnlockedCosmetics());
     setSelectedCosmeticState(getSelectedCosmetic());
@@ -207,6 +210,41 @@ function LeaderboardPage() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
+            CHALLENGE LEADERBOARD
+          </h2>
+          {challengeLeaders.length ? (
+            <div className="space-y-2">
+              {challengeLeaders.map((entry, index) => (
+                <div key={`${entry.playerName}-${index}`} className="leaderboard-entry">
+                  <div className="flex items-center justify-between">
+                    <span>
+                      <span className="rank-badge font-score text-base">{index + 1}</span>
+                      <span className="font-score text-base md:text-lg">
+                        {entry.playerName || 'Anonymous'}
+                      </span>
+                      <span className="font-score text-xs md:text-sm text-red-500 ml-2">
+                        P{entry.prestigeLevel ?? 0}
+                      </span>
+                    </span>
+                    <span className="font-score text-base md:text-lg text-neon-green">
+                      {entry.score.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="font-body text-xs text-neon-green opacity-60 mt-1">
+                    Modifier: {entry.modifierKey ?? 'standard'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="leaderboard-entry text-center py-4">
+              <div className="font-body text-sm text-neon-green opacity-50">NO RUNS YET</div>
+            </div>
+          )}
         </div>
 
         <div className="text-center mb-10">

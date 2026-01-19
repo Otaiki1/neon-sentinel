@@ -1030,11 +1030,12 @@ export class UIScene extends Phaser.Scene {
     walletAddress?: string,
     deepestLayer?: number,
     prestigeLevel?: number,
-    runMetrics?: any
+    runMetrics?: any,
+    modifierKey?: string
   ) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics);
+    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics, modifierKey);
 
     const playerName = walletAddress
       ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`

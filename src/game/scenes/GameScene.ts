@@ -15,6 +15,7 @@ import {
     OVERCLOCK_CONFIG,
     MID_RUN_CHALLENGES,
     ACHIEVEMENTS,
+    ROTATING_LAYER_MODIFIERS,
 } from "../config";
 import {
     addLifetimePlayMs,
@@ -30,6 +31,7 @@ import {
     startSession,
     updateLifetimePlaytime,
 } from "../../services/sessionRewardService";
+import { getRotationInfo } from "../../services/rotatingLayerService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -104,6 +106,27 @@ export class GameScene extends Phaser.Scene {
     private sessionComboStartBoost = 1;
     private sessionBoostEndTime = 0;
     private sessionLastTick = 0;
+    private currentModifierKey: keyof typeof ROTATING_LAYER_MODIFIERS = "standard";
+    private nextModifierKey: keyof typeof ROTATING_LAYER_MODIFIERS = "standard";
+    private nextModifierChangeTime = 0;
+    private modifierAnnouncementShown = false;
+    private modifierSpawnMultiplier = 1;
+    private modifierSpeedCap = 1;
+    private modifierInputDelayMs = 0;
+    private modifierBaseInputDelayMs = 0;
+    private modifierInputQueue: Array<{ time: number; vx: number; vy: number }> = [];
+    private modifierLastAppliedVelocity = { vx: 0, vy: 0 };
+    private modifierPauseActive = false;
+    private modifierPauseCooldown = 0;
+    private modifierVisionOverlay: Phaser.GameObjects.Graphics | null = null;
+    private modifierVisionMask: Phaser.Display.Masks.GeometryMask | null = null;
+    private modifierSpeedScoreRatio = 0;
+    private modifierInputDelayRandom = false;
+    private modifierInputDelayNextToggle = 0;
+    private modifierInputDelayEndTime = 0;
+    private modifierPauseDurationMs = 0;
+    private modifierPauseIntervalMs = 0;
+    private modifierGlitchIntensity = 0;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -304,6 +327,7 @@ export class GameScene extends Phaser.Scene {
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
+        this.initRotatingModifier(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         if (this.registry.get("joystickSensitivity") === undefined) {
@@ -437,6 +461,10 @@ export class GameScene extends Phaser.Scene {
         this.samplePlayerMovement(time);
         this.updateAdaptiveLearning(time);
         this.updateSessionRewards(time);
+        this.updateRotatingModifier(time);
+        if (this.modifierPauseActive) {
+            return;
+        }
 
         // Player movement
         this.handlePlayerMovement();
@@ -675,7 +703,8 @@ export class GameScene extends Phaser.Scene {
         const currentSpeed =
             PLAYER_CONFIG.speed *
             this.speedMultiplier *
-            this.overclockSpeedMultiplier;
+            this.overclockSpeedMultiplier *
+            this.modifierSpeedCap;
 
         // Mobile joystick controls
         if (MOBILE_SCALE < 1.0) {
@@ -710,6 +739,26 @@ export class GameScene extends Phaser.Scene {
                 velocityX *= 0.707; // 1/sqrt(2)
                 velocityY *= 0.707;
             }
+        }
+
+        if (this.modifierInputDelayMs > 0) {
+            const now = this.time.now;
+            this.modifierInputQueue.push({ time: now, vx: velocityX, vy: velocityY });
+            while (this.modifierInputQueue.length > 20) {
+                this.modifierInputQueue.shift();
+            }
+            while (
+                this.modifierInputQueue.length > 0 &&
+                now - this.modifierInputQueue[0].time >= this.modifierInputDelayMs
+            ) {
+                const next = this.modifierInputQueue.shift()!;
+                this.modifierLastAppliedVelocity = { vx: next.vx, vy: next.vy };
+            }
+            velocityX = this.modifierLastAppliedVelocity.vx;
+            velocityY = this.modifierLastAppliedVelocity.vy;
+        } else {
+            this.modifierInputQueue = [];
+            this.modifierLastAppliedVelocity = { vx: velocityX, vy: velocityY };
         }
 
         this.player.setVelocity(velocityX, velocityY);
@@ -2296,6 +2345,191 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    private initRotatingModifier(time: number) {
+        const rotation = getRotationInfo(time);
+        this.currentModifierKey =
+            rotation.currentKey as keyof typeof ROTATING_LAYER_MODIFIERS;
+        this.nextModifierKey =
+            rotation.nextKey as keyof typeof ROTATING_LAYER_MODIFIERS;
+        this.nextModifierChangeTime = rotation.nextChangeTime;
+        this.modifierAnnouncementShown = false;
+        this.applyRotatingModifier(this.currentModifierKey);
+    }
+
+    private updateRotatingModifier(time: number) {
+        const rotation = getRotationInfo(time);
+        const currentKey =
+            rotation.currentKey as keyof typeof ROTATING_LAYER_MODIFIERS;
+        if (currentKey !== this.currentModifierKey) {
+            this.currentModifierKey = currentKey;
+            this.nextModifierKey =
+                rotation.nextKey as keyof typeof ROTATING_LAYER_MODIFIERS;
+            this.nextModifierChangeTime = rotation.nextChangeTime;
+            this.modifierAnnouncementShown = false;
+            this.applyRotatingModifier(this.currentModifierKey);
+            const modifier = ROTATING_LAYER_MODIFIERS[this.currentModifierKey];
+            this.showAnnouncement(
+                "LAYER SHIFT",
+                `${modifier.name}: ${modifier.description}`,
+                0xffaa00
+            );
+        }
+
+        const timeUntilChange = rotation.nextChangeTime - time;
+        if (
+            !this.modifierAnnouncementShown &&
+            timeUntilChange <= rotation.announceBeforeMs
+        ) {
+            this.modifierAnnouncementShown = true;
+            const upcoming =
+                ROTATING_LAYER_MODIFIERS[
+                    rotation.nextKey as keyof typeof ROTATING_LAYER_MODIFIERS
+                ];
+            this.showAnnouncement(
+                "UPCOMING SHIFT",
+                `${upcoming.name} in 15 minutes`,
+                0x00ffff
+            );
+        }
+
+        this.updateModifierEffects(time);
+    }
+
+    private applyRotatingModifier(
+        key: keyof typeof ROTATING_LAYER_MODIFIERS
+    ) {
+        const modifier = ROTATING_LAYER_MODIFIERS[key];
+        this.modifierSpawnMultiplier = modifier.enemySpawnRate || 1;
+        this.modifierSpeedCap = 1;
+        this.modifierInputDelayMs = 0;
+        this.modifierBaseInputDelayMs = 0;
+        this.modifierInputDelayRandom = false;
+        this.modifierInputDelayNextToggle = 0;
+        this.modifierInputDelayEndTime = 0;
+        this.modifierPauseDurationMs = 0;
+        this.modifierPauseIntervalMs = 0;
+        this.modifierPauseCooldown = 0;
+        this.modifierSpeedScoreRatio = 0;
+        this.modifierGlitchIntensity = 0;
+
+        modifier.modifiers.forEach((entry: any) => {
+            if (entry.type === "speed_cap") {
+                this.modifierSpeedCap = entry.value ?? 1;
+            }
+            if (entry.type === "input_lag") {
+                this.modifierBaseInputDelayMs = Math.round(
+                    (entry.value ?? 0) * 1000
+                );
+                this.modifierInputDelayMs = this.modifierBaseInputDelayMs;
+            }
+            if (entry.type === "input_delay") {
+                this.modifierBaseInputDelayMs = Math.round(
+                    (entry.value ?? 0) * 1000
+                );
+                this.modifierInputDelayMs = this.modifierBaseInputDelayMs;
+                this.modifierInputDelayRandom = true;
+                this.modifierInputDelayNextToggle = this.time.now + 5000;
+            }
+            if (entry.type === "random_pause") {
+                this.modifierPauseDurationMs = Math.round(
+                    (entry.duration ?? 0.5) * 1000
+                );
+                this.modifierPauseIntervalMs = 30000;
+                this.modifierPauseCooldown = this.time.now + 30000;
+            }
+            if (entry.type === "vision_limit") {
+                this.applyVisionLimit(entry.radius ?? 200);
+            }
+            if (entry.type === "speed_score_link") {
+                this.modifierSpeedScoreRatio = entry.ratio ?? 0;
+            }
+            if (entry.type === "screen_glitch") {
+                this.modifierGlitchIntensity = entry.intensity ?? 0;
+            }
+        });
+
+        if (modifier.modifiers.length === 0 && this.modifierVisionOverlay) {
+            this.modifierVisionOverlay.destroy();
+            this.modifierVisionOverlay = null;
+            this.modifierVisionMask = null;
+        }
+
+        this.updateSpawnTimer();
+    }
+
+    private updateModifierEffects(time: number) {
+        if (this.modifierInputDelayRandom && time >= this.modifierInputDelayNextToggle) {
+            this.modifierInputDelayNextToggle = time + 5000;
+            if (Math.random() < 0.5) {
+                this.modifierInputDelayEndTime = time + 1000;
+            }
+        }
+        if (this.modifierInputDelayEndTime > 0 && time > this.modifierInputDelayEndTime) {
+            this.modifierInputDelayEndTime = 0;
+        }
+        if (this.modifierInputDelayRandom) {
+            this.modifierInputDelayMs =
+                this.modifierInputDelayEndTime > time
+                    ? this.modifierBaseInputDelayMs
+                    : 0;
+        }
+
+        if (
+            this.modifierPauseDurationMs > 0 &&
+            time >= this.modifierPauseCooldown &&
+            !this.modifierPauseActive
+        ) {
+            this.modifierPauseActive = true;
+            this.physics.pause();
+            this.time.delayedCall(this.modifierPauseDurationMs, () => {
+                this.modifierPauseActive = false;
+                if (!this.isPaused && !this.gameOver) {
+                    this.physics.resume();
+                }
+            });
+            this.modifierPauseCooldown = time + this.modifierPauseIntervalMs;
+        }
+
+        if (this.modifierVisionOverlay && this.modifierVisionMask) {
+            this.modifierVisionOverlay.setPosition(0, 0);
+            const maskGraphics = this.modifierVisionMask.geometryMask as
+                | Phaser.GameObjects.Graphics
+                | undefined;
+            if (maskGraphics) {
+                const radius = (maskGraphics.getData("radius") as number) || 200;
+                maskGraphics.clear();
+                maskGraphics.fillStyle(0xffffff);
+                maskGraphics.fillCircle(this.player.x, this.player.y, radius);
+            }
+        }
+
+        if (this.modifierGlitchIntensity > 0 && Math.random() < 0.02) {
+            this.cameras.main.shake(100, this.modifierGlitchIntensity * 0.002);
+        }
+    }
+
+    private applyVisionLimit(radius: number) {
+        if (!this.modifierVisionOverlay) {
+            this.modifierVisionOverlay = this.add.graphics();
+            this.modifierVisionOverlay.fillStyle(0x000000, 0.7);
+            this.modifierVisionOverlay.fillRect(
+                0,
+                0,
+                this.scale.width,
+                this.scale.height
+            );
+        }
+
+        const maskGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+        maskGraphics.fillStyle(0xffffff);
+        maskGraphics.fillCircle(this.player.x, this.player.y, radius);
+        maskGraphics.setData("radius", radius);
+
+        const mask = maskGraphics.createGeometryMask();
+        this.modifierVisionOverlay.setMask(mask);
+        this.modifierVisionMask = mask;
+    }
+
     private updateSpawnTimer() {
         // Get spawn rate multiplier based on current layer
         const layerConfig =
@@ -2306,6 +2540,7 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
         const overclockSpawnMultiplier = this.overclockSpawnMultiplier;
+        const modifierSpawnMultiplier = this.modifierSpawnMultiplier;
 
         // Calculate spawn interval (faster spawns = lower delay)
         // Base interval is middle of min/max, then divided by multiplier
@@ -2316,7 +2551,8 @@ export class GameScene extends Phaser.Scene {
             baseInterval /
                 (spawnRateMultiplier *
                     prestigeSpawnMultiplier *
-                    overclockSpawnMultiplier)
+                    overclockSpawnMultiplier *
+                    modifierSpawnMultiplier)
         );
 
         // Remove existing timer if any
@@ -2993,7 +3229,8 @@ export class GameScene extends Phaser.Scene {
                         walletAddress,
                         this.deepestLayer,
                         this.prestigeLevel,
-                        runMetrics
+                        runMetrics,
+                        this.currentModifierKey
                     );
                 }
             });
@@ -3759,6 +3996,15 @@ export class GameScene extends Phaser.Scene {
         // Apply score multiplier from power-ups
         const corruptionMultiplier =
             this.getCorruptionScoreMultiplier() * this.challengeCorruptionMultiplier;
+        const velocity = this.player.body?.velocity;
+        const speedRatio = velocity
+            ? Math.min(2, Math.hypot(velocity.x, velocity.y) / PLAYER_CONFIG.speed)
+            : 0;
+        const speedScoreMultiplier =
+            this.modifierSpeedScoreRatio > 0
+                ? 1 + this.modifierSpeedScoreRatio * speedRatio
+                : 1;
+
         const adjustedPoints = Math.floor(
             points *
                 this.scoreMultiplier *
@@ -3768,7 +4014,8 @@ export class GameScene extends Phaser.Scene {
                 this.overclockScoreMultiplier *
                 this.challengeScoreMultiplier *
                 this.sessionScoreMultiplier *
-                this.sessionStreakScoreMultiplier
+                this.sessionStreakScoreMultiplier *
+                speedScoreMultiplier
         );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
@@ -4046,6 +4293,7 @@ export class GameScene extends Phaser.Scene {
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
+        this.initRotatingModifier(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         this.updatePrestigeEffects();

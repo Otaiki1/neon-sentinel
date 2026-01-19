@@ -8,6 +8,7 @@ export interface ScoreEntry {
   week: number;
   deepestLayer?: number;
   prestigeLevel?: number;
+  modifierKey?: string;
   survivalTime?: number;
   maxCorruptionReached?: number;
   totalEnemiesDefeated?: number;
@@ -135,7 +136,8 @@ export function submitScore(
   walletAddress?: string,
   deepestLayer?: number,
   prestigeLevel?: number,
-  runMetrics?: RunMetrics
+  runMetrics?: RunMetrics,
+  modifierKey?: string
 ): void {
   // Check if we need to reset leaderboard
   if (shouldResetLeaderboard()) {
@@ -161,6 +163,7 @@ export function submitScore(
     week: currentWeek,
     deepestLayer: safeDeepestLayer,
     prestigeLevel: safePrestigeLevel,
+    modifierKey,
     survivalTime: runMetrics?.survivalTime,
     maxCorruptionReached: runMetrics?.maxCorruptionReached,
     totalEnemiesDefeated: runMetrics?.totalEnemiesDefeated,
@@ -200,6 +203,20 @@ export function fetchWeeklyLeaderboard(): ScoreEntry[] {
     .slice(0, 10); // Top 10
   
   return weeklyScores;
+}
+
+export function fetchWeeklyChallengeLeaderboard(): ScoreEntry[] {
+  if (shouldResetLeaderboard()) {
+    resetWeeklyLeaderboard();
+  }
+
+  const currentWeek = getCurrentISOWeek();
+  const allScores = getAllScores();
+
+  return allScores
+    .filter(score => score.week === currentWeek && score.modifierKey && score.modifierKey !== 'standard')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
 }
 
 export function fetchWeeklyCategoryLeaderboard(
