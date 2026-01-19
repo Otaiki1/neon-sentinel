@@ -883,6 +883,16 @@ update() {
 - `createPauseButton()`: Creates pause button
 - `createButton()`: Button creation helper
 
+### Floating Combat Text
+
+**Location**: `GameScene.ts`
+
+**Behavior**:
+- Damage numbers are spawned on enemy hit
+- Critical hits use larger font and brighter color (bosses or high combo)
+- Combo pings appear on each kill
+- Score milestones show centered banner text
+
 **Registry Listeners**:
 ```typescript
 registry.events.on('changedata-score', updateScore);

@@ -26,7 +26,8 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 16. [Kernel Playstyles](#kernel-playstyles)
 17. [Sensory Escalation](#sensory-escalation)
 18. [Session Stats HUD](#session-stats-hud)
-19. [Achievements & Badges](#achievements--badges)
+19. [Floating Combat Text](#floating-combat-text)
+20. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -424,6 +425,7 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 - **Prestige**: Shows current prestige cycle (P0 = none)
 - **Lives**: Orb indicators (each orb shows up to 5 lives, max 4 orbs shown)
 - **Session Stats**: Survival time, accuracy, dodges, and shots fired
+- **Floating Combat Text**: Damage numbers, combo pings, milestone alerts
 - **Progress Bar**: Faint bar at bottom tracking layer progress
 - **Overclock Bar**: Cyan bar showing active duration
 - **Overclock Status**: Remaining charges and cooldown
@@ -662,6 +664,17 @@ During a run, you’ll see live stats like:
 
 On game over, a detailed run summary includes score, deepest layer, max corruption,
 best combo, lives used, power-ups collected, and total deaths.
+
+---
+
+## ✨ Floating Combat Text
+
+During combat, you’ll see:
+
+- **Damage Numbers**: Small numbers above enemies on hit
+- **Critical Hits**: Larger, brighter numbers on bosses or high combos
+- **Combo Pings**: “COMBO +1” on each kill
+- **Milestones**: Score callouts like “500 POINTS!”
 
 ---
 

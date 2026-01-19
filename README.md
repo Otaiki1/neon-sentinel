@@ -28,6 +28,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Kernel Playstyles**: Sidegrade classes with distinct movement/fire traits
 -   **Sensory Escalation**: Scanlines, glitching, and haptics ramp with danger
 -   **Run Stats HUD**: Live survival time, accuracy, and dodge tracking
+-   **Floating Combat Text**: Damage numbers, combo pings, and milestones
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: In-game top scores with prestige level tracked
 -   **Hall of Fame**: Dedicated leaderboard page with rotating categories
