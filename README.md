@@ -27,6 +27,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Almost Success Feedback**: Game over insights that nudge another run
 -   **Kernel Playstyles**: Sidegrade classes with distinct movement/fire traits
 -   **Sensory Escalation**: Scanlines, glitching, and haptics ramp with danger
+-   **Run Stats HUD**: Live survival time, accuracy, and dodge tracking
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: In-game top scores with prestige level tracked
 -   **Hall of Fame**: Dedicated leaderboard page with rotating categories
@@ -220,6 +221,11 @@ The game features 6 system layers, each with increasing difficulty:
 - **UI Glitching**: HUD flicker ramps in deeper layers
 - **Haptics**: Vibrations on kills, boss defeats, damage, and power-ups
 
+### Run Stats HUD
+
+- **Live Metrics**: Survival time, enemies defeated, accuracy, dodges, shots
+- **Run Summary**: Detailed breakdown on game over
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -266,6 +272,7 @@ All game configuration is in `src/game/config.ts`:
 -   `FAILURE_FEEDBACK`: Game over feedback metrics and celebration cues
 -   `PLAYER_KERNELS`: Kernel definitions, multipliers, and unlock rules
 -   `SENSORY_ESCALATION`: Tempo, screen effects, UI glitching, and haptics
+-   `runStats` (registry): Live session stats for HUD + summary
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 

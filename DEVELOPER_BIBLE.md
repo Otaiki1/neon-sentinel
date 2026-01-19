@@ -873,6 +873,7 @@ update() {
 - `updateCombo()`: Updates combo display
 - `updateLayer()`: Updates layer display
 - `updateLives()`: Updates lives display
+- `updateRunStats()`: Updates session stats HUD
 - `onGameOver()`: Shows game over modal
 - `onPauseChanged()`: Shows/hides pause modal
 - `showLeaderboard()`: Displays leaderboard (auto-hides after delay)
@@ -993,6 +994,7 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `challengeProgress`: Progress (0-1)
 - `uiGlitchIntensity`: HUD glitch intensity (0-1)
 - `musicBpm`: Current music tempo target (for future audio sync)
+- `runStats`: Live session stats (survival time, accuracy, dodges, etc.)
 
 **Usage**:
 ```typescript
