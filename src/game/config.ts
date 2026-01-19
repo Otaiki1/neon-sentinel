@@ -192,6 +192,31 @@ export const ENEMY_BEHAVIOR_CONFIG = {
     behaviourResetInterval: 120000,
 } as const;
 
+export const CORRUPTION_SYSTEM = {
+    currentCorruption: 0,
+    maxCorruption: 100,
+    passiveIncreaseRate: 0.5,
+    safePlayDecay: -0.2,
+    riskPlayBonus: {
+        enterCorruptedZone: 5,
+        defeatBoss: 10,
+        noHitStreak: 1,
+        comboMultiplier: 2,
+    },
+    scoreMultiplier: {
+        low: 1.0,
+        medium: 1.5,
+        high: 2.0,
+        critical: 3.0,
+    },
+    enemyDifficultyMultiplier: {
+        low: 1.0,
+        medium: 1.3,
+        high: 1.7,
+        critical: 2.2,
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

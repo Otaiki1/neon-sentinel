@@ -8,6 +8,8 @@ export class UIScene extends Phaser.Scene {
   private layerText!: Phaser.GameObjects.Text;
   private prestigeText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
+  private corruptionBarBg!: Phaser.GameObjects.Graphics;
+  private corruptionBarFill!: Phaser.GameObjects.Graphics;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -106,6 +108,9 @@ export class UIScene extends Phaser.Scene {
     this.livesOrb = this.add.graphics();
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
 
+    // Corruption meter
+    this.createCorruptionMeter();
+
     // Pause button (top-right corner)
     this.createPauseButton();
 
@@ -126,6 +131,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
+    this.registry.events.on('changedata-corruption', this.updateCorruption, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -635,6 +641,67 @@ export class UIScene extends Phaser.Scene {
 
   private updatePrestige(_parent: Phaser.Data.DataManager, value: number) {
     this.prestigeText.setText(`PRESTIGE: ${value}`);
+  }
+
+  private createCorruptionMeter() {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 14 * uiScale;
+    const barHeight = 220 * uiScale;
+    const barX = width - 30 * uiScale;
+    const barY = height / 2 - barHeight / 2;
+
+    this.corruptionBarBg = this.add.graphics();
+    this.corruptionBarBg.fillStyle(0x000000, 0.6);
+    this.corruptionBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.corruptionBarBg.lineStyle(2, 0x00ff00, 0.8);
+    this.corruptionBarBg.strokeRect(barX, barY, barWidth, barHeight);
+
+    this.corruptionBarFill = this.add.graphics();
+    this.renderCorruptionFill(0, barX, barY, barWidth, barHeight);
+  }
+
+  private updateCorruption(_parent: Phaser.Data.DataManager, value: number) {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 14 * uiScale;
+    const barHeight = 220 * uiScale;
+    const barX = width - 30 * uiScale;
+    const barY = height / 2 - barHeight / 2;
+    this.renderCorruptionFill(value, barX, barY, barWidth, barHeight);
+  }
+
+  private renderCorruptionFill(
+    corruption: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) {
+    const clamped = Phaser.Math.Clamp(corruption / 100, 0, 1);
+    const fillHeight = height * clamped;
+    const startColor = Phaser.Display.Color.ValueToColor(0x00ff00);
+    const endColor = Phaser.Display.Color.ValueToColor(0xff0033);
+    const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
+      startColor,
+      endColor,
+      100,
+      Math.round(clamped * 100)
+    );
+
+    this.corruptionBarFill.clear();
+    this.corruptionBarFill.fillStyle(
+      Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b),
+      0.9
+    );
+    this.corruptionBarFill.fillRect(
+      x,
+      y + (height - fillHeight),
+      width,
+      fillHeight
+    );
   }
 
   private updateLives(_parent: Phaser.Data.DataManager, value: number) {
