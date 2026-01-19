@@ -309,6 +309,34 @@ CORRUPTION_SYSTEM = {
 - Score multiplier and enemy difficulty scale by corruption tier
 - Corrupted zones are detected by nearby enemy density
 
+### Overclock Configuration
+
+```typescript
+OVERCLOCK_CONFIG = {
+    activationKey: "Q",
+    cooldownBetweenActivations: 60000,
+    maxActivationsPerRun: 5,
+    duration: 15000,
+    effects: {
+        playerSpeedMultiplier: 1.4,
+        scoreMultiplier: 2.0,
+        fireRateMultiplier: 0.6,
+        enemySpawningMultiplier: 1.8,
+        playerVisibility: 1.0,
+    },
+    indicators: {
+        overclockBar: true,
+        screenBurnEffect: true,
+        playerGlowEffect: true,
+    },
+}
+```
+
+**Overclock Mechanics**:
+- Manual activation (`Q`) with cooldown + max charges per run
+- Temporary multipliers for speed, fire rate, score, and spawn rate
+- UI exposes remaining duration and cooldown
+
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
 - `bossSpeedMultiplier`: Applied to boss base speed per layer
@@ -788,6 +816,10 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `prestigeDifficultyMultiplier`: Current prestige difficulty multiplier
 - `prestigeChampion`: Boolean for Prestige 10 badge
 - `corruption`: Current corruption level (0-100)
+- `overclockActive`: Boolean for active overclock
+- `overclockProgress`: Remaining duration (0-1)
+- `overclockCooldown`: Remaining cooldown (0-1)
+- `overclockCharges`: Remaining activations
 
 **Usage**:
 ```typescript
@@ -1142,6 +1174,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.4*
+*Last Updated: Game Version 1.5*
 *Maintained by: Neon Sentinel Development Team*
 

@@ -19,6 +19,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 9. [Prestige Mode](#prestige-mode)
 10. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
 11. [Corruption Meter](#corruption-meter)
+12. [Overclock Mode](#overclock-mode)
 
 ---
 
@@ -49,6 +50,7 @@ As a Neon Sentinel, your mission is to:
 #### Desktop
 - **WASD** or **Arrow Keys**: Move your Sentinel
 - **Spacebar** or **Mouse Click**: Shoot bullets
+- **Q**: Activate Overclock Mode
 - **ESC**: Pause/Resume game
 - **R**: Restart (when game over)
 - **M**: Return to Menu
@@ -409,6 +411,8 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 - **Prestige**: Shows current prestige cycle (P0 = none)
 - **Lives**: Orb indicators (each orb shows up to 5 lives, max 4 orbs shown)
 - **Progress Bar**: Faint bar at bottom tracking layer progress
+- **Overclock Bar**: Cyan bar showing active duration
+- **Overclock Status**: Remaining charges and cooldown
 
 ### Announcements
 
@@ -543,6 +547,21 @@ Tips:
 
 ---
 
+## ⚡ Overclock Mode
+
+Overclock Mode is a manual power surge you can trigger mid-run:
+
+- **Activation**: Press `Q` (desktop)
+- **Duration**: 15 seconds of boosted speed, fire rate, and score
+- **Risk**: Enemy spawns increase during Overclock
+- **Limits**: Cooldown between uses and a max number of activations per run
+
+Tips:
+- Use Overclock during dense waves or boss phases for max points
+- Don’t trigger it when you’re low on lives or boxed in
+
+---
+
 ## 🎯 Final Words
 
 The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the last line of defense. Push deeper, survive longer, and climb the leaderboards to become a legend.
@@ -551,5 +570,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.4*
+*Last Updated: Game Version 1.5*
 

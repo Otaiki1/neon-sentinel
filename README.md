@@ -20,6 +20,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Graduation Boss System**: Defeat bosses to unlock new layers
 -   **Dynamic Difficulty Evolution**: Enemy behavior changes over time (formations, prediction, coordinated fire)
 -   **Corruption Meter**: Risk-reward system that boosts score and enemy aggression
+-   **Overclock Mode**: Manual mid-run boost with cooldown and charge limits
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: Compete for top scores with prestige level tracked
 -   **Wallet Integration**: Connect wallet or play anonymously
@@ -168,6 +169,12 @@ The game features 6 system layers, each with increasing difficulty:
 - **Risk/Reward**: Higher corruption boosts score multipliers but increases enemy difficulty
 - **Triggers**: Corrupted zones, boss defeats, no-hit streaks, and high combos raise corruption
 
+### Overclock Mode
+
+- **Activation**: Press `Q` to trigger a timed power surge
+- **Effects**: Faster movement and firing, higher score, more enemy spawns
+- **Limits**: Cooldown between activations and a max number per run
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -206,6 +213,8 @@ All game configuration is in `src/game/config.ts`:
 -   `DIFFICULTY_EVOLUTION`: Timed phases and behavior/spawn evolution
 -   `ENEMY_BEHAVIOR_CONFIG`: Predictive lead time, coordination range, adaptation tuning
 -   `CORRUPTION_SYSTEM`: Corruption thresholds, bonuses, score/enemy multipliers
+-   `OVERCLOCK_CONFIG`: Overclock activation, cooldown, and effects
+-   `OVERCLOCK_CONFIG`: Manual activation settings, effects, cooldown/charges
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
