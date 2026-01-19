@@ -18,6 +18,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 8. [Leaderboards](#leaderboards)
 9. [Prestige Mode](#prestige-mode)
 10. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
+11. [Corruption Meter](#corruption-meter)
 
 ---
 
@@ -298,7 +299,7 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 ### Final Score Calculation
 
 ```
-Final Score = Base Points × Combo Multiplier × Score Multiplier
+Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption Multiplier
 ```
 
 ---
@@ -393,6 +394,7 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier
 - **Screen Flash**: Red flash when boss spawns, green flash when layer advances
 - **Prestige FX**: Purple flash + grid hue shift + glitch jitter on prestige
 - **Evolution Pressure**: More formations and bullet patterns appear as time passes
+- **Corruption FX**: Grid flicker and red tint intensify at higher corruption
 - **Screen Shake**: Intensifies in later layers
 - **Health Bars**: All enemies have health bars above them (green >60%, yellow 30-60%, red <30%)
 
@@ -492,6 +494,27 @@ Tips:
 
 ---
 
+## 🧪 Corruption Meter
+
+Corruption is a global risk-reward meter (0-100) that rises over time:
+
+- **Low (0-25%)**: 1.0x score, standard enemies
+- **Medium (25-50%)**: 1.5x score, tougher enemies
+- **High (50-75%)**: 2.0x score, aggressive enemies
+- **Critical (75-100%)**: 3.0x score, very dangerous enemies
+
+How it changes:
+- **Passive rise**: Increases every second
+- **Risk bonuses**: Corrupted zones (dense enemies), boss kills, no-hit streaks, high combos
+- **Safe play**: Corruption slowly decays if you only farm low-risk enemies
+
+Tips:
+- Push corruption when you’re confident for big score gains
+- Mix movement patterns to survive at high corruption
+- Reset pressure with safer play after mistakes
+
+---
+
 ## 🎯 Final Words
 
 The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the last line of defense. Push deeper, survive longer, and climb the leaderboards to become a legend.
@@ -500,5 +523,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.2*
+*Last Updated: Game Version 1.3*
 

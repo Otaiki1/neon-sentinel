@@ -19,6 +19,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **5 Enemy Types**: Green, Yellow, Blue, Purple, and Red bosses
 -   **Graduation Boss System**: Defeat bosses to unlock new layers
 -   **Dynamic Difficulty Evolution**: Enemy behavior changes over time (formations, prediction, coordinated fire)
+-   **Corruption Meter**: Risk-reward system that boosts score and enemy aggression
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: Compete for top scores with prestige level tracked
 -   **Wallet Integration**: Connect wallet or play anonymously
@@ -161,6 +162,12 @@ The game features 6 system layers, each with increasing difficulty:
 - **Behaviors**: Predictive movement, coordinated fire, space denial, adaptive spawns
 - **Spawn Patterns**: Formations, ambush waves, and boss rushes introduced in later phases
 
+### Corruption Meter
+
+- **Meter**: Global 0-100 corruption level that rises over time
+- **Risk/Reward**: Higher corruption boosts score multipliers but increases enemy difficulty
+- **Triggers**: Corrupted zones, boss defeats, no-hit streaks, and high combos raise corruption
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -194,6 +201,7 @@ All game configuration is in `src/game/config.ts`:
 -   `PRESTIGE_CONFIG`: Prestige tiers, multipliers, and visuals
 -   `DIFFICULTY_EVOLUTION`: Timed phases and behavior/spawn evolution
 -   `ENEMY_BEHAVIOR_CONFIG`: Predictive lead time, coordination range, adaptation tuning
+-   `CORRUPTION_SYSTEM`: Corruption thresholds, bonuses, score/enemy multipliers
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 

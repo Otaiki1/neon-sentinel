@@ -235,6 +235,40 @@ ENEMY_BEHAVIOR_CONFIG = {
 - Coordinated fire triggers when blue enemies cluster within range
 - Adaptive learning biases spawn lanes after threshold kills, resets every interval
 
+### Corruption System Configuration
+
+```typescript
+CORRUPTION_SYSTEM = {
+    currentCorruption: 0,
+    maxCorruption: 100,
+    passiveIncreaseRate: 0.5,
+    safePlayDecay: -0.2,
+    riskPlayBonus: {
+        enterCorruptedZone: 5,
+        defeatBoss: 10,
+        noHitStreak: 1,
+        comboMultiplier: 2,
+    },
+    scoreMultiplier: {
+        low: 1.0,
+        medium: 1.5,
+        high: 2.0,
+        critical: 3.0,
+    },
+    enemyDifficultyMultiplier: {
+        low: 1.0,
+        medium: 1.3,
+        high: 1.7,
+        critical: 2.2,
+    },
+}
+```
+
+**Corruption Mechanics**:
+- Timer-based tick (1s) applies passive rise, risk bonuses, and safe-play decay
+- Score multiplier and enemy difficulty scale by corruption tier
+- Corrupted zones are detected by nearby enemy density
+
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
 - `bossSpeedMultiplier`: Applied to boss base speed per layer
@@ -463,7 +497,7 @@ function isMobileDevice(): boolean {
 ```typescript
 basePoints = enemy.points;
 // addScore is called with basePoints * comboMultiplier
-adjustedPoints = Math.floor(basePoints * comboMultiplier * scoreMultiplier);
+adjustedPoints = Math.floor(basePoints * comboMultiplier * scoreMultiplier * corruptionMultiplier);
 totalScore += adjustedPoints;
 ```
 
@@ -707,6 +741,7 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `prestigeScoreMultiplier`: Current prestige score multiplier
 - `prestigeDifficultyMultiplier`: Current prestige difficulty multiplier
 - `prestigeChampion`: Boolean for Prestige 10 badge
+- `corruption`: Current corruption level (0-100)
 
 **Usage**:
 ```typescript
@@ -725,6 +760,7 @@ registry.events.on('changedata-score', callback);
 **Properties**:
 - `score`, `lives`, `currentLayer`, `deepestLayer`
 - `prestigeLevel`, `prestigeScoreMultiplier`, `prestigeDifficultyMultiplier`
+- `corruption`, `currentCorruptionTier`
 - `comboMultiplier`, `speedMultiplier`, `fireRateMultiplier`, `scoreMultiplier`
 - `autoShootEnabled`, `isInvisible`, `firepowerLevel`
 - `gameOver`, `isPaused`, `graduationBossActive`, `pendingLayer`
@@ -1060,6 +1096,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.2*
+*Last Updated: Game Version 1.3*
 *Maintained by: Neon Sentinel Development Team*
 
