@@ -392,6 +392,32 @@ ROTATING_LAYER_SCHEDULE = {
 - Upcoming change announced 15 minutes before the switch
 - Effects include input delay, random pauses, vision mask, and speed-linked scoring
 
+### Failure Feedback Configuration
+
+```typescript
+FAILURE_FEEDBACK = {
+    displayMetrics: [
+        { metric: "pointsToNextMilestone", color: "red" },
+        { metric: "layerProgress", color: "yellow" },
+        { metric: "personalBest", color: "blue" },
+        { metric: "leaderboardProximity", color: "purple" },
+        { metric: "riskReward", color: "orange" },
+    ],
+    celebrationMetrics: [
+        "Best run this week",
+        "New personal best enemy kills",
+        "Highest corruption survived",
+        "New personal best combo",
+    ],
+    scoreMilestones: [10000, 50000, 100000],
+}
+```
+
+**Feedback Mechanics**:
+- Game over UI pulls run metrics from Phaser registry (`runMetrics`)
+- Weekly leaderboard proximity uses `fetchWeeklyLeaderboard()`
+- Personal bests are persisted in achievement state and updated after display
+
 ### Mid-Run Challenges Configuration
 
 ```typescript

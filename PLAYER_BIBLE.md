@@ -22,7 +22,8 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 12. [Overclock Mode](#overclock-mode)
 13. [Mid-Run Challenges](#mid-run-challenges)
 14. [Rotating Layer Modifiers](#rotating-layer-modifiers)
-15. [Achievements & Badges](#achievements--badges)
+15. [Almost Success Feedback](#almost-success-feedback)
+16. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -604,6 +605,19 @@ Modifier tips:
 - Plan movement around speed caps and input lag
 - Keep space in The Void to avoid surprise hits
 - In Temporal Anomaly, move faster for higher score bonuses
+
+---
+
+## 🧩 Almost Success Feedback
+
+After game over, the HUD shows quick, personalized nudges like:
+
+- How close you were to the next layer or score milestone
+- The gap to the #10 leaderboard spot
+- Whether higher corruption could have boosted your score
+- New personal bests (kills, combo, corruption)
+
+Use these hints to choose a target for your next run.
 
 ---
 
