@@ -13,6 +13,7 @@ import {
     ENEMY_BEHAVIOR_CONFIG,
     CORRUPTION_SYSTEM,
     OVERCLOCK_CONFIG,
+    MID_RUN_CHALLENGES,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -62,6 +63,24 @@ export class GameScene extends Phaser.Scene {
     private tookDamageThisRun = false;
     private peakComboMultiplier = 1;
     private timeToReachLayer6: number | null = null;
+    private nextChallengeTime = 0;
+    private lastChallengeEndTime = 0;
+    private activeChallenge:
+        | (typeof MID_RUN_CHALLENGES.challenges)[number]
+        | null = null;
+    private challengeStartTime = 0;
+    private challengeWindowEnd = 0;
+    private challengeKills = 0;
+    private challengeBlueKills = 0;
+    private challengeZoneTime = 0;
+    private challengeComboTime = 0;
+    private challengeBulletsDodged = 0;
+    private challengeDamageTaken = false;
+    private challengeScoreMultiplier = 1;
+    private challengeFireRateMultiplier = 1;
+    private challengeCorruptionMultiplier = 1;
+    private challengeInvincibilityBonusMs = 0;
+    private challengeRewardTimers = new Map<string, Phaser.Time.TimerEvent>();
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -238,12 +257,20 @@ export class GameScene extends Phaser.Scene {
             "overclockCharges",
             OVERCLOCK_CONFIG.maxActivationsPerRun - this.overclockActivations
         );
+        this.registry.set("challengeActive", false);
+        this.registry.set("challengeTitle", "");
+        this.registry.set("challengeDescription", "");
+        this.registry.set("challengeProgress", 0);
         this.runStartTime = this.time.now;
         this.totalEnemiesDefeated = 0;
         this.maxCorruptionReached = this.corruption;
         this.tookDamageThisRun = false;
         this.peakComboMultiplier = this.comboMultiplier;
         this.timeToReachLayer6 = null;
+        this.challengeDamageTaken = false;
+        this.nextChallengeTime =
+            this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
+        this.lastChallengeEndTime = this.runStartTime;
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         if (this.registry.get("joystickSensitivity") === undefined) {
@@ -384,7 +411,8 @@ export class GameScene extends Phaser.Scene {
         const currentFireRate =
             PLAYER_CONFIG.fireRate *
             this.fireRateMultiplier *
-            this.overclockFireRateMultiplier;
+            this.overclockFireRateMultiplier *
+            this.challengeFireRateMultiplier;
 
         if (this.autoShootEnabled) {
             // Auto-shoot when power-up is active
@@ -426,6 +454,12 @@ export class GameScene extends Phaser.Scene {
                 b.y > gameHeight + 50
             ) {
                 b.destroy();
+                if (
+                    this.activeChallenge?.id === "dodge_25_bullets" &&
+                    !this.challengeDamageTaken
+                ) {
+                    this.challengeBulletsDodged += 1;
+                }
             }
         });
 
@@ -588,6 +622,7 @@ export class GameScene extends Phaser.Scene {
         }
         this.updateBuffEffects();
         this.updateOverclockProgress(time);
+        this.updateChallenges(time);
 
         // Update combo multiplier (reset if player hasn't been hit in a while)
         const timeSinceLastHit = time - this.lastHitTime;
@@ -804,6 +839,9 @@ export class GameScene extends Phaser.Scene {
 
     private shoot() {
         if (this.gameOver) return;
+        if (this.activeChallenge?.id === "no_shoot_20s") {
+            this.failChallenge();
+        }
 
         const playerX = this.player.x + 30;
         const playerY = this.player.y;
@@ -1659,7 +1697,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     private getCorruptionDifficultyMultiplier() {
-        return CORRUPTION_SYSTEM.enemyDifficultyMultiplier[this.getCorruptionTier()];
+        return (
+            CORRUPTION_SYSTEM.enemyDifficultyMultiplier[this.getCorruptionTier()] *
+            this.challengeCorruptionMultiplier
+        );
     }
 
     private isInCorruptedZone() {
@@ -1799,6 +1840,22 @@ export class GameScene extends Phaser.Scene {
         this.tookDamageThisRun = false;
         this.peakComboMultiplier = this.comboMultiplier;
         this.timeToReachLayer6 = null;
+        this.activeChallenge = null;
+        this.challengeStartTime = 0;
+        this.challengeWindowEnd = 0;
+        this.challengeKills = 0;
+        this.challengeBlueKills = 0;
+        this.challengeZoneTime = 0;
+        this.challengeComboTime = 0;
+        this.challengeBulletsDodged = 0;
+        this.challengeDamageTaken = false;
+        this.challengeDamageTaken = false;
+        this.challengeScoreMultiplier = 1;
+        this.challengeFireRateMultiplier = 1;
+        this.challengeCorruptionMultiplier = 1;
+        this.challengeInvincibilityBonusMs = 0;
+        this.challengeRewardTimers.forEach((timer) => timer.remove());
+        this.challengeRewardTimers.clear();
         this.player.clearTint();
         this.player.setAlpha(1);
         this.registry.set("overclockActive", false);
@@ -1818,6 +1875,266 @@ export class GameScene extends Phaser.Scene {
         const cooldownProgress =
             cooldownRemaining / OVERCLOCK_CONFIG.cooldownBetweenActivations;
         this.registry.set("overclockCooldown", cooldownProgress);
+    }
+
+    private updateChallenges(time: number) {
+        if (this.activeChallenge) {
+            this.updateActiveChallenge(time);
+            return;
+        }
+
+        const minGap =
+            this.lastChallengeEndTime +
+            MID_RUN_CHALLENGES.triggerIntervals.minTimeBetweenChallenges;
+        if (time < this.nextChallengeTime || time < minGap) {
+            return;
+        }
+
+        const options = MID_RUN_CHALLENGES.challenges;
+        const challenge = options[Phaser.Math.Between(0, options.length - 1)];
+        this.startChallenge(challenge, time);
+    }
+
+    private startChallenge(
+        challenge: (typeof MID_RUN_CHALLENGES.challenges)[number],
+        time: number
+    ) {
+        this.activeChallenge = challenge;
+        this.challengeStartTime = time;
+        this.challengeWindowEnd = 0;
+        this.challengeKills = 0;
+        this.challengeBlueKills = 0;
+        this.challengeZoneTime = 0;
+        this.challengeComboTime = 0;
+        this.challengeBulletsDodged = 0;
+        this.challengeDamageTaken = false;
+
+        if (challenge.id === "no_shoot_20s") {
+            this.challengeWindowEnd = time + 20000;
+        } else if (challenge.id === "defeat_5_blue") {
+            this.challengeWindowEnd = time + 30000;
+        } else if (challenge.id === "chain_combo") {
+            this.challengeWindowEnd = time + 30000;
+        }
+
+        this.registry.set("challengeActive", true);
+        this.registry.set("challengeTitle", `Challenge: ${challenge.title}`);
+        this.registry.set("challengeDescription", challenge.description);
+        this.registry.set("challengeProgress", 0);
+
+        if (MID_RUN_CHALLENGES.display.announcementCard) {
+            this.showAnnouncement(
+                "CHALLENGE START",
+                challenge.description,
+                0x00ffff
+            );
+        }
+    }
+
+    private updateActiveChallenge(time: number) {
+        const challenge = this.activeChallenge;
+        if (!challenge) return;
+
+        if (this.challengeWindowEnd > 0 && time > this.challengeWindowEnd) {
+            this.failChallenge();
+            return;
+        }
+
+        let progress = 0;
+        switch (challenge.id) {
+            case "no_shoot_20s":
+                progress = Phaser.Math.Clamp(
+                    (time - this.challengeStartTime) / 20000,
+                    0,
+                    1
+                );
+                break;
+            case "clean_10_enemies":
+                progress = Phaser.Math.Clamp(this.challengeKills / 10, 0, 1);
+                break;
+            case "survive_corruption_zone": {
+                if (this.corruption >= 80) {
+                    this.challengeZoneTime += this.game.loop.delta;
+                } else {
+                    this.challengeZoneTime = 0;
+                }
+                progress = Phaser.Math.Clamp(
+                    this.challengeZoneTime / 15000,
+                    0,
+                    1
+                );
+                break;
+            }
+            case "defeat_5_blue":
+                progress = Phaser.Math.Clamp(this.challengeBlueKills / 5, 0, 1);
+                break;
+            case "chain_combo": {
+                if (this.comboMultiplier >= 3) {
+                    this.challengeComboTime += this.game.loop.delta;
+                } else {
+                    this.challengeComboTime = 0;
+                }
+                progress = Phaser.Math.Clamp(
+                    this.challengeComboTime / 30000,
+                    0,
+                    1
+                );
+                break;
+            }
+            case "dodge_25_bullets":
+                progress = Phaser.Math.Clamp(
+                    this.challengeBulletsDodged / 25,
+                    0,
+                    1
+                );
+                break;
+            default:
+                break;
+        }
+
+        this.registry.set("challengeProgress", progress);
+
+        if (progress >= 1) {
+            this.completeChallenge();
+        }
+    }
+
+    private completeChallenge() {
+        const challenge = this.activeChallenge;
+        if (!challenge) return;
+
+        this.applyChallengeReward(challenge.reward);
+        this.activeChallenge = null;
+        this.lastChallengeEndTime = this.time.now;
+        this.nextChallengeTime =
+            this.time.now + MID_RUN_CHALLENGES.triggerIntervals.subsequentChallenges;
+        this.registry.set("challengeActive", false);
+        this.registry.set("challengeProgress", 0);
+
+        if (MID_RUN_CHALLENGES.display.celebrationOnCompletion) {
+            this.cameras.main.flash(250, 0, 255, 255, false);
+            this.cameras.main.shake(200, 0.01);
+        }
+        this.showAnnouncement(
+            "CHALLENGE COMPLETE",
+            `${challenge.title} cleared!`,
+            0x00ff99
+        );
+    }
+
+    private failChallenge() {
+        if (!this.activeChallenge) return;
+        this.activeChallenge = null;
+        this.lastChallengeEndTime = this.time.now;
+        this.nextChallengeTime =
+            this.time.now + MID_RUN_CHALLENGES.triggerIntervals.subsequentChallenges;
+        this.registry.set("challengeActive", false);
+        this.registry.set("challengeProgress", 0);
+    }
+
+    private applyChallengeReward(reward: {
+        bonusScore?: number;
+        comboMultiplier?: number;
+        extraLife?: number;
+        corruptionMultiplier?: number;
+        fireRateBoost?: number;
+        scoreMultiplier?: number;
+        invincibilityFrame?: number;
+    }) {
+        if (reward.bonusScore) {
+            this.score += reward.bonusScore;
+            this.registry.set("score", this.score);
+        }
+        if (reward.comboMultiplier) {
+            this.comboMultiplier = Math.max(
+                this.comboMultiplier,
+                reward.comboMultiplier
+            );
+            this.registry.set("comboMultiplier", this.comboMultiplier);
+        }
+        if (reward.extraLife) {
+            this.lives += reward.extraLife;
+            this.registry.set("lives", this.lives);
+        }
+
+        const duration = 10000;
+        if (reward.fireRateBoost) {
+            this.applyChallengeMultiplier(
+                "fireRate",
+                () => {
+                    this.challengeFireRateMultiplier = Math.min(
+                        this.challengeFireRateMultiplier,
+                        reward.fireRateBoost || 1
+                    );
+                },
+                () => {
+                    this.challengeFireRateMultiplier = 1;
+                },
+                duration
+            );
+        }
+        if (reward.scoreMultiplier) {
+            this.applyChallengeMultiplier(
+                "score",
+                () => {
+                    this.challengeScoreMultiplier = Math.max(
+                        this.challengeScoreMultiplier,
+                        reward.scoreMultiplier || 1
+                    );
+                },
+                () => {
+                    this.challengeScoreMultiplier = 1;
+                },
+                duration
+            );
+        }
+        if (reward.corruptionMultiplier) {
+            this.applyChallengeMultiplier(
+                "corruption",
+                () => {
+                    this.challengeCorruptionMultiplier = Math.max(
+                        this.challengeCorruptionMultiplier,
+                        reward.corruptionMultiplier || 1
+                    );
+                },
+                () => {
+                    this.challengeCorruptionMultiplier = 1;
+                },
+                duration
+            );
+        }
+        if (reward.invincibilityFrame) {
+            this.applyChallengeMultiplier(
+                "invincibility",
+                () => {
+                    this.challengeInvincibilityBonusMs = Math.max(
+                        this.challengeInvincibilityBonusMs,
+                        reward.invincibilityFrame * 1000
+                    );
+                },
+                () => {
+                    this.challengeInvincibilityBonusMs = 0;
+                },
+                duration
+            );
+        }
+    }
+
+    private applyChallengeMultiplier(
+        key: string,
+        apply: () => void,
+        reset: () => void,
+        duration: number
+    ) {
+        if (this.challengeRewardTimers.has(key)) {
+            this.challengeRewardTimers.get(key)!.remove();
+        }
+        apply();
+        const timer = this.time.delayedCall(duration, () => {
+            reset();
+            this.challengeRewardTimers.delete(key);
+        });
+        this.challengeRewardTimers.set(key, timer);
     }
 
     private updateSpawnTimer() {
@@ -2152,6 +2469,15 @@ export class GameScene extends Phaser.Scene {
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
             this.totalEnemiesDefeated += 1;
+            if (this.activeChallenge?.id === "clean_10_enemies") {
+                this.challengeKills += 1;
+            }
+            if (
+                this.activeChallenge?.id === "defeat_5_blue" &&
+                enemyType === "blue"
+            ) {
+                this.challengeBlueKills += 1;
+            }
 
             // If graduation boss, set flag to false BEFORE addScore (which calls updateLayer)
             if (isGraduationBoss) {
@@ -2359,10 +2685,11 @@ export class GameScene extends Phaser.Scene {
             return; // Invisible, no damage taken
         }
 
-        // Prevent multiple damage calls within 1000ms (invincibility period)
+        // Prevent multiple damage calls within invincibility period
         // This matches the visual flash duration and prevents rapid damage
         const timeSinceLastHit = this.time.now - this.lastHitTime;
-        if (timeSinceLastHit < 1000) {
+        const invincibilityWindow = 1000 + this.challengeInvincibilityBonusMs;
+        if (timeSinceLastHit < invincibilityWindow) {
             return; // Still in invincibility period, ignore damage
         }
 
@@ -2374,8 +2701,17 @@ export class GameScene extends Phaser.Scene {
         // Reset combo
         this.comboMultiplier = 1;
         this.tookDamageThisRun = true;
+        if (this.activeChallenge) {
+            this.challengeDamageTaken = true;
+        }
         this.lastHitTime = this.time.now;
         this.registry.set("comboMultiplier", this.comboMultiplier);
+        if (
+            this.activeChallenge?.id === "clean_10_enemies" ||
+            this.activeChallenge?.id === "dodge_25_bullets"
+        ) {
+            this.failChallenge();
+        }
 
         // Create explosion
         this.createExplosion(this.player.x, this.player.y, "medium");
@@ -2404,6 +2740,9 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("gameOver", true);
             this.registry.set("finalScore", this.score);
             this.registry.set("deepestLayer", this.deepestLayer);
+            this.activeChallenge = null;
+            this.registry.set("challengeActive", false);
+            this.registry.set("challengeProgress", 0);
 
             // Stop all movement and touch controls
             this.player.setVelocity(0, 0);
@@ -3202,14 +3541,16 @@ export class GameScene extends Phaser.Scene {
 
     private addScore(points: number) {
         // Apply score multiplier from power-ups
-        const corruptionMultiplier = this.getCorruptionScoreMultiplier();
+        const corruptionMultiplier =
+            this.getCorruptionScoreMultiplier() * this.challengeCorruptionMultiplier;
         const adjustedPoints = Math.floor(
             points *
                 this.scoreMultiplier *
                 this.comboMultiplier *
                 this.prestigeScoreMultiplier *
                 corruptionMultiplier *
-                this.overclockScoreMultiplier
+                this.overclockScoreMultiplier *
+                this.challengeScoreMultiplier
         );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
@@ -3464,8 +3805,15 @@ export class GameScene extends Phaser.Scene {
             "overclockCharges",
             OVERCLOCK_CONFIG.maxActivationsPerRun
         );
+        this.registry.set("challengeActive", false);
+        this.registry.set("challengeTitle", "");
+        this.registry.set("challengeDescription", "");
+        this.registry.set("challengeProgress", 0);
 
         this.runStartTime = this.time.now;
+        this.nextChallengeTime =
+            this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
+        this.lastChallengeEndTime = this.runStartTime;
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         this.updatePrestigeEffects();

@@ -14,6 +14,11 @@ export class UIScene extends Phaser.Scene {
   private overclockBarFill!: Phaser.GameObjects.Graphics;
   private overclockStatusText!: Phaser.GameObjects.Text;
   private overclockCooldownText!: Phaser.GameObjects.Text;
+  private challengeContainer!: Phaser.GameObjects.Container;
+  private challengeTitleText!: Phaser.GameObjects.Text;
+  private challengeDescriptionText!: Phaser.GameObjects.Text;
+  private challengeBarBg!: Phaser.GameObjects.Graphics;
+  private challengeBarFill!: Phaser.GameObjects.Graphics;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -142,6 +147,7 @@ export class UIScene extends Phaser.Scene {
 
     // Leaderboard panel (hidden initially)
     this.createLeaderboardPanel();
+    this.createChallengeDisplay();
 
     // Listen to registry changes
     this.registry.events.on('changedata-score', this.updateScore, this);
@@ -152,6 +158,10 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-overclockProgress', this.updateOverclock, this);
     this.registry.events.on('changedata-overclockCooldown', this.updateOverclockCooldown, this);
     this.registry.events.on('changedata-overclockCharges', this.updateOverclockCharges, this);
+    this.registry.events.on('changedata-challengeActive', this.updateChallengeActive, this);
+    this.registry.events.on('changedata-challengeTitle', this.updateChallengeTitle, this);
+    this.registry.events.on('changedata-challengeDescription', this.updateChallengeDescription, this);
+    this.registry.events.on('changedata-challengeProgress', this.updateChallengeProgress, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -729,6 +739,52 @@ export class UIScene extends Phaser.Scene {
     this.overclockCooldownText.setOrigin(1, 0);
   }
 
+  private createChallengeDisplay() {
+    const width = this.scale.width;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const containerY = 70 * uiScale;
+    const barWidth = 260 * uiScale;
+    const barHeight = 10 * uiScale;
+    const barX = width / 2 - barWidth / 2;
+    const barY = containerY + 32 * uiScale;
+
+    this.challengeTitleText = this.add.text(width / 2, containerY, '', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: 16 * uiScale,
+      color: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    this.challengeTitleText.setOrigin(0.5, 0.5);
+
+    this.challengeDescriptionText = this.add.text(width / 2, containerY + 18 * uiScale, '', {
+      fontFamily: UI_CONFIG.bodyFont,
+      fontSize: 12 * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    this.challengeDescriptionText.setOrigin(0.5, 0.5);
+
+    this.challengeBarBg = this.add.graphics();
+    this.challengeBarBg.fillStyle(0x000000, 0.7);
+    this.challengeBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.challengeBarBg.lineStyle(2, 0x00ffff, 0.8);
+    this.challengeBarBg.strokeRect(barX, barY, barWidth, barHeight);
+
+    this.challengeBarFill = this.add.graphics();
+    this.challengeBarFill.fillStyle(0x00ffff, 0.9);
+    this.challengeBarFill.fillRect(barX, barY, 0, barHeight);
+
+    this.challengeContainer = this.add.container(0, 0, [
+      this.challengeTitleText,
+      this.challengeDescriptionText,
+      this.challengeBarBg,
+      this.challengeBarFill,
+    ]);
+    this.challengeContainer.setVisible(false);
+  }
+
   private updateCorruption(_parent: Phaser.Data.DataManager, value: number) {
     const width = this.scale.width;
     const height = this.scale.height;
@@ -761,6 +817,31 @@ export class UIScene extends Phaser.Scene {
 
   private updateOverclockCharges(_parent: Phaser.Data.DataManager, value: number) {
     this.overclockStatusText.setText(`OC: ${value}`);
+  }
+
+  private updateChallengeActive(_parent: Phaser.Data.DataManager, value: boolean) {
+    this.challengeContainer.setVisible(!!value);
+  }
+
+  private updateChallengeTitle(_parent: Phaser.Data.DataManager, value: string) {
+    this.challengeTitleText.setText(value || '');
+  }
+
+  private updateChallengeDescription(_parent: Phaser.Data.DataManager, value: string) {
+    this.challengeDescriptionText.setText(value || '');
+  }
+
+  private updateChallengeProgress(_parent: Phaser.Data.DataManager, value: number) {
+    const width = this.scale.width;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 260 * uiScale;
+    const barHeight = 10 * uiScale;
+    const barX = width / 2 - barWidth / 2;
+    const barY = 70 * uiScale + 32 * uiScale;
+    const clamped = Phaser.Math.Clamp(value ?? 0, 0, 1);
+    this.challengeBarFill.clear();
+    this.challengeBarFill.fillStyle(0x00ffff, clamped > 0 ? 0.9 : 0.2);
+    this.challengeBarFill.fillRect(barX, barY, barWidth * clamped, barHeight);
   }
 
   private renderCorruptionFill(

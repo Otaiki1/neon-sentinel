@@ -351,6 +351,63 @@ export const LEADERBOARD_CATEGORIES = {
 
 export const FEATURED_LEADERBOARD_COUNT = 4;
 
+export const MID_RUN_CHALLENGES = {
+    challenges: [
+        {
+            id: "no_shoot_20s",
+            title: "Radio Silence",
+            description: "Survive 20 seconds without shooting",
+            reward: { bonusScore: 500, comboMultiplier: 1.5 },
+            penalty: "none",
+        },
+        {
+            id: "clean_10_enemies",
+            title: "Perfect Strike",
+            description: "Destroy 10 enemies without taking damage",
+            reward: { bonusScore: 300, extraLife: 1 },
+            penalty: "none",
+        },
+        {
+            id: "survive_corruption_zone",
+            title: "Corruption Dive",
+            description: "Stay in 80%+ corruption area for 15 seconds",
+            reward: { bonusScore: 1000, corruptionMultiplier: 1.2 },
+            penalty: "none",
+        },
+        {
+            id: "defeat_5_blue",
+            title: "Blue Squadron",
+            description: "Defeat 5 blue enemies in 30 seconds",
+            reward: { bonusScore: 400, fireRateBoost: 0.8 },
+            penalty: "none",
+        },
+        {
+            id: "chain_combo",
+            title: "Flow State",
+            description: "Maintain 3.0x+ combo for 30 seconds",
+            reward: { bonusScore: 600, scoreMultiplier: 1.2 },
+            penalty: "none",
+        },
+        {
+            id: "dodge_25_bullets",
+            title: "Bullet Hell",
+            description: "Dodge 25 enemy bullets without taking damage",
+            reward: { bonusScore: 300, invincibilityFrame: 0.5 },
+            penalty: "none",
+        },
+    ],
+    triggerIntervals: {
+        firstChallenge: 60000,
+        subsequentChallenges: 120000,
+        minTimeBetweenChallenges: 45000,
+    },
+    display: {
+        announcementCard: true,
+        progressBar: true,
+        celebrationOnCompletion: true,
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)
