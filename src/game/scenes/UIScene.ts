@@ -49,6 +49,13 @@ export class UIScene extends Phaser.Scene {
   private achievementTexts: Phaser.GameObjects.Text[] = [];
   private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
   private celebrationLines: Phaser.GameObjects.Text[] = [];
+  private uiGlitchIntensity = 0;
+  private uiGlitchNextTime = 0;
+  private uiGlitchTargets: Phaser.GameObjects.Text[] = [];
+  private uiGlitchBasePositions = new Map<
+    Phaser.GameObjects.Text,
+    { x: number; y: number; alpha: number }
+  >();
   private readonly joystickSensitivityKey =
     'neon-sentinel-joystick-sensitivity';
   // Buttons
@@ -128,6 +135,13 @@ export class UIScene extends Phaser.Scene {
     if (MOBILE_SCALE < 1.0) {
       this.prestigeText.setAlpha(0.85);
     }
+
+    this.registerUiGlitchTargets([
+      this.scoreText,
+      this.comboText,
+      this.layerText,
+      this.prestigeText,
+    ]);
 
     // Lives display (orb indicators only)
     const livesX = baseX + 10 * uiScale;
@@ -212,6 +226,56 @@ export class UIScene extends Phaser.Scene {
           gameScene.togglePause();
         }
       }
+    });
+  }
+
+  update(time: number) {
+    const intensity = (this.registry.get('uiGlitchIntensity') as number) || 0;
+    this.uiGlitchIntensity = intensity;
+    if (intensity <= 0) {
+      this.clearUiGlitch();
+      return;
+    }
+    if (time >= this.uiGlitchNextTime) {
+      this.applyUiGlitch(intensity);
+      const jitter = Phaser.Math.Between(180, 420);
+      this.uiGlitchNextTime = time + jitter * (1 - intensity * 0.4);
+    }
+  }
+
+  private registerUiGlitchTargets(targets: Phaser.GameObjects.Text[]) {
+    targets.forEach((target) => {
+      this.uiGlitchTargets.push(target);
+      this.uiGlitchBasePositions.set(target, {
+        x: target.x,
+        y: target.y,
+        alpha: target.alpha,
+      });
+    });
+  }
+
+  private applyUiGlitch(intensity: number) {
+    const jitter = 2 + intensity * 6;
+    this.uiGlitchTargets.forEach((target) => {
+      const base = this.uiGlitchBasePositions.get(target);
+      if (!base) return;
+      target.setPosition(
+        base.x + Phaser.Math.Between(-jitter, jitter),
+        base.y + Phaser.Math.Between(-jitter, jitter)
+      );
+      target.setAlpha(
+        Phaser.Math.Clamp(base.alpha - intensity * 0.2, 0.4, 1)
+      );
+    });
+    this.time.delayedCall(120, () => this.clearUiGlitch());
+  }
+
+  private clearUiGlitch() {
+    this.uiGlitchTargets.forEach((target) => {
+      const base = this.uiGlitchBasePositions.get(target);
+      if (!base) return;
+      target.setPosition(base.x, base.y);
+      target.setAlpha(base.alpha);
     });
   }
 

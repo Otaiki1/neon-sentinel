@@ -17,6 +17,7 @@ import {
     ACHIEVEMENTS,
     ROTATING_LAYER_MODIFIERS,
     PLAYER_KERNELS,
+    SENSORY_ESCALATION,
 } from "../config";
 import {
     addLifetimePlayMs,
@@ -144,6 +145,16 @@ export class GameScene extends Phaser.Scene {
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
     private enemyUidCounter = 0;
+    private scanlineOverlay?: Phaser.GameObjects.Graphics;
+    private corruptionPulseOverlay?: Phaser.GameObjects.Graphics;
+    private gridOpacityMultiplier = 1;
+    private scanlineIntensity = 0;
+    private distortionIntensity = 0;
+    private uiGlitchIntensity = 0;
+    private lastMusicTempoUpdate = 0;
+    private distortionCooldown = 0;
+    private comboShakeCooldown = 0;
+    private corruptionCriticalTriggered = false;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -194,6 +205,7 @@ export class GameScene extends Phaser.Scene {
     create() {
         // Draw background grid
         this.drawBackgroundGrid();
+        this.createSensoryOverlays();
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -325,6 +337,7 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("challengeTitle", "");
         this.registry.set("challengeDescription", "");
         this.registry.set("challengeProgress", 0);
+        this.registry.set("uiGlitchIntensity", 0);
         this.lastRunMetrics = null;
         this.registry.set("runMetrics", null);
         this.lastRunMetrics = null;
@@ -354,6 +367,12 @@ export class GameScene extends Phaser.Scene {
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
         this.applySelectedKernel();
+        this.corruptionCriticalTriggered = false;
+        this.distortionCooldown = 0;
+        this.comboShakeCooldown = 0;
+        this.lastMusicTempoUpdate = 0;
+        this.createSensoryOverlays();
+        this.updateSensoryEscalation(this.runStartTime);
         this.initRotatingModifier(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
@@ -404,6 +423,8 @@ export class GameScene extends Phaser.Scene {
         for (let y = 0; y <= height; y += gridSize) {
             this.backgroundGrid.lineBetween(0, y, width, y);
         }
+
+        this.backgroundGrid.setAlpha(this.gridOpacityMultiplier);
 
         // Draw faint progress bar at the bottom
         this.drawProgressBar();
@@ -478,6 +499,142 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    private createSensoryOverlays() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+
+        if (this.scanlineOverlay) {
+            this.scanlineOverlay.destroy();
+        }
+        this.scanlineOverlay = this.add.graphics();
+        this.scanlineOverlay.setDepth(1000);
+        this.scanlineOverlay.setScrollFactor(0);
+        this.scanlineOverlay.fillStyle(0x00ff00, 0.12);
+        for (let y = 0; y < height; y += 3) {
+            this.scanlineOverlay.fillRect(0, y, width, 1);
+        }
+        this.scanlineOverlay.setAlpha(0);
+
+        if (this.corruptionPulseOverlay) {
+            this.corruptionPulseOverlay.destroy();
+        }
+        this.corruptionPulseOverlay = this.add.graphics();
+        this.corruptionPulseOverlay.setDepth(1100);
+        this.corruptionPulseOverlay.setScrollFactor(0);
+        this.corruptionPulseOverlay.fillStyle(0xff0000, 1);
+        this.corruptionPulseOverlay.fillRect(0, 0, width, height);
+        this.corruptionPulseOverlay.setAlpha(0);
+        this.corruptionPulseOverlay.setVisible(false);
+    }
+
+    private getLayerEffectIntensity(
+        layer: number,
+        values: { layer1: number; layer3: number; layer5: number; layer6: number }
+    ) {
+        if (layer >= 6) return values.layer6;
+        if (layer >= 5) return values.layer5;
+        if (layer >= 3) return values.layer3;
+        return values.layer1;
+    }
+
+    private updateSensoryEscalation(time: number) {
+        const elapsedMinutes = Math.max(0, (time - this.runStartTime) / 60000);
+        const tempo = Phaser.Math.Clamp(
+            SENSORY_ESCALATION.musicTempo.baseBeatsPerMinute +
+                elapsedMinutes * SENSORY_ESCALATION.musicTempo.increasePerMinute,
+            SENSORY_ESCALATION.musicTempo.baseBeatsPerMinute,
+            SENSORY_ESCALATION.musicTempo.maxBeatsPerMinute
+        );
+
+        if (time - this.lastMusicTempoUpdate > 1000) {
+            this.lastMusicTempoUpdate = time;
+            this.registry.set("musicBpm", Math.round(tempo));
+        }
+
+        const scanlines = this.getLayerEffectIntensity(
+            this.currentLayer,
+            SENSORY_ESCALATION.screenEffects.scanlineIntensity
+        );
+        if (this.scanlineIntensity !== scanlines) {
+            this.scanlineIntensity = scanlines;
+            if (this.scanlineOverlay) {
+                this.scanlineOverlay.setAlpha(scanlines);
+            }
+        }
+
+        const distortion = this.getLayerEffectIntensity(
+            this.currentLayer,
+            SENSORY_ESCALATION.screenEffects.screenDistortion
+        );
+        this.distortionIntensity = distortion;
+
+        const baseGridOpacity = SENSORY_ESCALATION.screenEffects.baseGridOpacity;
+        if (this.gridOpacityMultiplier !== baseGridOpacity) {
+            this.gridOpacityMultiplier = baseGridOpacity;
+            this.updateCorruptionEffects();
+        }
+
+        let glitchIntensity = 0;
+        if (this.currentLayer >= 4) {
+            if (this.currentLayer >= 6) {
+                glitchIntensity = SENSORY_ESCALATION.uiGlitching.glitchIntensity.high;
+            } else if (this.currentLayer >= 5) {
+                glitchIntensity = SENSORY_ESCALATION.uiGlitching.glitchIntensity.medium;
+            } else {
+                glitchIntensity = SENSORY_ESCALATION.uiGlitching.glitchIntensity.low;
+            }
+        }
+        if (this.uiGlitchIntensity !== glitchIntensity) {
+            this.uiGlitchIntensity = glitchIntensity;
+            this.registry.set("uiGlitchIntensity", glitchIntensity);
+        }
+
+        if (this.distortionIntensity > 0 && time > this.distortionCooldown) {
+            if (Math.random() < 0.3) {
+                this.cameras.main.shake(
+                    120,
+                    this.distortionIntensity * 0.01
+                );
+            }
+            this.distortionCooldown = time + Phaser.Math.Between(500, 1200);
+        }
+
+        const corruptionRatio = this.getCorruptionRatio();
+        if (this.corruptionPulseOverlay) {
+            if (corruptionRatio >= 0.75) {
+                const pulse =
+                    0.12 +
+                    0.08 * Math.sin(time / 180) +
+                    0.05 * Math.sin(time / 90);
+                this.corruptionPulseOverlay.setVisible(true);
+                this.corruptionPulseOverlay.setAlpha(
+                    Phaser.Math.Clamp(pulse, 0.05, 0.35)
+                );
+            } else {
+                this.corruptionPulseOverlay.setVisible(false);
+                this.corruptionPulseOverlay.setAlpha(0);
+            }
+        }
+
+        if (this.comboMultiplier >= 3 && time > this.comboShakeCooldown) {
+            this.cameras.main.shake(
+                80,
+                Math.min(0.02, this.comboMultiplier * 0.0015)
+            );
+            this.comboShakeCooldown = time + 800;
+        }
+
+        if (corruptionRatio >= 0.75 && !this.corruptionCriticalTriggered) {
+            this.corruptionCriticalTriggered = true;
+            this.triggerHaptic(
+                SENSORY_ESCALATION.hapticFeedback.onCorruptionCritical
+            );
+        }
+        if (corruptionRatio < 0.75) {
+            this.corruptionCriticalTriggered = false;
+        }
+    }
+
     update(time: number) {
         // Pause/resume is handled by UIScene ESC key handler
         // GameScene update continues to run even when paused so UIScene can handle input
@@ -489,6 +646,7 @@ export class GameScene extends Phaser.Scene {
         this.updateAdaptiveLearning(time);
         this.updateSessionRewards(time);
         this.updateRotatingModifier(time);
+        this.updateSensoryEscalation(time);
         if (this.modifierPauseActive) {
             return;
         }
@@ -1899,7 +2057,7 @@ export class GameScene extends Phaser.Scene {
 
         if (!this.backgroundGrid) return;
         if (this.currentCorruptionTier === "low") {
-            this.backgroundGrid.setAlpha(1);
+            this.backgroundGrid.setAlpha(this.gridOpacityMultiplier);
             if (!this.prestigeGlitchTimer) {
                 this.backgroundGrid.setPosition(0, 0);
             }
@@ -1930,7 +2088,7 @@ export class GameScene extends Phaser.Scene {
                         : this.currentCorruptionTier === "high"
                           ? Phaser.Math.FloatBetween(0.6, 0.9)
                           : Phaser.Math.FloatBetween(0.5, 0.85);
-                this.backgroundGrid.setAlpha(alpha);
+                this.backgroundGrid.setAlpha(alpha * this.gridOpacityMultiplier);
 
                 if (!this.prestigeGlitchTimer) {
                     this.backgroundGrid.setPosition(
@@ -1944,6 +2102,24 @@ export class GameScene extends Phaser.Scene {
                 }
             },
         });
+    }
+
+    private triggerHaptic(effect: {
+        duration: number;
+        intensity?: number;
+        pattern?: string;
+    }) {
+        if (typeof navigator === "undefined" || !navigator.vibrate) {
+            return;
+        }
+        const intensity = Phaser.Math.Clamp(effect.intensity ?? 1, 0.1, 1);
+        const duration = Math.max(10, Math.round(effect.duration * intensity));
+        if (effect.pattern === "pulse") {
+            const pulse = Math.max(30, Math.round(duration / 4));
+            navigator.vibrate([pulse, 60, pulse, 60, pulse]);
+            return;
+        }
+        navigator.vibrate(duration);
     }
 
     private tryActivateOverclock() {
@@ -2977,6 +3153,9 @@ export class GameScene extends Phaser.Scene {
             if (isBoss || isGraduationBoss) {
                 this.addCorruption(CORRUPTION_SYSTEM.riskPlayBonus.defeatBoss);
                 this.runBossesDefeated += 1;
+                this.triggerHaptic(
+                    SENSORY_ESCALATION.hapticFeedback.onBossDefeat
+                );
                 if (this.runBossesDefeated === 1) {
                     this.unlockAchievementWithAnnouncement("first_boss");
                 }
@@ -2988,6 +3167,11 @@ export class GameScene extends Phaser.Scene {
                 if (this.runBossesDefeated >= 5) {
                     this.unlockAchievementWithAnnouncement("defeat_5_bosses");
                 }
+            }
+            if (!isBoss && !isGraduationBoss) {
+                this.triggerHaptic(
+                    SENSORY_ESCALATION.hapticFeedback.onEnemyKill
+                );
             }
 
             // Create explosion based on enemy type and layer
@@ -3214,6 +3398,7 @@ export class GameScene extends Phaser.Scene {
 
         // Create explosion
         this.createExplosion(this.player.x, this.player.y, "medium");
+        this.triggerHaptic(SENSORY_ESCALATION.hapticFeedback.onDamage);
 
         // Reduce lives by exactly 1
         const previousLives = this.lives;
@@ -3954,6 +4139,9 @@ export class GameScene extends Phaser.Scene {
 
         // Remove power-up
         p.destroy();
+        this.triggerHaptic(
+            SENSORY_ESCALATION.hapticFeedback.onPowerUpCollect
+        );
 
         // Apply power-up effect
         if (powerUpType === "speed") {

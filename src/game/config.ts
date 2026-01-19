@@ -669,6 +669,44 @@ export const PLAYER_KERNELS = {
     },
 } as const;
 
+export const SENSORY_ESCALATION = {
+    musicTempo: {
+        baseBeatsPerMinute: 120,
+        increasePerMinute: 2,
+        maxBeatsPerMinute: 160,
+    },
+    screenEffects: {
+        baseGridOpacity: 1.0,
+        scanlineIntensity: {
+            layer1: 0.0,
+            layer3: 0.1,
+            layer5: 0.3,
+            layer6: 0.5,
+        },
+        screenDistortion: {
+            layer1: 0.0,
+            layer3: 0.05,
+            layer5: 0.15,
+            layer6: 0.25,
+        },
+    },
+    uiGlitching: {
+        enabledAt: "layer_4",
+        glitchIntensity: {
+            low: 0.1,
+            medium: 0.3,
+            high: 0.6,
+        },
+    },
+    hapticFeedback: {
+        onEnemyKill: { duration: 50, intensity: 0.6 },
+        onBossDefeat: { duration: 300, intensity: 1.0 },
+        onPowerUpCollect: { duration: 100, intensity: 0.8 },
+        onDamage: { duration: 200, intensity: 0.9 },
+        onCorruptionCritical: { duration: 1000, pattern: "pulse" },
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

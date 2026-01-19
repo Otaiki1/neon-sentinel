@@ -11,3 +11,4 @@ declare module "virtual:pwa-register" {
   }): () => void;
 }
 
+
