@@ -32,6 +32,7 @@ import {
     updateLifetimePlaytime,
 } from "../../services/sessionRewardService";
 import { getRotationInfo } from "../../services/rotatingLayerService";
+import type { RunMetrics } from "../../services/scoreService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -127,6 +128,7 @@ export class GameScene extends Phaser.Scene {
     private modifierPauseDurationMs = 0;
     private modifierPauseIntervalMs = 0;
     private modifierGlitchIntensity = 0;
+    private lastRunMetrics: RunMetrics | null = null;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -308,6 +310,10 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("challengeTitle", "");
         this.registry.set("challengeDescription", "");
         this.registry.set("challengeProgress", 0);
+        this.lastRunMetrics = null;
+        this.registry.set("runMetrics", null);
+        this.lastRunMetrics = null;
+        this.registry.set("runMetrics", null);
         this.runStartTime = this.time.now;
         this.totalEnemiesDefeated = 0;
         this.maxCorruptionReached = this.corruption;
@@ -2345,6 +2351,19 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    private buildRunMetrics(): RunMetrics {
+        const survivalTime = Math.round((this.time.now - this.runStartTime) / 1000);
+        return {
+            survivalTime,
+            maxCorruptionReached: this.maxCorruptionReached,
+            totalEnemiesDefeated: this.totalEnemiesDefeated,
+            runsWithoutDamage: this.tookDamageThisRun ? 0 : 1,
+            peakComboMultiplier: Number(this.peakComboMultiplier.toFixed(2)),
+            timeToReachLayer6: this.timeToReachLayer6 || undefined,
+            deepestLayerWithPrestige: this.deepestLayer + this.prestigeLevel,
+        };
+    }
+
     private initRotatingModifier(time: number) {
         const rotation = getRotationInfo(time);
         this.currentModifierKey =
@@ -2842,6 +2861,11 @@ export class GameScene extends Phaser.Scene {
         const b = bullet as Phaser.Physics.Arcade.Sprite;
         const e = enemy as Phaser.Physics.Arcade.Sprite;
 
+        if (this.gameOver) {
+            b.destroy();
+            return;
+        }
+
         // Remove bullet
         b.destroy();
 
@@ -3164,6 +3188,8 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("gameOver", true);
             this.registry.set("finalScore", this.score);
             this.registry.set("deepestLayer", this.deepestLayer);
+            this.lastRunMetrics = this.buildRunMetrics();
+            this.registry.set("runMetrics", this.lastRunMetrics);
             this.activeChallenge = null;
             this.registry.set("challengeActive", false);
             this.registry.set("challengeProgress", 0);
@@ -3207,19 +3233,7 @@ export class GameScene extends Phaser.Scene {
             // Submit score after a short delay
             this.time.delayedCall(500, () => {
                 const walletAddress = this.registry.get("walletAddress");
-                const survivalTime = Math.round(
-                    (this.time.now - this.runStartTime) / 1000
-                );
-                const runMetrics = {
-                    survivalTime,
-                    maxCorruptionReached: this.maxCorruptionReached,
-                    totalEnemiesDefeated: this.totalEnemiesDefeated,
-                    runsWithoutDamage: this.tookDamageThisRun ? 0 : 1,
-                    peakComboMultiplier: Number(this.peakComboMultiplier.toFixed(2)),
-                    timeToReachLayer6: this.timeToReachLayer6 || undefined,
-                    deepestLayerWithPrestige:
-                        this.deepestLayer + this.prestigeLevel,
-                };
+                const runMetrics = this.lastRunMetrics ?? this.buildRunMetrics();
                 // Communicate to UIScene via game events
                 const uiScene = this.scene.get("UIScene");
                 if (uiScene && uiScene.scene.isActive()) {
@@ -3993,6 +4007,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     private addScore(points: number) {
+        if (this.gameOver) {
+            return;
+        }
         // Apply score multiplier from power-ups
         const corruptionMultiplier =
             this.getCorruptionScoreMultiplier() * this.challengeCorruptionMultiplier;

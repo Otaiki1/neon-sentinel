@@ -1,10 +1,20 @@
 import Phaser from 'phaser';
-import { UI_CONFIG, MOBILE_SCALE, OVERCLOCK_CONFIG } from '../config';
+import {
+  CORRUPTION_SYSTEM,
+  FAILURE_FEEDBACK,
+  LAYER_CONFIG,
+  MOBILE_SCALE,
+  OVERCLOCK_CONFIG,
+  UI_CONFIG,
+} from '../config';
 import {
   checkAllLeaderboardsTop10,
   getAchievementProgressSummary,
+  getPersonalBests,
   unlockAchievement,
+  updatePersonalBests,
 } from '../../services/achievementService';
+import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -37,6 +47,8 @@ export class UIScene extends Phaser.Scene {
   private settingsVisible = false;
   private sensitivityValueText!: Phaser.GameObjects.Text;
   private achievementTexts: Phaser.GameObjects.Text[] = [];
+  private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
+  private celebrationLines: Phaser.GameObjects.Text[] = [];
   private readonly joystickSensitivityKey =
     'neon-sentinel-joystick-sensitivity';
   // Buttons
@@ -248,10 +260,47 @@ export class UIScene extends Phaser.Scene {
     this.prestigeBadgeText.setOrigin(0.5, 0.5);
     this.prestigeBadgeText.setVisible(false);
 
+    const feedbackStartY = height / 2 + 10;
+    const lineSpacing = MOBILE_SCALE < 1.0 ? 16 : 18;
+    const maxWidth = width * 0.85;
+
+    for (let i = 0; i < FAILURE_FEEDBACK.displayMetrics.length; i += 1) {
+      const line = this.add.text(width / 2, feedbackStartY + i * lineSpacing, '', {
+        fontFamily: UI_CONFIG.bodyFont,
+        fontSize: UI_CONFIG.fontSize.small,
+        color: UI_CONFIG.neonGreen,
+        wordWrap: { width: maxWidth, useAdvancedWrap: true },
+        align: 'center',
+      });
+      line.setOrigin(0.5, 0.5);
+      line.setVisible(false);
+      this.failureFeedbackLines.push(line);
+    }
+
+    const celebrationStartY =
+      feedbackStartY + FAILURE_FEEDBACK.displayMetrics.length * lineSpacing + lineSpacing;
+    for (let i = 0; i < FAILURE_FEEDBACK.celebrationMetrics.length; i += 1) {
+      const line = this.add.text(
+        width / 2,
+        celebrationStartY + i * lineSpacing,
+        '',
+        {
+          fontFamily: UI_CONFIG.menuFont,
+          fontSize: UI_CONFIG.fontSize.small,
+          color: '#00ff99',
+          wordWrap: { width: maxWidth, useAdvancedWrap: true },
+          align: 'center',
+        }
+      );
+      line.setOrigin(0.5, 0.5);
+      line.setVisible(false);
+      this.celebrationLines.push(line);
+    }
+
     // Restart button
     this.restartButton = this.createButton(
       width / 2,
-      height / 2 + 30,
+      height - 140,
       'RESTART',
       180,
       45,
@@ -265,7 +314,7 @@ export class UIScene extends Phaser.Scene {
     // Menu button
     this.menuButton = this.createButton(
       width / 2,
-      height / 2 + 90,
+      height - 80,
       'MENU',
       180,
       45,
@@ -285,6 +334,8 @@ export class UIScene extends Phaser.Scene {
       this.gameOverText,
       this.finalScoreText,
       this.prestigeBadgeText,
+      ...this.failureFeedbackLines,
+      ...this.celebrationLines,
       this.restartButton,
       this.menuButton,
     ]);
@@ -986,6 +1037,7 @@ export class UIScene extends Phaser.Scene {
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
+      this.updateFailureFeedback(finalScore);
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
       this.pauseButton.setVisible(false); // Hide pause button when game over
@@ -994,9 +1046,142 @@ export class UIScene extends Phaser.Scene {
     } else {
       this.gameOverContainer.setVisible(false);
       this.prestigeBadgeText.setVisible(false);
+      this.failureFeedbackLines.forEach((line) => line.setVisible(false));
+      this.celebrationLines.forEach((line) => line.setVisible(false));
       this.hideLeaderboard();
       this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
+  }
+
+  private updateFailureFeedback(finalScore: number) {
+    const runMetrics = this.registry.get('runMetrics') as
+      | {
+          peakComboMultiplier?: number;
+          maxCorruptionReached?: number;
+          totalEnemiesDefeated?: number;
+        }
+      | null;
+    const personalBests = getPersonalBests();
+    const weeklyScores = fetchWeeklyLeaderboard();
+    const topScore = weeklyScores[0]?.score ?? 0;
+    const tenthScore = weeklyScores[9]?.score;
+
+    const lines: Array<{ text: string; color: string }> = [];
+    const celebrations: string[] = [];
+
+    const milestone = FAILURE_FEEDBACK.scoreMilestones.find((entry) => entry > finalScore);
+    if (milestone) {
+      const diff = milestone - finalScore;
+      lines.push({
+        text: `You were ${diff.toLocaleString()} points away from the ${milestone.toLocaleString()} milestone!`,
+        color: '#ff5555',
+      });
+    }
+
+    const nextLayerEntry = Object.values(LAYER_CONFIG).find(
+      (layer) => layer.scoreThreshold > finalScore
+    );
+    if (nextLayerEntry) {
+      const diff = nextLayerEntry.scoreThreshold - finalScore;
+      lines.push({
+        text: `Just ${diff.toLocaleString()} points to reach ${nextLayerEntry.name}!`,
+        color: '#ffd166',
+      });
+    }
+
+    if (
+      runMetrics?.peakComboMultiplier !== undefined &&
+      personalBests.bestComboMultiplier > 0 &&
+      runMetrics.peakComboMultiplier < personalBests.bestComboMultiplier
+    ) {
+      lines.push({
+        text: `Your best combo is ${personalBests.bestComboMultiplier.toFixed(
+          1
+        )}x - you hit ${runMetrics.peakComboMultiplier.toFixed(1)}x this run!`,
+        color: '#66aaff',
+      });
+    }
+
+    if (tenthScore && finalScore < tenthScore) {
+      const diff = tenthScore - finalScore;
+      lines.push({
+        text: `You're ${diff.toLocaleString()} points behind #10 on the leaderboard!`,
+        color: '#c77dff',
+      });
+    }
+
+    if (runMetrics?.maxCorruptionReached !== undefined) {
+      const corruption = runMetrics.maxCorruptionReached;
+      let currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.low;
+      if (corruption >= 75) {
+        currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.critical;
+      } else if (corruption >= 50) {
+        currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.high;
+      } else if (corruption >= 25) {
+        currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.medium;
+      }
+
+      if (currentMultiplier < CORRUPTION_SYSTEM.scoreMultiplier.critical) {
+        lines.push({
+          text: `Higher corruption = ${CORRUPTION_SYSTEM.scoreMultiplier.critical}x score (you peaked at ${currentMultiplier}x).`,
+          color: '#ff9f1c',
+        });
+      }
+    }
+
+    if (finalScore >= topScore && finalScore > 0) {
+      celebrations.push('Best run this week!');
+    }
+
+    if (
+      runMetrics?.totalEnemiesDefeated !== undefined &&
+      runMetrics.totalEnemiesDefeated > personalBests.bestEnemiesDefeated
+    ) {
+      celebrations.push('New personal best enemy kills!');
+    }
+
+    if (
+      runMetrics?.maxCorruptionReached !== undefined &&
+      runMetrics.maxCorruptionReached > personalBests.bestCorruption
+    ) {
+      celebrations.push('Highest corruption survived!');
+    }
+
+    if (
+      runMetrics?.peakComboMultiplier !== undefined &&
+      runMetrics.peakComboMultiplier > personalBests.bestComboMultiplier
+    ) {
+      celebrations.push('New personal best combo!');
+    }
+
+    if (runMetrics) {
+      updatePersonalBests(
+        runMetrics.peakComboMultiplier ?? 0,
+        runMetrics.totalEnemiesDefeated ?? 0,
+        runMetrics.maxCorruptionReached ?? 0
+      );
+    }
+
+    this.failureFeedbackLines.forEach((line, index) => {
+      const entry = lines[index];
+      if (!entry) {
+        line.setVisible(false);
+        return;
+      }
+      line.setText(entry.text);
+      line.setColor(entry.color);
+      line.setVisible(true);
+    });
+
+    this.celebrationLines.forEach((line, index) => {
+      const entry = celebrations[index];
+      if (!entry) {
+        line.setVisible(false);
+        return;
+      }
+      line.setText(entry);
+      line.setVisible(true);
+    });
   }
 
   private onPauseChanged(_parent: Phaser.Data.DataManager, isPaused: boolean) {

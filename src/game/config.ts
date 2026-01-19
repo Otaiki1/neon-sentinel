@@ -607,6 +607,23 @@ export const ROTATING_LAYER_SCHEDULE = {
     ],
 } as const;
 
+export const FAILURE_FEEDBACK = {
+    displayMetrics: [
+        { metric: "pointsToNextMilestone", color: "red" },
+        { metric: "layerProgress", color: "yellow" },
+        { metric: "personalBest", color: "blue" },
+        { metric: "leaderboardProximity", color: "purple" },
+        { metric: "riskReward", color: "orange" },
+    ],
+    celebrationMetrics: [
+        "Best run this week",
+        "New personal best enemy kills",
+        "Highest corruption survived",
+        "New personal best combo",
+    ],
+    scoreMilestones: [10000, 50000, 100000],
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

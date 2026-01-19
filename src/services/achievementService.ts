@@ -18,6 +18,9 @@ type AchievementState = {
   notified: string[];
   lifetimeScore: number;
   lifetimePlayMs: number;
+  bestComboMultiplier: number;
+  bestEnemiesDefeated: number;
+  bestCorruption: number;
   selectedCosmetic: string;
   extraBadges: string[];
   extraCosmetics: string[];
@@ -43,6 +46,9 @@ function getDefaultState(): AchievementState {
     notified: [],
     lifetimeScore: 0,
     lifetimePlayMs: 0,
+    bestComboMultiplier: 0,
+    bestEnemiesDefeated: 0,
+    bestCorruption: 0,
     selectedCosmetic: "none",
     extraBadges: [],
     extraCosmetics: [],
@@ -195,6 +201,32 @@ export function getLifetimeStats() {
   return {
     lifetimeScore: state.lifetimeScore,
     lifetimePlayMs: state.lifetimePlayMs,
+  };
+}
+
+export function getPersonalBests() {
+  const state = loadAchievementState();
+  return {
+    bestComboMultiplier: state.bestComboMultiplier || 0,
+    bestEnemiesDefeated: state.bestEnemiesDefeated || 0,
+    bestCorruption: state.bestCorruption || 0,
+  };
+}
+
+export function updatePersonalBests(
+  comboMultiplier: number,
+  enemiesDefeated: number,
+  corruption: number
+) {
+  const state = loadAchievementState();
+  state.bestComboMultiplier = Math.max(state.bestComboMultiplier || 0, comboMultiplier);
+  state.bestEnemiesDefeated = Math.max(state.bestEnemiesDefeated || 0, enemiesDefeated);
+  state.bestCorruption = Math.max(state.bestCorruption || 0, corruption);
+  saveAchievementState(state);
+  return {
+    bestComboMultiplier: state.bestComboMultiplier,
+    bestEnemiesDefeated: state.bestEnemiesDefeated,
+    bestCorruption: state.bestCorruption,
   };
 }
 
