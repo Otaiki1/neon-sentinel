@@ -521,6 +521,30 @@ export const ACHIEVEMENTS = {
     ],
 } as const;
 
+export const SESSION_REWARDS = {
+    firstSessionOfDay: {
+        durationMinutes: 0.5,
+        scoreMultiplier: 1.2,
+        comboStartBoost: 1.5,
+        description: "Daily Awakening - First 5 minutes get 1.2x score",
+    },
+    sessionMilestones: [
+        { hours: 1, reward: { bonusScore: 500, type: "session_1h" } },
+        { hours: 5, reward: { bonusScore: 2500, type: "session_5h" } },
+        { hours: 10, reward: { bonusScore: 5000, type: "session_10h" } },
+        { hours: 50, reward: { bonusScore: 25000, type: "session_50h" } },
+        { hours: 100, reward: { bonusScore: 50000, type: "session_100h" } },
+    ],
+    streakBonuses: {
+        playThreeDaysInRow: { comboMultiplier: 1.1, duration: "full_run" },
+        playSixDaysInRow: { scoreMultiplier: 1.15, duration: "full_run" },
+        playSevnDaysInRow: {
+            specialBadge: "week_warrior",
+            cosmetic: "week_warrior_skin",
+        },
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

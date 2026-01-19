@@ -26,6 +26,10 @@ import {
     shouldNotifyAboutToUnlock,
     unlockAchievement,
 } from "../../services/achievementService";
+import {
+    startSession,
+    updateLifetimePlaytime,
+} from "../../services/sessionRewardService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -95,6 +99,11 @@ export class GameScene extends Phaser.Scene {
     private runLifeOrbs = 0;
     private runBossesDefeated = 0;
     private tookDamageBeforeLayer3 = false;
+    private sessionScoreMultiplier = 1;
+    private sessionStreakScoreMultiplier = 1;
+    private sessionComboStartBoost = 1;
+    private sessionBoostEndTime = 0;
+    private sessionLastTick = 0;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -286,9 +295,15 @@ export class GameScene extends Phaser.Scene {
         this.runLifeOrbs = 0;
         this.runBossesDefeated = 0;
         this.tookDamageBeforeLayer3 = false;
+        this.sessionScoreMultiplier = 1;
+        this.sessionStreakScoreMultiplier = 1;
+        this.sessionComboStartBoost = 1;
+        this.sessionBoostEndTime = 0;
+        this.sessionLastTick = this.runStartTime;
         this.nextChallengeTime =
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
+        this.applySessionRewards(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         if (this.registry.get("joystickSensitivity") === undefined) {
@@ -421,6 +436,7 @@ export class GameScene extends Phaser.Scene {
         this.updateDifficultyPhase(time);
         this.samplePlayerMovement(time);
         this.updateAdaptiveLearning(time);
+        this.updateSessionRewards(time);
 
         // Player movement
         this.handlePlayerMovement();
@@ -2210,6 +2226,76 @@ export class GameScene extends Phaser.Scene {
         this.challengeRewardTimers.set(key, timer);
     }
 
+    private applySessionRewards(startTime: number) {
+        const session = startSession();
+        this.sessionScoreMultiplier = 1;
+        this.sessionStreakScoreMultiplier = 1;
+        this.sessionComboStartBoost = 1;
+        this.sessionBoostEndTime = 0;
+        this.sessionLastTick = startTime;
+
+        if (session.isFirstSessionOfDay) {
+            this.sessionScoreMultiplier =
+                SESSION_REWARDS.firstSessionOfDay.scoreMultiplier;
+            this.sessionComboStartBoost =
+                SESSION_REWARDS.firstSessionOfDay.comboStartBoost;
+            const sessionMultiplier = Math.pow(
+                1.5,
+                Math.floor((session.sessionCount - 1) / 2)
+            );
+            this.sessionBoostEndTime =
+                startTime +
+                SESSION_REWARDS.firstSessionOfDay.durationMinutes *
+                    60 *
+                    1000 *
+                    sessionMultiplier;
+            this.showAnnouncement(
+                "DAILY AWAKENING",
+                SESSION_REWARDS.firstSessionOfDay.description,
+                0x00ffff
+            );
+        }
+
+        if (session.streak >= 3) {
+            this.sessionComboStartBoost = Math.max(
+                this.sessionComboStartBoost,
+                SESSION_REWARDS.streakBonuses.playThreeDaysInRow.comboMultiplier
+            );
+        }
+        if (session.streak >= 6) {
+            this.sessionStreakScoreMultiplier =
+                SESSION_REWARDS.streakBonuses.playSixDaysInRow.scoreMultiplier;
+        }
+
+        this.comboMultiplier = Math.max(
+            this.comboMultiplier,
+            this.sessionComboStartBoost
+        );
+        this.registry.set("comboMultiplier", this.comboMultiplier);
+    }
+
+    private updateSessionRewards(time: number) {
+        if (this.sessionBoostEndTime > 0 && time > this.sessionBoostEndTime) {
+            this.sessionScoreMultiplier = 1;
+            this.sessionBoostEndTime = 0;
+        }
+
+        const delta = time - this.sessionLastTick;
+        if (delta > 0) {
+            const rewards = updateLifetimePlaytime(delta);
+            this.sessionLastTick = time;
+            rewards.forEach((reward) => {
+                this.score += reward.bonusScore;
+                this.registry.set("score", this.score);
+                this.showAnnouncement(
+                    "SESSION REWARD",
+                    `+${reward.bonusScore} bonus`,
+                    0x00ff99
+                );
+            });
+        }
+    }
+
     private updateSpawnTimer() {
         // Get spawn rate multiplier based on current layer
         const layerConfig =
@@ -3680,7 +3766,9 @@ export class GameScene extends Phaser.Scene {
                 this.prestigeScoreMultiplier *
                 corruptionMultiplier *
                 this.overclockScoreMultiplier *
-                this.challengeScoreMultiplier
+                this.challengeScoreMultiplier *
+                this.sessionScoreMultiplier *
+                this.sessionStreakScoreMultiplier
         );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
@@ -3957,6 +4045,7 @@ export class GameScene extends Phaser.Scene {
         this.nextChallengeTime =
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
+        this.applySessionRewards(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         this.updatePrestigeEffects();

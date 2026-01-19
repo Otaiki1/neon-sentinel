@@ -19,6 +19,8 @@ type AchievementState = {
   lifetimeScore: number;
   lifetimePlayMs: number;
   selectedCosmetic: string;
+  extraBadges: string[];
+  extraCosmetics: string[];
 };
 
 const STORAGE_KEY = "neon-sentinel-achievements";
@@ -42,6 +44,8 @@ function getDefaultState(): AchievementState {
     lifetimeScore: 0,
     lifetimePlayMs: 0,
     selectedCosmetic: "none",
+    extraBadges: [],
+    extraCosmetics: [],
   };
 }
 
@@ -146,7 +150,7 @@ export function getUnlockedBadges(): string[] {
     }
     return acc;
   }, [] as string[]);
-  return rewards;
+  return [...rewards, ...state.extraBadges];
 }
 
 export function getUnlockedCosmetics(): string[] {
@@ -157,7 +161,7 @@ export function getUnlockedCosmetics(): string[] {
     }
     return acc;
   }, [] as string[]);
-  return rewards;
+  return [...rewards, ...state.extraCosmetics];
 }
 
 export function getSelectedCosmetic(): string {
@@ -168,6 +172,22 @@ export function setSelectedCosmetic(cosmetic: string) {
   const state = loadAchievementState();
   state.selectedCosmetic = cosmetic;
   saveAchievementState(state);
+}
+
+export function addExtraBadge(badge: string) {
+  const state = loadAchievementState();
+  if (!state.extraBadges.includes(badge)) {
+    state.extraBadges.push(badge);
+    saveAchievementState(state);
+  }
+}
+
+export function addExtraCosmetic(cosmetic: string) {
+  const state = loadAchievementState();
+  if (!state.extraCosmetics.includes(cosmetic)) {
+    state.extraCosmetics.push(cosmetic);
+    saveAchievementState(state);
+  }
 }
 
 export function getLifetimeStats() {
