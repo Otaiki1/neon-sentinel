@@ -155,6 +155,10 @@ export class GameScene extends Phaser.Scene {
     private distortionCooldown = 0;
     private comboShakeCooldown = 0;
     private corruptionCriticalTriggered = false;
+    private powerUpsCollected = 0;
+    private totalBulletsDodged = 0;
+    private totalLivesLost = 0;
+    private lastRunStatsUpdate = 0;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -337,7 +341,33 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("challengeTitle", "");
         this.registry.set("challengeDescription", "");
         this.registry.set("challengeProgress", 0);
+        this.registry.set("runStats", {
+            survivalTimeMs: 0,
+            enemiesDefeated: 0,
+            shotsFired: 0,
+            shotsHit: 0,
+            accuracy: 0,
+            bulletsDodged: 0,
+            powerUpsCollected: 0,
+            livesUsed: 0,
+            deaths: 0,
+            maxCorruption: 0,
+            bestCombo: 1,
+        });
         this.registry.set("uiGlitchIntensity", 0);
+        this.registry.set("runStats", {
+            survivalTimeMs: 0,
+            enemiesDefeated: 0,
+            shotsFired: 0,
+            shotsHit: 0,
+            accuracy: 0,
+            bulletsDodged: 0,
+            powerUpsCollected: 0,
+            livesUsed: 0,
+            deaths: 0,
+            maxCorruption: 0,
+            bestCombo: 1,
+        });
         this.lastRunMetrics = null;
         this.registry.set("runMetrics", null);
         this.lastRunMetrics = null;
@@ -356,6 +386,10 @@ export class GameScene extends Phaser.Scene {
         this.shotsHitThisRun = 0;
         this.hitsTakenThisRun = 0;
         this.enemyUidCounter = 0;
+        this.powerUpsCollected = 0;
+        this.totalBulletsDodged = 0;
+        this.totalLivesLost = 0;
+        this.lastRunStatsUpdate = this.runStartTime;
         this.enemyUidCounter = 0;
         this.sessionScoreMultiplier = 1;
         this.sessionStreakScoreMultiplier = 1;
@@ -635,6 +669,31 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    private updateRunStats(time: number) {
+        if (time - this.lastRunStatsUpdate < 500) {
+            return;
+        }
+        this.lastRunStatsUpdate = time;
+        const survivalTimeMs = Math.max(0, time - this.runStartTime);
+        const accuracy =
+            this.shotsFiredThisRun > 0
+                ? this.shotsHitThisRun / this.shotsFiredThisRun
+                : 0;
+        this.registry.set("runStats", {
+            survivalTimeMs,
+            enemiesDefeated: this.totalEnemiesDefeated,
+            shotsFired: this.shotsFiredThisRun,
+            shotsHit: this.shotsHitThisRun,
+            accuracy,
+            bulletsDodged: this.totalBulletsDodged,
+            powerUpsCollected: this.powerUpsCollected,
+            livesUsed: this.totalLivesLost,
+            deaths: this.hitsTakenThisRun,
+            maxCorruption: this.maxCorruptionReached,
+            bestCombo: this.peakComboMultiplier,
+        });
+    }
+
     update(time: number) {
         // Pause/resume is handled by UIScene ESC key handler
         // GameScene update continues to run even when paused so UIScene can handle input
@@ -647,6 +706,7 @@ export class GameScene extends Phaser.Scene {
         this.updateSessionRewards(time);
         this.updateRotatingModifier(time);
         this.updateSensoryEscalation(time);
+        this.updateRunStats(time);
         if (this.modifierPauseActive) {
             return;
         }
@@ -701,6 +761,7 @@ export class GameScene extends Phaser.Scene {
                 b.y < -50 ||
                 b.y > gameHeight + 50
             ) {
+                this.totalBulletsDodged += 1;
                 b.destroy();
                 if (
                     this.activeChallenge?.id === "dodge_25_bullets" &&
@@ -3413,6 +3474,9 @@ export class GameScene extends Phaser.Scene {
         this.kernelDamageAccumulator += damage / this.kernelHealthMultiplier;
         const appliedDamage = Math.floor(this.kernelDamageAccumulator);
         this.kernelDamageAccumulator -= appliedDamage;
+        if (appliedDamage > 0) {
+            this.totalLivesLost += appliedDamage;
+        }
         this.lives = Math.max(0, this.lives - appliedDamage);
         this.registry.set("lives", this.lives);
 
@@ -4142,6 +4206,7 @@ export class GameScene extends Phaser.Scene {
         this.triggerHaptic(
             SENSORY_ESCALATION.hapticFeedback.onPowerUpCollect
         );
+        this.powerUpsCollected += 1;
 
         // Apply power-up effect
         if (powerUpType === "speed") {
@@ -4491,6 +4556,10 @@ export class GameScene extends Phaser.Scene {
         this.lastEdgeSampleTime = 0;
         this.lastCoordinatedFireTime = 0;
         this.lives = PLAYER_CONFIG.initialLives;
+        this.powerUpsCollected = 0;
+        this.totalBulletsDodged = 0;
+        this.totalLivesLost = 0;
+        this.lastRunStatsUpdate = 0;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
 

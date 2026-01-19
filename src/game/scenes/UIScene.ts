@@ -63,6 +63,8 @@ export class UIScene extends Phaser.Scene {
   private restartButton!: Phaser.GameObjects.Container;
   private menuButton!: Phaser.GameObjects.Container;
   private resumeButton!: Phaser.GameObjects.Container;
+  private runStatsTexts: Phaser.GameObjects.Text[] = [];
+  private runSummaryTexts: Phaser.GameObjects.Text[] = [];
 
   constructor() {
     super({ key: 'UIScene' });
@@ -149,6 +151,8 @@ export class UIScene extends Phaser.Scene {
     this.livesOrb = this.add.graphics();
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
 
+    this.createRunStatsDisplay(baseX, baseY + lineSpacing * 6, uiScale);
+
     // Corruption meter
     this.createCorruptionMeter();
     this.createOverclockMeter();
@@ -196,6 +200,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-challengeProgress', this.updateChallengeProgress, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
+    this.registry.events.on('changedata-runStats', this.updateRunStats, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
     
     // Listen for score submission from GameScene
@@ -361,6 +366,37 @@ export class UIScene extends Phaser.Scene {
       this.celebrationLines.push(line);
     }
 
+    const summaryStartY = height / 2 + 120;
+    const summaryLineSpacing = MOBILE_SCALE < 1.0 ? 14 : 16;
+    const summaryLines = [
+      'SURVIVAL TIME:',
+      'FINAL SCORE:',
+      'DEEPEST LAYER:',
+      'MAX CORRUPTION:',
+      'ENEMIES DEFEATED:',
+      'ACCURACY:',
+      'BEST COMBO:',
+      'LIVES USED:',
+      'POWER-UPS COLLECTED:',
+      'DEATHS:',
+    ];
+    this.runSummaryTexts = summaryLines.map((label, index) => {
+      const line = this.add.text(
+        width / 2,
+        summaryStartY + index * summaryLineSpacing,
+        `${label} 0`,
+        {
+          fontFamily: UI_CONFIG.bodyFont,
+          fontSize: UI_CONFIG.fontSize.small,
+          color: UI_CONFIG.neonGreen,
+          align: 'center',
+        }
+      );
+      line.setOrigin(0.5, 0.5);
+      line.setVisible(false);
+      return line;
+    });
+
     // Restart button
     this.restartButton = this.createButton(
       width / 2,
@@ -400,6 +436,7 @@ export class UIScene extends Phaser.Scene {
       this.prestigeBadgeText,
       ...this.failureFeedbackLines,
       ...this.celebrationLines,
+      ...this.runSummaryTexts,
       this.restartButton,
       this.menuButton,
     ]);
@@ -842,6 +879,58 @@ export class UIScene extends Phaser.Scene {
     this.renderCorruptionFill(0, barX, barY, barWidth, barHeight);
   }
 
+  private createRunStatsDisplay(baseX: number, startY: number, uiScale: number) {
+    const labels = [
+      'TIME',
+      'ENEMIES',
+      'ACCURACY',
+      'DODGES',
+      'SHOTS',
+    ];
+    this.runStatsTexts = labels.map((label, index) => {
+      const line = this.add.text(baseX, startY + index * 16 * uiScale, `${label}: 0`, {
+        fontFamily: UI_CONFIG.bodyFont,
+        fontSize: 12 * uiScale,
+        color: UI_CONFIG.neonGreen,
+        stroke: '#000000',
+        strokeThickness: 2 * uiScale,
+      });
+      if (MOBILE_SCALE < 1.0) {
+        line.setAlpha(0.8);
+      }
+      return line;
+    });
+  }
+
+  private updateRunStats(
+    _parent: Phaser.Data.DataManager,
+    stats: {
+      survivalTimeMs?: number;
+      enemiesDefeated?: number;
+      shotsFired?: number;
+      shotsHit?: number;
+      accuracy?: number;
+      bulletsDodged?: number;
+    }
+  ) {
+    if (!stats || this.runStatsTexts.length === 0) {
+      return;
+    }
+    const minutes = Math.floor((stats.survivalTimeMs ?? 0) / 60000);
+    const seconds = Math.floor(((stats.survivalTimeMs ?? 0) % 60000) / 1000);
+    const accuracyPct = Math.round((stats.accuracy ?? 0) * 100);
+    const lines = [
+      `TIME: ${minutes}m ${seconds}s`,
+      `ENEMIES: ${(stats.enemiesDefeated ?? 0).toLocaleString()}`,
+      `ACCURACY: ${accuracyPct}%`,
+      `DODGES: ${(stats.bulletsDodged ?? 0).toLocaleString()}`,
+      `SHOTS: ${(stats.shotsFired ?? 0).toLocaleString()}`,
+    ];
+    this.runStatsTexts.forEach((text, index) => {
+      text.setText(lines[index] || '');
+    });
+  }
+
   private createOverclockMeter() {
     const width = this.scale.width;
     const height = this.scale.height;
@@ -1102,6 +1191,8 @@ export class UIScene extends Phaser.Scene {
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
       this.updateFailureFeedback(finalScore);
+      this.updateRunSummary(finalScore);
+      this.runSummaryTexts.forEach((line) => line.setVisible(true));
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
       this.pauseButton.setVisible(false); // Hide pause button when game over
@@ -1112,9 +1203,44 @@ export class UIScene extends Phaser.Scene {
       this.prestigeBadgeText.setVisible(false);
       this.failureFeedbackLines.forEach((line) => line.setVisible(false));
       this.celebrationLines.forEach((line) => line.setVisible(false));
+      this.runSummaryTexts.forEach((line) => line.setVisible(false));
       this.hideLeaderboard();
       this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
+  }
+
+  private updateRunSummary(finalScore: number) {
+    const stats = (this.registry.get('runStats') as {
+      survivalTimeMs?: number;
+      enemiesDefeated?: number;
+      accuracy?: number;
+      maxCorruption?: number;
+      bestCombo?: number;
+      livesUsed?: number;
+      powerUpsCollected?: number;
+      deaths?: number;
+    }) || {};
+    const deepestLayer = (this.registry.get('deepestLayer') as number) || 1;
+    const layerName =
+      LAYER_CONFIG[deepestLayer as keyof typeof LAYER_CONFIG]?.name || 'Boot Sector';
+    const minutes = Math.floor((stats.survivalTimeMs ?? 0) / 60000);
+    const seconds = Math.floor(((stats.survivalTimeMs ?? 0) % 60000) / 1000);
+    const accuracyPct = Math.round((stats.accuracy ?? 0) * 100);
+    const lines = [
+      `SURVIVAL TIME: ${minutes}m ${seconds}s`,
+      `FINAL SCORE: ${finalScore.toLocaleString()}`,
+      `DEEPEST LAYER: Layer ${deepestLayer} (${layerName})`,
+      `MAX CORRUPTION: ${Math.round(stats.maxCorruption ?? 0)}%`,
+      `ENEMIES DEFEATED: ${(stats.enemiesDefeated ?? 0).toLocaleString()}`,
+      `ACCURACY: ${accuracyPct}%`,
+      `BEST COMBO: ${(stats.bestCombo ?? 1).toFixed(1)}x`,
+      `LIVES USED: ${(stats.livesUsed ?? 0).toLocaleString()}`,
+      `POWER-UPS COLLECTED: ${(stats.powerUpsCollected ?? 0).toLocaleString()}`,
+      `DEATHS: ${(stats.deaths ?? 0).toLocaleString()}`,
+    ];
+    this.runSummaryTexts.forEach((text, index) => {
+      text.setText(lines[index] || '');
+    });
   }
 
   private updateFailureFeedback(finalScore: number) {
