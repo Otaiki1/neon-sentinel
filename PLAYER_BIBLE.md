@@ -24,7 +24,8 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 14. [Rotating Layer Modifiers](#rotating-layer-modifiers)
 15. [Almost Success Feedback](#almost-success-feedback)
 16. [Kernel Playstyles](#kernel-playstyles)
-17. [Achievements & Badges](#achievements--badges)
+17. [Sensory Escalation](#sensory-escalation)
+18. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -633,6 +634,17 @@ Before each run, choose a Kernel that changes how your Sentinel handles:
 - **Sniper Kernel**: Piercing shots, much slower fire
 
 Kernels are sidegrades, not upgrades—pick the one that fits your style.
+
+---
+
+## 🧬 Sensory Escalation
+
+The deeper you go, the more the Grid reacts:
+
+- **Scanlines + Distortion**: Visual noise ramps after Layer 3
+- **Corruption Pulse**: At 75%+ corruption, the screen pulses red
+- **HUD Glitching**: UI flickers and jitters in higher layers
+- **Haptics**: Subtle rumble on kills, strong rumble on bosses and damage
 
 ---
 

@@ -438,6 +438,26 @@ PLAYER_KERNELS = {
 - Tanky kernel uses fractional damage accumulator to reduce life loss
 - Precision kernel enables bullet piercing
 
+### Sensory Escalation Configuration
+
+```typescript
+SENSORY_ESCALATION = {
+    musicTempo: { baseBeatsPerMinute: 120, increasePerMinute: 2, maxBeatsPerMinute: 160 },
+    screenEffects: {
+        baseGridOpacity: 1.0,
+        scanlineIntensity: { layer1: 0.0, layer3: 0.1, layer5: 0.3, layer6: 0.5 },
+        screenDistortion: { layer1: 0.0, layer3: 0.05, layer5: 0.15, layer6: 0.25 },
+    },
+    uiGlitching: { enabledAt: "layer_4" },
+    hapticFeedback: { onEnemyKill: { duration: 50, intensity: 0.6 } },
+}
+```
+
+**Sensory Mechanics**:
+- GameScene updates scanlines, distortion, pulses, and BPM each frame
+- UI glitch intensity is pushed via registry key `uiGlitchIntensity`
+- Haptics use `navigator.vibrate()` with optional pulse patterns
+
 ### Mid-Run Challenges Configuration
 
 ```typescript
@@ -971,6 +991,8 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `challengeTitle`: UI banner title
 - `challengeDescription`: UI banner description
 - `challengeProgress`: Progress (0-1)
+- `uiGlitchIntensity`: HUD glitch intensity (0-1)
+- `musicBpm`: Current music tempo target (for future audio sync)
 
 **Usage**:
 ```typescript

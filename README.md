@@ -26,6 +26,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Rotating Layer Modifiers**: Time-based layer variants with unique constraints
 -   **Almost Success Feedback**: Game over insights that nudge another run
 -   **Kernel Playstyles**: Sidegrade classes with distinct movement/fire traits
+-   **Sensory Escalation**: Scanlines, glitching, and haptics ramp with danger
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: In-game top scores with prestige level tracked
 -   **Hall of Fame**: Dedicated leaderboard page with rotating categories
@@ -212,6 +213,13 @@ The game features 6 system layers, each with increasing difficulty:
 - **Sidegrades**: Speed, fire rate, piercing, and durability trade-offs
 - **Unlocks**: Progress milestones unlock additional Kernels
 
+### Sensory Escalation
+
+- **Layer FX**: Scanlines and distortion intensify as you progress
+- **Critical Corruption**: Screen pulses red at 75%+ corruption
+- **UI Glitching**: HUD flicker ramps in deeper layers
+- **Haptics**: Vibrations on kills, boss defeats, damage, and power-ups
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -257,6 +265,7 @@ All game configuration is in `src/game/config.ts`:
 -   `ROTATING_LAYER_MODIFIERS`: Modifier definitions and spawn multipliers
 -   `FAILURE_FEEDBACK`: Game over feedback metrics and celebration cues
 -   `PLAYER_KERNELS`: Kernel definitions, multipliers, and unlock rules
+-   `SENSORY_ESCALATION`: Tempo, screen effects, UI glitching, and haptics
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
