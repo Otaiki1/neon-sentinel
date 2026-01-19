@@ -21,7 +21,8 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 11. [Corruption Meter](#corruption-meter)
 12. [Overclock Mode](#overclock-mode)
 13. [Mid-Run Challenges](#mid-run-challenges)
-14. [Achievements & Badges](#achievements--badges)
+14. [Rotating Layer Modifiers](#rotating-layer-modifiers)
+15. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -331,7 +332,7 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 ### Final Score Calculation
 
 ```
-Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption Multiplier
+Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption Multiplier × Speed Bonus (Temporal only)
 ```
 
 ---
@@ -584,6 +585,25 @@ Mid-run challenges are short objectives that appear during a run:
 Tips:
 - Commit to the objective once it appears for the best reward
 - Skip safely if the arena state is too chaotic
+
+---
+
+## 🧬 Rotating Layer Modifiers
+
+Some runs take place in special rotating layers that change every few hours:
+
+- **Standard Grid**: Normal gameplay
+- **Firewall Layer**: Movement speed capped at 70%
+- **Memory Leak**: Random bursts of input delay and glitch flicker
+- **Encrypted Zone**: Constant input lag (slower response)
+- **Lag Spike**: Random short freezes that pause the action
+- **The Void**: Limited vision around your Sentinel
+- **Temporal Anomaly**: Faster movement grants extra score
+
+Modifier tips:
+- Plan movement around speed caps and input lag
+- Keep space in The Void to avoid surprise hits
+- In Temporal Anomaly, move faster for higher score bonuses
 
 ---
 

@@ -23,6 +23,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Overclock Mode**: Manual mid-run boost with cooldown and charge limits
 -   **Achievements & Badges**: Meta-progression with unlockable cosmetics
 -   **Mid-Run Challenges**: Random micro-challenges with bonus rewards
+-   **Rotating Layer Modifiers**: Time-based layer variants with unique constraints
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: In-game top scores with prestige level tracked
 -   **Hall of Fame**: Dedicated leaderboard page with rotating categories
@@ -190,6 +191,13 @@ The game features 6 system layers, each with increasing difficulty:
 - **Objectives**: No-shoot survival, clean kill streaks, combo holds, bullet dodges
 - **Rewards**: Bonus score, extra lives, temporary multipliers
 
+### Rotating Layer Modifiers
+
+- **Rotation**: Real-time modifiers rotate every few hours
+- **Announcements**: Upcoming modifier revealed 15 minutes before a shift
+- **Effects**: Speed caps, input lag, vision limits, random pauses, speed-linked scoring
+- **Challenge Runs**: Modifier runs appear on a dedicated Challenge Leaderboard
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -232,6 +240,7 @@ All game configuration is in `src/game/config.ts`:
 -   `LEADERBOARD_CATEGORIES`: Category titles, metrics, and rewards
 -   `MID_RUN_CHALLENGES`: Challenge list, timing, rewards, UI settings
 -   `ACHIEVEMENTS`: Achievement tiers, rewards, and cosmetics
+-   `ROTATING_LAYER_MODIFIERS`: Modifier definitions and spawn multipliers
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
@@ -254,6 +263,7 @@ The game is fully optimized for mobile devices:
 -   **Weekly Reset**: Leaderboards reset every ISO week (localStorage)
 -   **In-Game Top 10**: Displayed on game over screen with auto-hide (includes prestige)
 -   **Hall of Fame**: `/leaderboards` page with weekly featured categories + all-time records
+-   **Challenge Leaderboard**: Weekly modifier runs (non-standard layers) in Hall of Fame
 -   **Wallet Integration**: Connect wallet to attach address to scores
 -   **Anonymous Mode**: Play without wallet (scores show as "Anonymous")
 

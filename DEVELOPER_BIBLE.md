@@ -60,6 +60,7 @@ neon-sentinel/
 │   ├── services/         # Business logic
 │   │   ├── scoreService.ts     # Leaderboard logic
 │   │   └── achievementService.ts # Achievement persistence + cosmetics
+│   │   └── rotatingLayerService.ts # Rotating modifier schedule helper
 │   └── assets/           # Static assets
 │       └── sprites/       # SVG game sprites
 ├── public/               # Public assets
@@ -357,6 +358,39 @@ LEADERBOARD_CATEGORIES = {
 **Leaderboard Mechanics**:
 - Weekly featured categories rotate via deterministic selection
 - All-time records shown for inactive categories on the Hall of Fame page
+- Challenge leaderboard shows non-standard modifier runs
+
+### Rotating Layer Modifier Configuration
+
+```typescript
+ROTATING_LAYER_MODIFIERS = {
+    firewall: {
+        name: "Firewall Layer",
+        enemySpawnRate: 1.2,
+        modifiers: [{ type: "speed_cap", value: 0.7 }],
+    },
+    memory_leak: {
+        name: "Memory Leak",
+        enemySpawnRate: 0.9,
+        modifiers: [
+            { type: "input_delay", value: 0.1, frequency: "random_5s" },
+            { type: "screen_glitch", intensity: 0.3 },
+        ],
+    },
+    // ... more modifiers
+}
+
+ROTATING_LAYER_SCHEDULE = {
+    durationHours: 3.5,
+    announceBeforeMinutes: 15,
+    rotationOrder: ["standard", "firewall", "memory_leak", "encrypted", "lag_spike", "void", "temporal"],
+}
+```
+
+**Modifier Mechanics**:
+- Rotation is time-based and global (all players share the same modifier)
+- Upcoming change announced 15 minutes before the switch
+- Effects include input delay, random pauses, vision mask, and speed-linked scoring
 
 ### Mid-Run Challenges Configuration
 
@@ -1105,8 +1139,9 @@ if (returnToMenu) returnToMenu();
 **Location**: `src/services/scoreService.ts`
 
 **Functions**:
-- `submitScore(score, walletAddress?, deepestLayer?, prestigeLevel?, runMetrics?)`: Submit score with run metrics
+- `submitScore(score, walletAddress?, deepestLayer?, prestigeLevel?, runMetrics?, modifierKey?)`: Submit score with run metrics + modifier
 - `fetchWeeklyLeaderboard()`: Basic weekly score leaderboard for in-game UI
+- `fetchWeeklyChallengeLeaderboard()`: Weekly leaderboard for modifier runs
 - `fetchWeeklyCategoryLeaderboard(category)`: Weekly leaderboard by category
 - `fetchAllTimeCategoryLeaderboard(category)`: All-time leaderboard by category
 - `getFeaturedWeeklyCategories(week, count)`: Rotation helper for featured categories
