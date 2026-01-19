@@ -6,6 +6,7 @@ export interface ScoreEntry {
   timestamp: number;
   week: number;
   deepestLayer?: number;
+  prestigeLevel?: number;
 }
 
 const STORAGE_KEY = 'neon_sentinel_scores';
@@ -101,7 +102,12 @@ function saveScores(scores: ScoreEntry[]): void {
 /**
  * Submit a score to the leaderboard
  */
-export function submitScore(score: number, walletAddress?: string, deepestLayer?: number): void {
+export function submitScore(
+  score: number,
+  walletAddress?: string,
+  deepestLayer?: number,
+  prestigeLevel?: number
+): void {
   // Check if we need to reset leaderboard
   if (shouldResetLeaderboard()) {
     resetWeeklyLeaderboard();
@@ -122,6 +128,7 @@ export function submitScore(score: number, walletAddress?: string, deepestLayer?
     timestamp: Date.now(),
     week: currentWeek,
     deepestLayer: deepestLayer || 1,
+    prestigeLevel: prestigeLevel || 0,
   };
   
   // Get existing scores

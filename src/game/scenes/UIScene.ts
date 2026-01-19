@@ -6,10 +6,12 @@ export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private layerText!: Phaser.GameObjects.Text;
+  private prestigeText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
+  private prestigeBadgeText!: Phaser.GameObjects.Text;
   private pauseContainer!: Phaser.GameObjects.Container;
   private pauseText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
@@ -86,9 +88,21 @@ export class UIScene extends Phaser.Scene {
       this.layerText.setAlpha(0.85); // Slightly transparent on mobile
     }
 
+    // Prestige display
+    this.prestigeText = this.add.text(baseX, baseY + lineSpacing * 4, 'PRESTIGE: 0', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    if (MOBILE_SCALE < 1.0) {
+      this.prestigeText.setAlpha(0.85);
+    }
+
     // Lives display (orb indicators only)
     const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 4 + 8 * uiScale;
+    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
     this.livesOrb = this.add.graphics();
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
 
@@ -111,6 +125,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-score', this.updateScore, this);
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
+    this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -181,6 +196,16 @@ export class UIScene extends Phaser.Scene {
     });
     this.finalScoreText.setOrigin(0.5, 0.5);
 
+    this.prestigeBadgeText = this.add.text(width / 2, height / 2 - 10, 'BADGE UNLOCKED: PRESTIGE CHAMPION', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: 18,
+      color: '#ff66ff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    this.prestigeBadgeText.setOrigin(0.5, 0.5);
+    this.prestigeBadgeText.setVisible(false);
+
     // Restart button
     this.restartButton = this.createButton(
       width / 2,
@@ -217,6 +242,7 @@ export class UIScene extends Phaser.Scene {
       overlay,
       this.gameOverText,
       this.finalScoreText,
+      this.prestigeBadgeText,
       this.restartButton,
       this.menuButton,
     ]);
@@ -607,13 +633,17 @@ export class UIScene extends Phaser.Scene {
     this.layerText.setText(`LAYER: ${layerName}`);
   }
 
+  private updatePrestige(_parent: Phaser.Data.DataManager, value: number) {
+    this.prestigeText.setText(`PRESTIGE: ${value}`);
+  }
+
   private updateLives(_parent: Phaser.Data.DataManager, value: number) {
     const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0;
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30;
     const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
     const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
     const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 4 + 8 * uiScale;
+    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
 
     this.renderLivesOrbs(value, livesX, livesY, uiScale);
   }
@@ -661,6 +691,8 @@ export class UIScene extends Phaser.Scene {
     if (value) {
       const finalScore = this.registry.get('finalScore') || 0;
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
+      const prestigeChampion = !!this.registry.get('prestigeChampion');
+      this.prestigeBadgeText.setVisible(prestigeChampion);
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
       this.pauseButton.setVisible(false); // Hide pause button when game over
@@ -668,6 +700,7 @@ export class UIScene extends Phaser.Scene {
       this.settingsVisible = false;
     } else {
       this.gameOverContainer.setVisible(false);
+      this.prestigeBadgeText.setVisible(false);
       this.hideLeaderboard();
       this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
@@ -685,10 +718,15 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  private async onSubmitScore(score: number, walletAddress?: string, deepestLayer?: number) {
+  private async onSubmitScore(
+    score: number,
+    walletAddress?: string,
+    deepestLayer?: number,
+    prestigeLevel?: number
+  ) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress, deepestLayer);
+    submitScore(score, walletAddress, deepestLayer, prestigeLevel);
     
     // Show leaderboard after a short delay
     this.time.delayedCall(500, () => {
@@ -743,9 +781,10 @@ export class UIScene extends Phaser.Scene {
         const rank = index + 1;
         const playerName = entry.playerName || 'Anonymous';
         const displayName = playerName.length > 12 ? playerName.substring(0, 12) + '...' : playerName;
+        const prestigeLabel = entry.prestigeLevel ? `P${entry.prestigeLevel}` : 'P0';
         
         const entryText = this.add.text(panelX, y, 
-          `${rank}. ${displayName.padEnd(15)} ${entry.score.toLocaleString()}`,
+          `${rank}. ${displayName.padEnd(12)} ${prestigeLabel.padEnd(4)} ${entry.score.toLocaleString()}`,
           {
             fontFamily: UI_CONFIG.scoreFont,
             fontSize: entryFontSize,

@@ -24,7 +24,9 @@ export function setUserMode(mode: UserMode): void {
 
 function LandingPage() {
   const { primaryWallet } = useDynamicContext();
-  const [leaderboard, setLeaderboard] = useState<Array<{ score: number; playerName: string }>>([]);
+  const [leaderboard, setLeaderboard] = useState<
+    Array<{ score: number; playerName: string; prestigeLevel?: number }>
+  >([]);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
@@ -192,7 +194,12 @@ function LandingPage() {
                     <div className="flex items-center justify-between">
                       <span>
                         <span className="rank-badge font-score text-base">{index + 1}</span>
-                        <span className="font-score text-base md:text-lg">{entry.playerName}</span>
+                      <span className="font-score text-base md:text-lg">
+                        {entry.playerName}
+                      </span>
+                      <span className="font-score text-xs md:text-sm text-red-500 ml-2">
+                        P{entry.prestigeLevel ?? 0}
+                      </span>
                       </span>
                       <span className="font-score text-base md:text-lg text-neon-green">
                         {entry.score.toLocaleString()}

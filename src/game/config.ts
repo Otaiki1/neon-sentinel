@@ -132,6 +132,23 @@ export const LAYER_CONFIG = {
     },
 } as const;
 
+export const MAX_LAYER = 6;
+
+export const PRESTIGE_CONFIG = {
+    prestigeLevels: [
+        { level: 1, difficultyMultiplier: 1.5, scoreMultiplier: 1.0 },
+        { level: 2, difficultyMultiplier: 2.0, scoreMultiplier: 1.5 },
+        { level: 3, difficultyMultiplier: 2.5, scoreMultiplier: 2.0 },
+        { level: 4, difficultyMultiplier: 3.0, scoreMultiplier: 2.5 },
+    ],
+    prestigeResetThreshold: 100000,
+    visualEffects: {
+        gridGlitchIntensity: 0.3,
+        screenFlashFrequency: 1.2,
+        corruptionVFX: true,
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

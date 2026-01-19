@@ -7,6 +7,8 @@ import {
     POWERUP_CONFIG,
     MOBILE_SCALE,
     UI_CONFIG,
+    MAX_LAYER,
+    PRESTIGE_CONFIG,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -28,6 +30,12 @@ export class GameScene extends Phaser.Scene {
     private backgroundGrid!: Phaser.GameObjects.Graphics;
     private currentLayer = 1;
     private deepestLayer = 1;
+    private prestigeLevel = 0;
+    private prestigeDifficultyMultiplier = 1;
+    private prestigeScoreMultiplier = 1;
+    private prestigeFlashTimer: Phaser.Time.TimerEvent | null = null;
+    private prestigeGlitchTimer: Phaser.Time.TimerEvent | null = null;
+    private prestigeResetAvailable = true;
     private enemyBullets!: Phaser.Physics.Arcade.Group;
     private isPaused = false;
     private graduationBossActive = false; // Track if graduation boss is active
@@ -167,6 +175,16 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentLayer", this.currentLayer);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
+        this.registry.set("prestigeChampion", false);
+        this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set(
+            "prestigeScoreMultiplier",
+            this.prestigeScoreMultiplier
+        );
+        this.registry.set(
+            "prestigeDifficultyMultiplier",
+            this.prestigeDifficultyMultiplier
+        );
         if (this.registry.get("joystickSensitivity") === undefined) {
             const stored = Number(
                 localStorage.getItem(this.joystickSensitivityKey)
@@ -179,6 +197,9 @@ export class GameScene extends Phaser.Scene {
 
         // Show instruction modal on game start
         this.showInstructionModal();
+
+        // Start prestige visual effects (idle for prestige 0)
+        this.updatePrestigeEffects();
     }
 
     private drawBackgroundGrid() {
@@ -189,7 +210,8 @@ export class GameScene extends Phaser.Scene {
         // Get grid color based on current layer
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
-        const gridColor = layerConfig?.gridColor || 0x00ff00;
+        const baseGridColor = layerConfig?.gridColor || 0x00ff00;
+        const gridColor = this.getPrestigeGridColor(baseGridColor);
 
         // Destroy old grid if it exists
         if (this.backgroundGrid) {
@@ -222,7 +244,7 @@ export class GameScene extends Phaser.Scene {
         const progressBarX = width * 0.1; // 10% from left
 
         // Calculate progress based on current layer and score
-        const maxLayer = 6; // Maximum layer
+        const maxLayer = MAX_LAYER;
         const currentLayerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const nextLayerConfig =
@@ -729,7 +751,9 @@ export class GameScene extends Phaser.Scene {
         const maxEnemiesMultiplier =
             currentLayerConfig?.spawnRateMultiplier || 1.0;
         const currentMaxEnemies = Math.floor(
-            SPAWN_CONFIG.baseMaxEnemies * maxEnemiesMultiplier
+            SPAWN_CONFIG.baseMaxEnemies *
+                maxEnemiesMultiplier *
+                Math.max(1, this.prestigeDifficultyMultiplier)
         );
 
         const activeEnemies = this.enemies.children.size;
@@ -792,11 +816,16 @@ export class GameScene extends Phaser.Scene {
 
         // Scale health based on current layer
         const healthMultiplier = currentLayerConfig?.healthMultiplier || 1.0;
-        const scaledHealth = Math.ceil(config.health * healthMultiplier);
+        const scaledHealth = Math.ceil(
+            config.health * healthMultiplier * this.prestigeDifficultyMultiplier
+        );
 
         enemy.setData("type", selectedType);
         enemy.setData("points", config.points);
-        enemy.setData("speed", config.speed);
+        enemy.setData(
+            "speed",
+            Math.round(config.speed * this.prestigeDifficultyMultiplier)
+        );
         enemy.setData("health", scaledHealth);
         enemy.setData("maxHealth", scaledHealth);
         enemy.setData("canShoot", config.canShoot || false);
@@ -824,8 +853,10 @@ export class GameScene extends Phaser.Scene {
                 this.player.y
             ) + Phaser.Math.FloatBetween(-0.2, 0.2);
 
-        const velocityX = Math.cos(angle) * config.speed;
-        const velocityY = Math.sin(angle) * config.speed;
+        const velocityX =
+            Math.cos(angle) * config.speed * this.prestigeDifficultyMultiplier;
+        const velocityY =
+            Math.sin(angle) * config.speed * this.prestigeDifficultyMultiplier;
         enemy.setVelocity(velocityX, velocityY);
     }
 
@@ -834,6 +865,10 @@ export class GameScene extends Phaser.Scene {
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const spawnRateMultiplier = layerConfig?.spawnRateMultiplier || 1.0;
+        const prestigeSpawnMultiplier = Math.max(
+            1,
+            this.prestigeDifficultyMultiplier
+        );
 
         // Calculate spawn interval (faster spawns = lower delay)
         // Base interval is middle of min/max, then divided by multiplier
@@ -841,7 +876,7 @@ export class GameScene extends Phaser.Scene {
             (SPAWN_CONFIG.minInterval + SPAWN_CONFIG.maxInterval) / 2;
         const adjustedInterval = Math.max(
             SPAWN_CONFIG.minInterval,
-            baseInterval / spawnRateMultiplier
+            baseInterval / (spawnRateMultiplier * prestigeSpawnMultiplier)
         );
 
         // Remove existing timer if any
@@ -911,9 +946,16 @@ export class GameScene extends Phaser.Scene {
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
-        const scaledHealth = Math.ceil(health * healthMultiplier);
+        const scaledHealth = Math.ceil(
+            health * healthMultiplier * this.prestigeDifficultyMultiplier
+        );
         const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
-        const scaledSpeed = Math.max(40, Math.round(speed * speedMultiplier));
+        const scaledSpeed = Math.max(
+            40,
+            Math.round(
+                speed * speedMultiplier * this.prestigeDifficultyMultiplier
+            )
+        );
 
         boss.setData("type", bossType);
         boss.setData("points", points);
@@ -1023,9 +1065,16 @@ export class GameScene extends Phaser.Scene {
         const layerConfig =
             LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
-        const scaledHealth = Math.ceil(health * healthMultiplier * 10); // 10x toughness for graduation bosses
+        const scaledHealth = Math.ceil(
+            health * healthMultiplier * 10 * this.prestigeDifficultyMultiplier
+        ); // 10x toughness for graduation bosses
         const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
-        const scaledSpeed = Math.max(40, Math.round(speed * speedMultiplier));
+        const scaledSpeed = Math.max(
+            40,
+            Math.round(
+                speed * speedMultiplier * this.prestigeDifficultyMultiplier
+            )
+        );
 
         boss.setData("type", bossType);
         boss.setData("points", points);
@@ -1136,56 +1185,62 @@ export class GameScene extends Phaser.Scene {
 
             // If graduation boss was defeated, advance to next layer
             if (isGraduationBoss) {
-                this.currentLayer = this.pendingLayer;
-                if (this.pendingLayer > this.deepestLayer) {
-                    this.deepestLayer = this.pendingLayer;
-                }
-                this.registry.set("currentLayer", this.currentLayer);
-                this.registry.set(
-                    "layerName",
-                    LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG]
-                        .name
-                );
-
-                // Update grid color when layer changes
-                this.drawBackgroundGrid();
-
-                // Visual effect for layer transition
-                this.cameras.main.flash(500, 0, 255, 0, false); // Green flash for success
-                this.cameras.main.shake(300, 0.01);
-
-                // Show announcement card for boss defeated and layer advanced
-                const layerName =
-                    LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG]
-                        .name;
-                this.showAnnouncement(
-                    "BOSS DEFEATED!",
-                    `Advanced to ${layerName}`,
-                    0x00ff00 // Green color for success
-                );
-
-                // Resume normal enemy spawning
-                this.updateSpawnTimer();
-
-                // Debug log to verify layer progression
-                console.log(
-                    `Graduation boss defeated! Advanced to layer ${
-                        this.currentLayer
-                    }: ${
+                if (this.pendingLayer >= MAX_LAYER) {
+                    this.enterPrestigeMode(e.x, e.y);
+                } else {
+                    this.currentLayer = this.pendingLayer;
+                    if (this.pendingLayer > this.deepestLayer) {
+                        this.deepestLayer = this.pendingLayer;
+                    }
+                    this.registry.set("currentLayer", this.currentLayer);
+                    this.registry.set(
+                        "layerName",
                         LAYER_CONFIG[
                             this.currentLayer as keyof typeof LAYER_CONFIG
                         ].name
-                    }`
-                );
+                    );
 
-                // Spawn multiple power-ups as reward
-                for (let i = 0; i < 3; i++) {
-                    this.time.delayedCall(i * 200, () => {
-                        this.spawnLivesPowerUp(
-                            e.x + Phaser.Math.Between(-50, 50),
-                            e.y + Phaser.Math.Between(-50, 50)
-                        );
-                    });
+                    // Update grid color when layer changes
+                    this.drawBackgroundGrid();
+
+                    // Visual effect for layer transition
+                    this.cameras.main.flash(500, 0, 255, 0, false); // Green flash for success
+                    this.cameras.main.shake(300, 0.01);
+
+                    // Show announcement card for boss defeated and layer advanced
+                    const layerName =
+                        LAYER_CONFIG[
+                            this.currentLayer as keyof typeof LAYER_CONFIG
+                        ].name;
+                    this.showAnnouncement(
+                        "BOSS DEFEATED!",
+                        `Advanced to ${layerName}`,
+                        0x00ff00 // Green color for success
+                    );
+
+                    // Resume normal enemy spawning
+                    this.updateSpawnTimer();
+
+                    // Debug log to verify layer progression
+                    console.log(
+                        `Graduation boss defeated! Advanced to layer ${
+                            this.currentLayer
+                        }: ${
+                            LAYER_CONFIG[
+                                this.currentLayer as keyof typeof LAYER_CONFIG
+                            ].name
+                        }`
+                    );
+
+                    // Spawn multiple power-ups as reward
+                    for (let i = 0; i < 3; i++) {
+                        this.time.delayedCall(i * 200, () => {
+                            this.spawnLivesPowerUp(
+                                e.x + Phaser.Math.Between(-50, 50),
+                                e.y + Phaser.Math.Between(-50, 50)
+                            );
+                        });
+                    }
                 }
             } else {
                 // Normal enemy - spawn power-ups as usual
@@ -1334,7 +1389,8 @@ export class GameScene extends Phaser.Scene {
                         "submitScore",
                         this.score,
                         walletAddress,
-                        this.deepestLayer
+                        this.deepestLayer,
+                        this.prestigeLevel
                     );
                 }
             });
@@ -1758,7 +1814,9 @@ export class GameScene extends Phaser.Scene {
                 ENEMY_CONFIG[
                     enemy.getData("type") as keyof typeof ENEMY_CONFIG
                 ];
-            const bulletSpeed = (config as any).bulletSpeed || 200;
+        const bulletSpeed =
+            ((config as any).bulletSpeed || 200) *
+            this.prestigeDifficultyMultiplier;
 
             const velocityX = Math.cos(angle) * bulletSpeed;
             const velocityY = Math.sin(angle) * bulletSpeed;
@@ -2079,7 +2137,10 @@ export class GameScene extends Phaser.Scene {
     private addScore(points: number) {
         // Apply score multiplier from power-ups
         const adjustedPoints = Math.floor(
-            points * this.scoreMultiplier * this.comboMultiplier
+            points *
+                this.scoreMultiplier *
+                this.comboMultiplier *
+                this.prestigeScoreMultiplier
         );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
@@ -2103,7 +2164,7 @@ export class GameScene extends Phaser.Scene {
 
         // Determine target layer based on score thresholds
         let targetLayer = 1;
-        for (let layer = 6; layer >= 1; layer--) {
+        for (let layer = MAX_LAYER; layer >= 1; layer--) {
             if (
                 this.score >=
                 LAYER_CONFIG[layer as keyof typeof LAYER_CONFIG].scoreThreshold
@@ -2236,6 +2297,10 @@ export class GameScene extends Phaser.Scene {
         this.nextSpawnTime = SPAWN_CONFIG.initialDelay;
         this.currentLayer = 1;
         this.deepestLayer = 1;
+        this.prestigeLevel = 0;
+        this.prestigeDifficultyMultiplier = 1;
+        this.prestigeScoreMultiplier = 1;
+        this.prestigeResetAvailable = true;
         this.lives = PLAYER_CONFIG.initialLives;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
@@ -2286,6 +2351,18 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
         this.registry.set("lives", this.lives);
+        this.registry.set("prestigeChampion", false);
+        this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set(
+            "prestigeScoreMultiplier",
+            this.prestigeScoreMultiplier
+        );
+        this.registry.set(
+            "prestigeDifficultyMultiplier",
+            this.prestigeDifficultyMultiplier
+        );
+
+        this.updatePrestigeEffects();
 
         // Reset spawn timer
         if (this.spawnTimer) {
@@ -2296,5 +2373,158 @@ export class GameScene extends Phaser.Scene {
             this.spawnEnemy();
             this.updateSpawnTimer();
         });
+    }
+
+    private enterPrestigeMode(originX: number, originY: number) {
+        this.prestigeLevel += 1;
+        this.applyPrestigeLevel(this.prestigeLevel);
+
+        if (
+            this.prestigeResetAvailable &&
+            this.score >= PRESTIGE_CONFIG.prestigeResetThreshold
+        ) {
+            this.score = 0;
+            this.comboMultiplier = 1;
+            this.registry.set("score", this.score);
+            this.registry.set("comboMultiplier", this.comboMultiplier);
+            this.prestigeResetAvailable = false;
+        }
+
+        this.currentLayer = 1;
+        this.pendingLayer = 1;
+        if (this.deepestLayer < MAX_LAYER) {
+            this.deepestLayer = MAX_LAYER;
+        }
+        this.registry.set("currentLayer", this.currentLayer);
+        this.registry.set("layerName", LAYER_CONFIG[1].name);
+
+        const prestigeTier = this.getPrestigeTier(this.prestigeLevel);
+        this.showAnnouncement(
+            "PRESTIGE UNLOCKED!",
+            `Cycle ${this.prestigeLevel} · ${prestigeTier.label}`,
+            0xff00ff
+        );
+
+        this.drawBackgroundGrid();
+        this.updateSpawnTimer();
+        this.updatePrestigeEffects();
+
+        this.cameras.main.flash(700, 255, 0, 255, false);
+        this.cameras.main.shake(500, 0.02);
+
+        for (let i = 0; i < 4; i++) {
+            this.time.delayedCall(i * 200, () => {
+                this.spawnLivesPowerUp(
+                    originX + Phaser.Math.Between(-60, 60),
+                    originY + Phaser.Math.Between(-60, 60)
+                );
+            });
+        }
+    }
+
+    private applyPrestigeLevel(level: number) {
+        const prestigeTier = this.getPrestigeTier(level);
+        this.prestigeDifficultyMultiplier = prestigeTier.difficultyMultiplier;
+        this.prestigeScoreMultiplier = prestigeTier.scoreMultiplier;
+        this.prestigeResetAvailable = true;
+
+        this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set(
+            "prestigeScoreMultiplier",
+            this.prestigeScoreMultiplier
+        );
+        this.registry.set(
+            "prestigeDifficultyMultiplier",
+            this.prestigeDifficultyMultiplier
+        );
+
+        const prestigeChampion = this.prestigeLevel >= 10;
+        this.registry.set("prestigeChampion", prestigeChampion);
+    }
+
+    private getPrestigeTier(level: number) {
+        const tier = PRESTIGE_CONFIG.prestigeLevels.find(
+            (entry) => entry.level === level
+        );
+        if (tier) {
+            return { ...tier, label: `Tier ${tier.level}` };
+        }
+
+        const difficultyMultiplier = 1.5 + (level - 1) * 0.5;
+        const scoreMultiplier = 1.0 + (level - 1) * 0.5;
+        return {
+            level,
+            difficultyMultiplier,
+            scoreMultiplier,
+            label: `Tier ${level}`,
+        };
+    }
+
+    private getPrestigeGridColor(baseColor: number) {
+        if (this.prestigeLevel <= 0) {
+            return baseColor;
+        }
+        const base = Phaser.Display.Color.ValueToColor(baseColor);
+        const hsl = Phaser.Display.Color.RGBToHSV(base.r, base.g, base.b);
+        const hueShift = (this.prestigeLevel * 25) % 360;
+        const shifted = Phaser.Display.Color.HSVToRGB(
+            (hsl.h * 360 + hueShift) / 360,
+            Math.min(1, hsl.s + 0.1),
+            Math.min(1, hsl.v + 0.1)
+        );
+        return Phaser.Display.Color.GetColor(shifted.r, shifted.g, shifted.b);
+    }
+
+    private updatePrestigeEffects() {
+        if (this.prestigeFlashTimer) {
+            this.prestigeFlashTimer.remove();
+            this.prestigeFlashTimer = null;
+        }
+        if (this.prestigeGlitchTimer) {
+            this.prestigeGlitchTimer.remove();
+            this.prestigeGlitchTimer = null;
+        }
+
+        if (this.prestigeLevel <= 0) {
+            if (this.backgroundGrid) {
+                this.backgroundGrid.setAlpha(1);
+                this.backgroundGrid.setPosition(0, 0);
+            }
+            return;
+        }
+
+        const flashInterval = Math.max(
+            1500,
+            8000 / PRESTIGE_CONFIG.visualEffects.screenFlashFrequency
+        );
+        this.prestigeFlashTimer = this.time.addEvent({
+            delay: flashInterval,
+            loop: true,
+            callback: () => {
+                if (this.gameOver || this.isPaused) return;
+                this.cameras.main.flash(120, 255, 0, 100, false);
+            },
+        });
+
+        if (PRESTIGE_CONFIG.visualEffects.corruptionVFX) {
+            const glitchIntensity =
+                PRESTIGE_CONFIG.visualEffects.gridGlitchIntensity +
+                this.prestigeLevel * 0.05;
+            this.prestigeGlitchTimer = this.time.addEvent({
+                delay: 350,
+                loop: true,
+                callback: () => {
+                    if (!this.backgroundGrid) return;
+                    const offset = 6 * glitchIntensity;
+                    this.backgroundGrid.setPosition(
+                        Phaser.Math.FloatBetween(-offset, offset),
+                        Phaser.Math.FloatBetween(-offset, offset)
+                    );
+                    this.backgroundGrid.setAlpha(
+                        Phaser.Math.Clamp(0.6 + glitchIntensity, 0.6, 0.95)
+                    );
+                },
+            });
+        }
     }
 }
