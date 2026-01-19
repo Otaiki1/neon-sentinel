@@ -51,6 +51,7 @@ neon-sentinel/
 │   │       └── UIScene.ts      # UI overlay
 │   ├── pages/             # React pages
 │   │   ├── LandingPage.tsx     # Main menu
+│   │   ├── LeaderboardPage.tsx # Hall of Fame leaderboard view
 │   │   └── GamePage.tsx        # Game container
 │   ├── components/        # React components
 │   │   ├── WalletConnectionModal.tsx
@@ -336,6 +337,25 @@ OVERCLOCK_CONFIG = {
 - Manual activation (`Q`) with cooldown + max charges per run
 - Temporary multipliers for speed, fire rate, score, and spawn rate
 - UI exposes remaining duration and cooldown
+
+### Leaderboard Categories Configuration
+
+```typescript
+LEADERBOARD_CATEGORIES = {
+    highestScore: { title: "Score Champion", metric: "finalScore" },
+    longestSurvival: { title: "Endurance Sentinel", metric: "survivalTime" },
+    highestCorruption: { title: "Risk Taker", metric: "maxCorruptionReached" },
+    mostEnemiesDefeated: { title: "Swarm Slayer", metric: "totalEnemiesDefeated" },
+    cleanRuns: { title: "Perfect Sentinel", metric: "runsWithoutDamage" },
+    highestCombo: { title: "Rhythm Master", metric: "peakComboMultiplier" },
+    deepestLayer: { title: "System Diver", metric: "deepestLayerWithPrestige" },
+    speedrun: { title: "Speed Runner", metric: "timeToReachLayer6" },
+}
+```
+
+**Leaderboard Mechanics**:
+- Weekly featured categories rotate via deterministic selection
+- All-time records shown for inactive categories on the Hall of Fame page
 
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
@@ -1034,8 +1054,11 @@ if (returnToMenu) returnToMenu();
 **Location**: `src/services/scoreService.ts`
 
 **Functions**:
-- `submitScore(score, walletAddress?, deepestLayer?, prestigeLevel?)`: Submit score
-- `fetchWeeklyLeaderboard()`: Get weekly leaderboard
+- `submitScore(score, walletAddress?, deepestLayer?, prestigeLevel?, runMetrics?)`: Submit score with run metrics
+- `fetchWeeklyLeaderboard()`: Basic weekly score leaderboard for in-game UI
+- `fetchWeeklyCategoryLeaderboard(category)`: Weekly leaderboard by category
+- `fetchAllTimeCategoryLeaderboard(category)`: All-time leaderboard by category
+- `getFeaturedWeeklyCategories(week, count)`: Rotation helper for featured categories
 - `getCurrentISOWeek()`: Get current ISO week number
 
 **Storage**: localStorage (mock implementation)
@@ -1174,6 +1197,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.5*
+*Last Updated: Game Version 1.6*
 *Maintained by: Neon Sentinel Development Team*
 

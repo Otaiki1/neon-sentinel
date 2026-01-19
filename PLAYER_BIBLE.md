@@ -387,6 +387,12 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 - **Deepest Layer**: Also tracked—shows how far you progressed
 - **Prestige**: Prestige level is tracked and displayed with scores
 
+### Hall of Fame (Dedicated Page)
+
+- **Access**: From the main menu’s "Hall of Fame" link
+- **Featured Categories**: 3-5 weekly rotating categories (score, endurance, corruption, etc.)
+- **All-Time Records**: Inactive categories still show all-time leaders
+
 ### Leaderboard Features
 
 - **X Button**: Click the X in the top-right to close the leaderboard
@@ -570,5 +576,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.5*
+*Last Updated: Game Version 1.6*
 

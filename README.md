@@ -22,7 +22,8 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Corruption Meter**: Risk-reward system that boosts score and enemy aggression
 -   **Overclock Mode**: Manual mid-run boost with cooldown and charge limits
 -   **Lives System**: Collect Life Orbs for unlimited lives
--   **Weekly Leaderboards**: Compete for top scores with prestige level tracked
+-   **Weekly Leaderboards**: In-game top scores with prestige level tracked
+-   **Hall of Fame**: Dedicated leaderboard page with rotating categories
 -   **Wallet Integration**: Connect wallet or play anonymously
 -   **Mobile Support**: On-screen joystick + fire button with adjustable sensitivity
 -   **Neon Aesthetic**: Retro brutalist design with neon green theme
@@ -214,7 +215,7 @@ All game configuration is in `src/game/config.ts`:
 -   `ENEMY_BEHAVIOR_CONFIG`: Predictive lead time, coordination range, adaptation tuning
 -   `CORRUPTION_SYSTEM`: Corruption thresholds, bonuses, score/enemy multipliers
 -   `OVERCLOCK_CONFIG`: Overclock activation, cooldown, and effects
--   `OVERCLOCK_CONFIG`: Manual activation settings, effects, cooldown/charges
+-   `LEADERBOARD_CATEGORIES`: Category titles, metrics, and rewards
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
@@ -235,7 +236,8 @@ The game is fully optimized for mobile devices:
 ## 🏆 Leaderboards
 
 -   **Weekly Reset**: Leaderboards reset every ISO week (localStorage)
--   **Top 10**: Displayed on game over screen with auto-hide (includes prestige)
+-   **In-Game Top 10**: Displayed on game over screen with auto-hide (includes prestige)
+-   **Hall of Fame**: `/leaderboards` page with weekly featured categories + all-time records
 -   **Wallet Integration**: Connect wallet to attach address to scores
 -   **Anonymous Mode**: Play without wallet (scores show as "Anonymous")
 
