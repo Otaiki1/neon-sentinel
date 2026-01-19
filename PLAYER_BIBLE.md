@@ -21,6 +21,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 11. [Corruption Meter](#corruption-meter)
 12. [Overclock Mode](#overclock-mode)
 13. [Mid-Run Challenges](#mid-run-challenges)
+14. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -421,6 +422,7 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 - **Overclock Bar**: Cyan bar showing active duration
 - **Overclock Status**: Remaining charges and cooldown
 - **Challenge Banner**: Mid-run objective text with progress bar
+- **Achievement Progress**: Pause menu shows milestone progress
 
 ### Announcements
 
@@ -585,6 +587,21 @@ Tips:
 
 ---
 
+## 🏅 Achievements & Badges
+
+Achievements unlock badges and cosmetics that persist between runs:
+
+- **Tiers**: Basic, Intermediate, Advanced, Legendary
+- **Badges**: Displayed on your Hall of Fame profile
+- **Cosmetics**: Select unlocked cosmetics in the Hall of Fame page
+- **Progress Alerts**: “About to unlock” warnings appear near 70% progress
+
+Tips:
+- Check the pause menu for your closest milestones
+- Focus on one goal per run for faster unlocks
+
+---
+
 ## 🎯 Final Words
 
 The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the last line of defense. Push deeper, survive longer, and climb the leaderboards to become a legend.
@@ -593,5 +610,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.7*
+*Last Updated: Game Version 1.8*
 

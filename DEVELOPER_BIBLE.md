@@ -58,7 +58,8 @@ neon-sentinel/
 │   │   ├── StoryModal.tsx
 │   │   └── Methods.tsx
 │   ├── services/         # Business logic
-│   │   └── scoreService.ts     # Leaderboard logic
+│   │   ├── scoreService.ts     # Leaderboard logic
+│   │   └── achievementService.ts # Achievement persistence + cosmetics
 │   └── assets/           # Static assets
 │       └── sprites/       # SVG game sprites
 ├── public/               # Public assets
@@ -386,6 +387,22 @@ MID_RUN_CHALLENGES = {
 - Triggered after an initial delay, then every interval without overlap
 - Per-challenge trackers stored in `GameScene` and progress pushed to registry
 - Rewards can be instant (score/lives) or timed modifiers
+
+### Achievement Configuration
+
+```typescript
+ACHIEVEMENTS = {
+    tier1_basic: [{ id: "first_blood", reward: "badge_first_blood" }],
+    tier2_intermediate: [{ id: "5x_combo", reward: "badge_flow_master" }],
+    tier3_advanced: [{ id: "prestige_1", reward: "cosmetic_prestige_glow" }],
+    tier4_legendary: [{ id: "1m_points", reward: "badge_grid_slayer" }],
+}
+```
+
+**Achievement Mechanics**:
+- Progress tracked per run and persisted in localStorage
+- Unlocks fire announcements and update pause menu progress
+- Cosmetics are selectable on the Hall of Fame page
 
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
@@ -1099,6 +1116,15 @@ if (returnToMenu) returnToMenu();
 
 **Weekly Reset**: Based on ISO week number
 
+### Achievement Service
+
+**Location**: `src/services/achievementService.ts`
+
+**Responsibilities**:
+- Persist unlocked achievements and progress
+- Track lifetime totals (score/playtime)
+- Provide unlocked badges/cosmetics and selection
+
 ---
 
 ## 🏗️ Build & Deployment
@@ -1231,6 +1257,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.7*
+*Last Updated: Game Version 1.8*
 *Maintained by: Neon Sentinel Development Team*
 
