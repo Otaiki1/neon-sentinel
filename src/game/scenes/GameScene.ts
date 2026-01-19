@@ -9,6 +9,8 @@ import {
     UI_CONFIG,
     MAX_LAYER,
     PRESTIGE_CONFIG,
+    DIFFICULTY_EVOLUTION,
+    ENEMY_BEHAVIOR_CONFIG,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -36,6 +38,19 @@ export class GameScene extends Phaser.Scene {
     private prestigeFlashTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeGlitchTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeResetAvailable = true;
+    private runStartTime = 0;
+    private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
+    private lastMovementSampleTime = 0;
+    private lastMovementDirection = new Phaser.Math.Vector2(0, 0);
+    private directionChangeCount = 0;
+    private directionSampleCount = 0;
+    private movementDirectionSum = new Phaser.Math.Vector2(0, 0);
+    private adaptationKillCount = 0;
+    private adaptiveSpawnBias: { yMin: number; yMax: number } | null = null;
+    private edgeHoldTime = { top: 0, bottom: 0, left: 0, right: 0 };
+    private lastEdgeSampleTime = 0;
+    private lastCoordinatedFireTime = 0;
+    private behaviorResetTimer: Phaser.Time.TimerEvent | null = null;
     private enemyBullets!: Phaser.Physics.Arcade.Group;
     private isPaused = false;
     private graduationBossActive = false; // Track if graduation boss is active
@@ -185,6 +200,9 @@ export class GameScene extends Phaser.Scene {
             "prestigeDifficultyMultiplier",
             this.prestigeDifficultyMultiplier
         );
+        this.runStartTime = this.time.now;
+        this.resetAdaptiveLearning();
+        this.startBehaviorResetTimer();
         if (this.registry.get("joystickSensitivity") === undefined) {
             const stored = Number(
                 localStorage.getItem(this.joystickSensitivityKey)
@@ -310,6 +328,10 @@ export class GameScene extends Phaser.Scene {
 
         if (this.gameOver || this.isPaused) return;
 
+        this.updateDifficultyPhase(time);
+        this.samplePlayerMovement(time);
+        this.updateAdaptiveLearning(time);
+
         // Player movement
         this.handlePlayerMovement();
 
@@ -377,6 +399,8 @@ export class GameScene extends Phaser.Scene {
         this.enemies.children.entries.forEach((enemyObj) => {
             const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
             const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
+            const behaviors =
+                (enemy.getData("behaviors") as string[] | undefined) || [];
 
             // Update health bar position to follow enemy
             if (enemy.active) {
@@ -387,11 +411,12 @@ export class GameScene extends Phaser.Scene {
             if (isGraduationBoss) {
                 // Make graduation boss continuously move toward player
                 const speed = enemy.getData("speed") || 100;
+                const target = this.getTargetPositionForEnemy(behaviors, true);
                 const angle = Phaser.Math.Angle.Between(
                     enemy.x,
                     enemy.y,
-                    this.player.x,
-                    this.player.y
+                    target.x,
+                    target.y
                 );
                 const velocityX = Math.cos(angle) * speed;
                 const velocityY = Math.sin(angle) * speed;
@@ -411,6 +436,23 @@ export class GameScene extends Phaser.Scene {
                     enemy.setVelocityY(-Math.abs(enemy.body!.velocity.y));
                 }
             } else {
+                if (behaviors.includes("predictive_movement")) {
+                    const speed = enemy.getData("speed") || 100;
+                    const target = this.getTargetPositionForEnemy(
+                        behaviors,
+                        false
+                    );
+                    const angle = Phaser.Math.Angle.Between(
+                        enemy.x,
+                        enemy.y,
+                        target.x,
+                        target.y
+                    );
+                    enemy.setVelocity(
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed
+                    );
+                }
                 // Normal enemies: remove if they go off the right edge
                 if (enemy.x > gameWidth + 100) {
                     // Clean up health bar
@@ -461,7 +503,29 @@ export class GameScene extends Phaser.Scene {
                     enemy.setData("lastShot", time);
                 }
             }
+
+            if (
+                isGraduationBoss &&
+                behaviors.includes("space_denial") &&
+                this.currentDifficultyPhase !== "phase1" &&
+                this.currentDifficultyPhase !== "phase2"
+            ) {
+                const lastDenial = enemy.getData("lastSpaceDenial") || 0;
+                if (time - lastDenial > 4500) {
+                    [-45, -20, 0, 20, 45].forEach((angleOffset) => {
+                        this.enemyShoot(enemy, angleOffset);
+                    });
+                    enemy.setData("lastSpaceDenial", time);
+                }
+            }
         });
+
+        if (
+            this.currentDifficultyPhase === "phase3" ||
+            this.currentDifficultyPhase === "phase4"
+        ) {
+            this.handleCoordinatedFire(time);
+        }
 
         // Update combo multiplier (reset if player hasn't been hit in a while)
         const timeSinceLastHit = time - this.lastHitTime;
@@ -770,18 +834,44 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Get available enemy types for current layer
-        const availableEnemies = [...currentLayerConfig.enemies] as Array<
-            keyof typeof ENEMY_CONFIG
-        >;
+        const phaseConfig = this.getCurrentPhaseConfig();
+        const spawnPatterns = phaseConfig.spawnPatterns;
+        const allowFormations =
+            spawnPatterns.includes("loose_formations") ||
+            spawnPatterns.includes("formations") ||
+            spawnPatterns.includes("ambush_waves") ||
+            spawnPatterns.includes("complex_formations") ||
+            spawnPatterns.includes("boss_rushes");
 
-        // Calculate weights for available enemies
+        if (
+            allowFormations &&
+            Math.random() < ENEMY_BEHAVIOR_CONFIG.formationSpawnChance
+        ) {
+            this.spawnFormationWave(spawnPatterns);
+            return;
+        }
+
+        const selectedType = this.getWeightedEnemyType(
+            currentLayerConfig.enemies
+        );
+        if (!selectedType) return;
+
+        this.spawnEnemyOfType(selectedType);
+    }
+
+    private getCurrentPhaseConfig() {
+        return DIFFICULTY_EVOLUTION[this.currentDifficultyPhase];
+    }
+
+    private getWeightedEnemyType(
+        enemies: readonly string[]
+    ): keyof typeof ENEMY_CONFIG | null {
+        const availableEnemies = [...enemies] as Array<keyof typeof ENEMY_CONFIG>;
         const weights = availableEnemies.map(
             (type) => ENEMY_CONFIG[type].spawnWeight
         );
         const totalWeight = weights.reduce((a: number, b: number) => a + b, 0);
-
-        if (totalWeight === 0) return; // No enemies available
+        if (totalWeight === 0) return null;
 
         let random = Phaser.Math.Between(0, totalWeight - 1);
         let selectedType: keyof typeof ENEMY_CONFIG = availableEnemies[0];
@@ -794,9 +884,31 @@ export class GameScene extends Phaser.Scene {
             }
         }
 
-        const config = ENEMY_CONFIG[selectedType];
+        return selectedType;
+    }
 
-        // Map enemy type to sprite key
+    private getSpawnY() {
+        const gameHeight = this.scale.height;
+        if (this.adaptiveSpawnBias) {
+            return Phaser.Math.Between(
+                this.adaptiveSpawnBias.yMin,
+                this.adaptiveSpawnBias.yMax
+            );
+        }
+        return Phaser.Math.Between(50, gameHeight - 50);
+    }
+
+    private spawnEnemyOfType(
+        selectedType: keyof typeof ENEMY_CONFIG,
+        options?: {
+            xOffset?: number;
+            y?: number;
+            healthMultiplier?: number;
+            speedMultiplier?: number;
+            isFormation?: boolean;
+        }
+    ) {
+        const config = ENEMY_CONFIG[selectedType];
         const keyMap: Record<string, string> = {
             green: "enemyGreen",
             yellow: "enemyYellow",
@@ -805,32 +917,43 @@ export class GameScene extends Phaser.Scene {
         };
         const key = keyMap[selectedType] || "enemyGreen";
 
-        // Spawn from right side only (for easier bullet trajectory)
         const gameWidth = this.scale.width;
-        const gameHeight = this.scale.height;
-        const x = gameWidth + 50;
-        const y = Phaser.Math.Between(50, gameHeight - 50);
+        const x = gameWidth + 50 + (options?.xOffset || 0);
+        const y = options?.y ?? this.getSpawnY();
 
         const enemy = this.physics.add.sprite(x, y, key);
         enemy.setScale(0.5 * MOBILE_SCALE);
 
-        // Scale health based on current layer
-        const healthMultiplier = currentLayerConfig?.healthMultiplier || 1.0;
+        const layerConfig =
+            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
+        const baseHealthMultiplier = layerConfig?.healthMultiplier || 1.0;
+        const extraHealthMultiplier = options?.healthMultiplier || 1.0;
         const scaledHealth = Math.ceil(
-            config.health * healthMultiplier * this.prestigeDifficultyMultiplier
+            config.health *
+                baseHealthMultiplier *
+                extraHealthMultiplier *
+                this.prestigeDifficultyMultiplier
+        );
+
+        const baseSpeedMultiplier = options?.speedMultiplier || 1.0;
+        const scaledSpeed = Math.round(
+            config.speed * baseSpeedMultiplier * this.prestigeDifficultyMultiplier
+        );
+
+        const behaviors = this.getBehaviorsForEnemy(
+            selectedType,
+            options?.isFormation || false,
+            false
         );
 
         enemy.setData("type", selectedType);
         enemy.setData("points", config.points);
-        enemy.setData(
-            "speed",
-            Math.round(config.speed * this.prestigeDifficultyMultiplier)
-        );
+        enemy.setData("speed", scaledSpeed);
         enemy.setData("health", scaledHealth);
         enemy.setData("maxHealth", scaledHealth);
         enemy.setData("canShoot", config.canShoot || false);
+        enemy.setData("behaviors", behaviors);
 
-        // Set last shoot time for shooting enemies
         if (config.canShoot) {
             enemy.setData("lastShot", 0);
             enemy.setData(
@@ -839,25 +962,338 @@ export class GameScene extends Phaser.Scene {
             );
         }
 
-        // Create health bar for enemy
         this.createEnemyHealthBar(enemy);
-
         this.enemies.add(enemy);
 
-        // Move toward player with slight randomness
+        const target = this.getTargetPositionForEnemy(behaviors, false);
         const angle =
-            Phaser.Math.Angle.Between(
-                enemy.x,
-                enemy.y,
-                this.player.x,
-                this.player.y
-            ) + Phaser.Math.FloatBetween(-0.2, 0.2);
+            Phaser.Math.Angle.Between(enemy.x, enemy.y, target.x, target.y) +
+            Phaser.Math.FloatBetween(-0.2, 0.2);
 
-        const velocityX =
-            Math.cos(angle) * config.speed * this.prestigeDifficultyMultiplier;
-        const velocityY =
-            Math.sin(angle) * config.speed * this.prestigeDifficultyMultiplier;
+        const velocityX = Math.cos(angle) * scaledSpeed;
+        const velocityY = Math.sin(angle) * scaledSpeed;
         enemy.setVelocity(velocityX, velocityY);
+    }
+
+    private spawnFormationWave(patterns: readonly string[]) {
+        const gameHeight = this.scale.height;
+        const centerY = Phaser.Math.Clamp(this.player.y, 80, gameHeight - 80);
+        const availableEnemies = LAYER_CONFIG[
+            this.currentLayer as keyof typeof LAYER_CONFIG
+        ].enemies as Array<keyof typeof ENEMY_CONFIG>;
+        const hasBlue = availableEnemies.includes("blue");
+        const hasPurple = availableEnemies.includes("purple");
+
+        const pattern = patterns[Phaser.Math.Between(0, patterns.length - 1)];
+        const stagger = 120;
+
+        if (pattern === "loose_formations" || pattern === "formations") {
+            const offsets = [-140, -60, 0, 60, 140];
+            offsets.forEach((offset, index) => {
+                const type =
+                    index === 2 && hasBlue
+                        ? "blue"
+                        : index % 2 === 0
+                          ? "green"
+                          : "yellow";
+                this.time.delayedCall(index * 120, () => {
+                    this.spawnEnemyOfType(type as keyof typeof ENEMY_CONFIG, {
+                        y: Phaser.Math.Clamp(centerY + offset, 50, gameHeight - 50),
+                        isFormation: true,
+                    });
+                });
+            });
+            return;
+        }
+
+        if (pattern === "ambush_waves") {
+            for (let i = 0; i < 8; i++) {
+                this.time.delayedCall(i * 90, () => {
+                    this.spawnEnemyOfType("green", {
+                        y: Phaser.Math.Between(50, gameHeight - 50),
+                        isFormation: true,
+                    });
+                });
+            }
+            return;
+        }
+
+        if (pattern === "boss_rushes" || pattern === "complex_formations") {
+            const eliteType = hasPurple ? "purple" : hasBlue ? "blue" : "yellow";
+            const yOffsets = [-100, 0, 100];
+            yOffsets.forEach((offset, index) => {
+                this.time.delayedCall(index * stagger, () => {
+                    this.spawnEnemyOfType(eliteType as keyof typeof ENEMY_CONFIG, {
+                        y: Phaser.Math.Clamp(centerY + offset, 50, gameHeight - 50),
+                        healthMultiplier: 1.4,
+                        speedMultiplier: 1.05,
+                        isFormation: true,
+                    });
+                });
+            });
+            this.time.delayedCall(stagger * 2, () => {
+                this.spawnEnemyOfType("yellow", {
+                    y: Phaser.Math.Between(60, gameHeight - 60),
+                    healthMultiplier: 1.2,
+                    isFormation: true,
+                });
+            });
+        }
+    }
+
+    private getBehaviorsForEnemy(
+        type: keyof typeof ENEMY_CONFIG,
+        isFormation: boolean,
+        isBoss: boolean
+    ): string[] {
+        const phaseBehaviors = this.getCurrentPhaseConfig().enemyBehaviors;
+        const behaviors = ["basic_pursuit"];
+
+        if (
+            phaseBehaviors.includes("predictive_movement") &&
+            (type === "blue" || type === "purple" || isBoss)
+        ) {
+            behaviors.push("predictive_movement");
+        }
+
+        if (phaseBehaviors.includes("coordinated_fire") && type === "blue") {
+            behaviors.push("coordinated_fire");
+        }
+
+        if (phaseBehaviors.includes("space_denial") && (isBoss || isFormation)) {
+            behaviors.push("space_denial");
+        }
+
+        if (phaseBehaviors.includes("adaptive_learning")) {
+            behaviors.push("adaptive_learning");
+        }
+
+        if (phaseBehaviors.includes("flanking") && isFormation) {
+            behaviors.push("flanking");
+        }
+
+        return behaviors;
+    }
+
+    private getMovementStability() {
+        if (this.directionSampleCount < 5) return 1;
+        const changeRatio = this.directionChangeCount / this.directionSampleCount;
+        return Phaser.Math.Clamp(1 - changeRatio, 0.4, 1);
+    }
+
+    private getPredictedPlayerPosition(leadTimeSeconds: number) {
+        const velocity = this.player.body?.velocity;
+        const leadX = velocity ? velocity.x * leadTimeSeconds : 0;
+        const leadY = velocity ? velocity.y * leadTimeSeconds : 0;
+        const targetX = Phaser.Math.Clamp(
+            this.player.x + leadX,
+            20,
+            this.scale.width - 20
+        );
+        const targetY = Phaser.Math.Clamp(
+            this.player.y + leadY,
+            20,
+            this.scale.height - 20
+        );
+        return { x: targetX, y: targetY };
+    }
+
+    private getPredictiveLeadTime(isBoss: boolean) {
+        const stability = this.getMovementStability();
+        const bossMultiplier = isBoss ? 1.2 : 1;
+        return ENEMY_BEHAVIOR_CONFIG.predictiveLeadTime * stability * bossMultiplier;
+    }
+
+    private getTargetPositionForEnemy(behaviors: string[], isBoss: boolean) {
+        if (
+            behaviors.includes("predictive_movement") ||
+            behaviors.includes("adaptive_learning")
+        ) {
+            return this.getPredictedPlayerPosition(
+                this.getPredictiveLeadTime(isBoss)
+            );
+        }
+        return { x: this.player.x, y: this.player.y };
+    }
+
+    private updateDifficultyPhase(time: number) {
+        const elapsed = time - this.runStartTime;
+        const nextPhase =
+            elapsed >= DIFFICULTY_EVOLUTION.phase4.startMs
+                ? "phase4"
+                : elapsed >= DIFFICULTY_EVOLUTION.phase3.startMs
+                  ? "phase3"
+                  : elapsed >= DIFFICULTY_EVOLUTION.phase2.startMs
+                    ? "phase2"
+                    : "phase1";
+
+        if (nextPhase !== this.currentDifficultyPhase) {
+            this.currentDifficultyPhase = nextPhase;
+        }
+    }
+
+    private samplePlayerMovement(time: number) {
+        if (time - this.lastMovementSampleTime < 200) return;
+        const delta = time - this.lastMovementSampleTime;
+        this.lastMovementSampleTime = time;
+
+        const velocity = this.player.body?.velocity;
+        if (!velocity) return;
+        const speed = Math.hypot(velocity.x, velocity.y);
+        if (speed < 5) return;
+
+        const direction = new Phaser.Math.Vector2(
+            velocity.x / speed,
+            velocity.y / speed
+        );
+
+        if (this.directionSampleCount > 0) {
+            const dot = Phaser.Math.Clamp(
+                direction.dot(this.lastMovementDirection),
+                -1,
+                1
+            );
+            if (dot < 0.7) {
+                this.directionChangeCount += 1;
+            }
+        }
+
+        this.directionSampleCount += 1;
+        this.movementDirectionSum.add(direction);
+        this.lastMovementDirection.copy(direction);
+
+        if (time - this.lastEdgeSampleTime >= 200) {
+            const edgeDelta = time - this.lastEdgeSampleTime;
+            this.lastEdgeSampleTime = time;
+            const width = this.scale.width;
+            const height = this.scale.height;
+            const edgeThresholdX = width * 0.15;
+            const edgeThresholdY = height * 0.15;
+
+            if (this.player.x <= edgeThresholdX) {
+                this.edgeHoldTime.left += edgeDelta;
+            } else if (this.player.x >= width - edgeThresholdX) {
+                this.edgeHoldTime.right += edgeDelta;
+            }
+
+            if (this.player.y <= edgeThresholdY) {
+                this.edgeHoldTime.top += edgeDelta;
+            } else if (this.player.y >= height - edgeThresholdY) {
+                this.edgeHoldTime.bottom += edgeDelta;
+            }
+        }
+    }
+
+    private updateAdaptiveLearning(time: number) {
+        if (this.currentDifficultyPhase !== "phase4") return;
+        if (this.adaptationKillCount < ENEMY_BEHAVIOR_CONFIG.adaptationThreshold) {
+            return;
+        }
+
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const edgeTimes = this.edgeHoldTime;
+        const maxEdgeTime = Math.max(
+            edgeTimes.top,
+            edgeTimes.bottom,
+            edgeTimes.left,
+            edgeTimes.right
+        );
+
+        if (maxEdgeTime > 3000) {
+            if (edgeTimes.top === maxEdgeTime) {
+                this.adaptiveSpawnBias = { yMin: 40, yMax: height * 0.3 };
+            } else if (edgeTimes.bottom === maxEdgeTime) {
+                this.adaptiveSpawnBias = {
+                    yMin: height * 0.7,
+                    yMax: height - 40,
+                };
+            } else {
+                const focusY = Phaser.Math.Clamp(this.player.y, 60, height - 60);
+                this.adaptiveSpawnBias = {
+                    yMin: Math.max(40, focusY - 140),
+                    yMax: Math.min(height - 40, focusY + 140),
+                };
+            }
+        } else {
+            const direction = this.movementDirectionSum
+                .clone()
+                .normalize()
+                .scale(140);
+            const focusY = Phaser.Math.Clamp(
+                this.player.y + direction.y,
+                60,
+                height - 60
+            );
+            this.adaptiveSpawnBias = {
+                yMin: Math.max(40, focusY - 120),
+                yMax: Math.min(height - 40, focusY + 120),
+            };
+        }
+
+        this.adaptationKillCount = 0;
+    }
+
+    private resetAdaptiveLearning() {
+        this.directionChangeCount = 0;
+        this.directionSampleCount = 0;
+        this.movementDirectionSum.set(0, 0);
+        this.lastMovementDirection.set(0, 0);
+        this.edgeHoldTime = { top: 0, bottom: 0, left: 0, right: 0 };
+        this.adaptiveSpawnBias = null;
+        this.adaptationKillCount = 0;
+    }
+
+    private startBehaviorResetTimer() {
+        if (this.behaviorResetTimer) {
+            this.behaviorResetTimer.remove();
+        }
+        this.behaviorResetTimer = this.time.addEvent({
+            delay: ENEMY_BEHAVIOR_CONFIG.behaviourResetInterval,
+            loop: true,
+            callback: () => {
+                this.resetAdaptiveLearning();
+            },
+        });
+    }
+
+    private handleCoordinatedFire(time: number) {
+        if (time - this.lastCoordinatedFireTime < 3500) return;
+        const blueEnemies = this.enemies.children.entries.filter((enemyObj) => {
+            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            return (
+                enemy.active &&
+                enemy.getData("type") === "blue" &&
+                enemy.getData("canShoot")
+            );
+        }) as Phaser.Physics.Arcade.Sprite[];
+
+        if (blueEnemies.length < 2) return;
+        let shouldFire = false;
+
+        for (let i = 0; i < blueEnemies.length; i++) {
+            for (let j = i + 1; j < blueEnemies.length; j++) {
+                const distance = Phaser.Math.Distance.Between(
+                    blueEnemies[i].x,
+                    blueEnemies[i].y,
+                    blueEnemies[j].x,
+                    blueEnemies[j].y
+                );
+                if (distance <= ENEMY_BEHAVIOR_CONFIG.coordinatedFireDistance) {
+                    shouldFire = true;
+                    break;
+                }
+            }
+            if (shouldFire) break;
+        }
+
+        if (!shouldFire) return;
+
+        blueEnemies.forEach((enemy) => {
+            this.enemyShoot(enemy, 0);
+            enemy.setData("lastShot", time);
+        });
+        this.lastCoordinatedFireTime = time;
     }
 
     private updateSpawnTimer() {
@@ -964,6 +1400,14 @@ export class GameScene extends Phaser.Scene {
         boss.setData("maxHealth", scaledHealth);
         boss.setData("canShoot", false);
         boss.setData("isBoss", true);
+        boss.setData(
+            "behaviors",
+            this.getBehaviorsForEnemy(
+                bossType as keyof typeof ENEMY_CONFIG,
+                false,
+                true
+            )
+        );
 
         // Create health bar for boss
         this.createEnemyHealthBar(boss);
@@ -1086,6 +1530,14 @@ export class GameScene extends Phaser.Scene {
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
         boss.setData("lastShot", 0);
         boss.setData("shootInterval", 1500); // Shoot every 1.5 seconds
+        boss.setData(
+            "behaviors",
+            this.getBehaviorsForEnemy(
+                bossType as keyof typeof ENEMY_CONFIG,
+                false,
+                true
+            )
+        );
 
         // Create health bar for graduation boss
         this.createEnemyHealthBar(boss);
@@ -1169,6 +1621,7 @@ export class GameScene extends Phaser.Scene {
 
             // Enemy destroyed
             this.addScore(points * this.comboMultiplier);
+            this.adaptationKillCount += 1;
 
             // Create explosion based on enemy type and layer
             const explosionSize = this.getExplosionSize(enemyType, isBoss);
@@ -1801,22 +2254,25 @@ export class GameScene extends Phaser.Scene {
             bullet.setVisible(true);
             bullet.setScale(0.4 * MOBILE_SCALE);
 
-            // Shoot toward player with optional angle offset
+            const behaviors =
+                (enemy.getData("behaviors") as string[] | undefined) || [];
+            const isBoss = !!enemy.getData("isBoss");
+            const target = this.getTargetPositionForEnemy(behaviors, isBoss);
             const angle =
                 Phaser.Math.Angle.Between(
                     enemy.x,
                     enemy.y,
-                    this.player.x,
-                    this.player.y
+                    target.x,
+                    target.y
                 ) + Phaser.Math.DegToRad(angleOffset);
 
             const config =
                 ENEMY_CONFIG[
                     enemy.getData("type") as keyof typeof ENEMY_CONFIG
                 ];
-        const bulletSpeed =
-            ((config as any).bulletSpeed || 200) *
-            this.prestigeDifficultyMultiplier;
+            const bulletSpeed =
+                ((config as any).bulletSpeed || 200) *
+                this.prestigeDifficultyMultiplier;
 
             const velocityX = Math.cos(angle) * bulletSpeed;
             const velocityY = Math.sin(angle) * bulletSpeed;
@@ -2301,6 +2757,10 @@ export class GameScene extends Phaser.Scene {
         this.prestigeDifficultyMultiplier = 1;
         this.prestigeScoreMultiplier = 1;
         this.prestigeResetAvailable = true;
+        this.currentDifficultyPhase = "phase1";
+        this.lastMovementSampleTime = 0;
+        this.lastEdgeSampleTime = 0;
+        this.lastCoordinatedFireTime = 0;
         this.lives = PLAYER_CONFIG.initialLives;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
@@ -2362,6 +2822,9 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
 
+        this.runStartTime = this.time.now;
+        this.resetAdaptiveLearning();
+        this.startBehaviorResetTimer();
         this.updatePrestigeEffects();
 
         // Reset spawn timer

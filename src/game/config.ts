@@ -149,6 +149,49 @@ export const PRESTIGE_CONFIG = {
     },
 } as const;
 
+export const DIFFICULTY_EVOLUTION = {
+    phase1: {
+        timeRange: "0-3 minutes",
+        startMs: 0,
+        endMs: 180000,
+        enemyBehaviors: ["basic_pursuit"],
+        spawnPatterns: ["random"],
+        description: "Learning phase - simple pursuit",
+    },
+    phase2: {
+        timeRange: "3-8 minutes",
+        startMs: 180000,
+        endMs: 480000,
+        enemyBehaviors: ["basic_pursuit", "predictive_movement"],
+        spawnPatterns: ["random", "loose_formations"],
+        description: "Enemies begin predicting player movement",
+    },
+    phase3: {
+        timeRange: "8-15 minutes",
+        startMs: 480000,
+        endMs: 900000,
+        enemyBehaviors: ["predictive_movement", "space_denial", "coordinated_fire"],
+        spawnPatterns: ["formations", "ambush_waves"],
+        description: "Coordinated attacks, enemies force risky positioning",
+    },
+    phase4: {
+        timeRange: "15+ minutes",
+        startMs: 900000,
+        endMs: Number.POSITIVE_INFINITY,
+        enemyBehaviors: ["adaptive_learning", "flanking", "synchronized_patterns"],
+        spawnPatterns: ["boss_rushes", "complex_formations"],
+        description: "Enemies adapt to player strategy mid-run",
+    },
+} as const;
+
+export const ENEMY_BEHAVIOR_CONFIG = {
+    predictiveLeadTime: 0.7,
+    adaptationThreshold: 30,
+    formationSpawnChance: 0.3,
+    coordinatedFireDistance: 400,
+    behaviourResetInterval: 120000,
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)
