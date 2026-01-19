@@ -694,6 +694,41 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    private createFloatingText(
+        x: number,
+        y: number,
+        text: string,
+        options?: {
+            color?: string;
+            fontSize?: number;
+            duration?: number;
+            rise?: number;
+            fixed?: boolean;
+        }
+    ) {
+        const fontSize = options?.fontSize ?? 18 * MOBILE_SCALE;
+        const label = this.add.text(x, y, text, {
+            fontFamily: UI_CONFIG.scoreFont,
+            fontSize,
+            color: options?.color ?? UI_CONFIG.neonGreen,
+            stroke: "#000000",
+            strokeThickness: 3,
+        });
+        label.setOrigin(0.5, 0.5);
+        label.setDepth(900);
+        if (options?.fixed) {
+            label.setScrollFactor(0);
+        }
+        this.tweens.add({
+            targets: label,
+            y: y - (options?.rise ?? 30),
+            alpha: 0,
+            duration: options?.duration ?? 700,
+            ease: "Sine.easeOut",
+            onComplete: () => label.destroy(),
+        });
+    }
+
     update(time: number) {
         // Pause/resume is handled by UIScene ESC key handler
         // GameScene update continues to run even when paused so UIScene can handle input
@@ -3166,6 +3201,19 @@ export class GameScene extends Phaser.Scene {
         this.shotsHitThisRun += 1;
         const shieldReduction = this.getShieldDamageReduction(e);
         const damage = 1 * (1 - shieldReduction);
+        const isCriticalHit = isBoss || this.comboMultiplier >= 3;
+        const damageText = Number.isInteger(damage)
+            ? `${damage}`
+            : damage.toFixed(1);
+        this.createFloatingText(
+            e.x,
+            e.y - 20,
+            damageText,
+            {
+                color: isCriticalHit ? "#ff4d6d" : "#ffd166",
+                fontSize: isCriticalHit ? 22 : 16,
+            }
+        );
         health -= damage;
         e.setData("health", health);
 
@@ -3176,6 +3224,12 @@ export class GameScene extends Phaser.Scene {
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
             this.totalEnemiesDefeated += 1;
+            this.createFloatingText(
+                e.x,
+                e.y - 40,
+                "COMBO +1",
+                { color: "#00ff99", fontSize: 14 }
+            );
             if (this.totalEnemiesDefeated === 1) {
                 this.unlockAchievementWithAnnouncement("first_blood");
             }
@@ -4333,6 +4387,7 @@ export class GameScene extends Phaser.Scene {
         if (this.gameOver) {
             return;
         }
+        const previousScore = this.score;
         // Apply score multiplier from power-ups
         const corruptionMultiplier =
             this.getCorruptionScoreMultiplier() * this.challengeCorruptionMultiplier;
@@ -4358,6 +4413,25 @@ export class GameScene extends Phaser.Scene {
                 speedScoreMultiplier
         );
         this.score += adjustedPoints;
+        const milestoneStep = 500;
+        if (
+            Math.floor(previousScore / milestoneStep) <
+            Math.floor(this.score / milestoneStep)
+        ) {
+            const milestone =
+                Math.floor(this.score / milestoneStep) * milestoneStep;
+            this.createFloatingText(
+                this.scale.width / 2,
+                120,
+                `${milestone.toLocaleString()} POINTS!`,
+                {
+                    color: "#ffffff",
+                    fontSize: 20,
+                    duration: 900,
+                    fixed: true,
+                }
+            );
+        }
         this.comboMultiplier += 0.1;
         this.lastHitTime = this.time.now;
         this.peakComboMultiplier = Math.max(
