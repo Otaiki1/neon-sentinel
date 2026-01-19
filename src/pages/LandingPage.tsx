@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreService';
+import { PLAYER_KERNELS } from '../game/config';
+import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
 import WalletConnectionModal from '../components/WalletConnectionModal';
@@ -30,11 +32,16 @@ function LandingPage() {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
+  const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
     setLeaderboard(scores.slice(0, 3)); // Top 3
     setCurrentWeek(getCurrentISOWeek());
+    const kernelState = getKernelState();
+    setKernelUnlocks(kernelState.unlocked);
+    setSelectedKernel(kernelState.selectedKernel);
   }, []);
 
   // Show wallet modal on first visit if wallet not connected
@@ -65,6 +72,11 @@ function LandingPage() {
   const handleCloseStoryModal = () => {
     setShowStoryModal(false);
     localStorage.setItem(STORY_MODAL_SEEN_KEY, 'true');
+  };
+
+  const handleKernelSelect = (key: keyof typeof PLAYER_KERNELS) => {
+    const next = setSelectedKernelKey(key);
+    setSelectedKernel(next);
   };
 
 
@@ -175,6 +187,44 @@ function LandingPage() {
               &gt;&gt; START GAME &lt;&lt;
             </button>
           </Link>
+        </div>
+
+        {/* Kernel Selection */}
+        <div className="retro-panel mb-10 md:mb-12">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+            letterSpacing: '0.1em'
+          }}>
+            SELECT KERNEL
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(PLAYER_KERNELS).map(([key, kernel]) => {
+              const kernelKey = key as keyof typeof PLAYER_KERNELS;
+              const unlocked = kernelUnlocks[kernelKey];
+              const isSelected = selectedKernel === kernelKey;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => unlocked && handleKernelSelect(kernelKey)}
+                  className={`text-left border-2 p-3 transition-all duration-200 ${
+                    unlocked
+                      ? isSelected
+                        ? 'border-neon-green bg-black bg-opacity-80'
+                        : 'border-neon-green border-opacity-40 hover:border-opacity-100'
+                      : 'border-gray-600 border-opacity-40 cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <div className="font-menu text-sm text-neon-green">{kernel.name}</div>
+                  <div className="font-body text-xs text-neon-green opacity-70 mt-1">
+                    {kernel.description}
+                  </div>
+                  <div className="font-body text-[10px] text-neon-green opacity-50 mt-2">
+                    {unlocked ? (isSelected ? 'SELECTED' : 'UNLOCKED') : `LOCKED • ${kernel.unlockCondition}`}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Main Content Grid */}

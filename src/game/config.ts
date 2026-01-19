@@ -624,6 +624,51 @@ export const FAILURE_FEEDBACK = {
     scoreMilestones: [10000, 50000, 100000],
 } as const;
 
+export const PLAYER_KERNELS = {
+    sentinel_standard: {
+        name: "Standard Sentinel",
+        description: "Balanced speed and firepower",
+        baseSpeed: 1.0,
+        fireRate: 1.0,
+        unlocked: true,
+        unlockCondition: "default",
+    },
+    sentinel_speed: {
+        name: "Swift Interceptor",
+        description: "30% faster movement, 20% slower fire rate",
+        baseSpeed: 1.3,
+        fireRate: 1.2,
+        unlocked: false,
+        unlockCondition: "reach_layer_3",
+    },
+    sentinel_firepower: {
+        name: "Artillery Unit",
+        description: "40% faster fire rate, 15% slower movement",
+        baseSpeed: 0.85,
+        fireRate: 0.6,
+        unlocked: false,
+        unlockCondition: "accumulate_1000_kills",
+    },
+    sentinel_tanky: {
+        name: "Guardian Core",
+        description: "20% more health per life, 20% slower speed",
+        baseSpeed: 0.8,
+        fireRate: 1.0,
+        healthPerLife: 1.2,
+        unlocked: false,
+        unlockCondition: "survive_100_hits",
+    },
+    sentinel_precision: {
+        name: "Sniper Kernel",
+        description: "Bullets pierce through enemies, 50% slower fire rate",
+        baseSpeed: 1.0,
+        fireRate: 2.0,
+        bulletPiercing: true,
+        unlocked: false,
+        unlockCondition: "achieve_90%_accuracy",
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

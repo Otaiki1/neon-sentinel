@@ -16,6 +16,7 @@ import {
     MID_RUN_CHALLENGES,
     ACHIEVEMENTS,
     ROTATING_LAYER_MODIFIERS,
+    PLAYER_KERNELS,
 } from "../config";
 import {
     addLifetimePlayMs,
@@ -33,6 +34,10 @@ import {
 } from "../../services/sessionRewardService";
 import { getRotationInfo } from "../../services/rotatingLayerService";
 import type { RunMetrics } from "../../services/scoreService";
+import {
+    getSelectedKernelKey,
+    recordKernelRunStats,
+} from "../../services/kernelService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -129,6 +134,16 @@ export class GameScene extends Phaser.Scene {
     private modifierPauseIntervalMs = 0;
     private modifierGlitchIntensity = 0;
     private lastRunMetrics: RunMetrics | null = null;
+    private kernelKey: keyof typeof PLAYER_KERNELS = "sentinel_standard";
+    private kernelSpeedMultiplier = 1;
+    private kernelFireRateMultiplier = 1;
+    private kernelHealthMultiplier = 1;
+    private kernelBulletPiercing = false;
+    private kernelDamageAccumulator = 0;
+    private shotsFiredThisRun = 0;
+    private shotsHitThisRun = 0;
+    private hitsTakenThisRun = 0;
+    private enemyUidCounter = 0;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -324,6 +339,11 @@ export class GameScene extends Phaser.Scene {
         this.runLifeOrbs = 0;
         this.runBossesDefeated = 0;
         this.tookDamageBeforeLayer3 = false;
+        this.shotsFiredThisRun = 0;
+        this.shotsHitThisRun = 0;
+        this.hitsTakenThisRun = 0;
+        this.enemyUidCounter = 0;
+        this.enemyUidCounter = 0;
         this.sessionScoreMultiplier = 1;
         this.sessionStreakScoreMultiplier = 1;
         this.sessionComboStartBoost = 1;
@@ -333,6 +353,7 @@ export class GameScene extends Phaser.Scene {
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
+        this.applySelectedKernel();
         this.initRotatingModifier(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
@@ -480,7 +501,8 @@ export class GameScene extends Phaser.Scene {
             PLAYER_CONFIG.fireRate *
             this.fireRateMultiplier *
             this.overclockFireRateMultiplier *
-            this.challengeFireRateMultiplier;
+            this.challengeFireRateMultiplier *
+            this.kernelFireRateMultiplier;
 
         if (this.autoShootEnabled) {
             // Auto-shoot when power-up is active
@@ -710,6 +732,7 @@ export class GameScene extends Phaser.Scene {
             PLAYER_CONFIG.speed *
             this.speedMultiplier *
             this.overclockSpeedMultiplier *
+            this.kernelSpeedMultiplier *
             this.modifierSpeedCap;
 
         // Mobile joystick controls
@@ -948,6 +971,7 @@ export class GameScene extends Phaser.Scene {
                 bullet.setTexture("greenBullet1"); // Normal green bullet
                 bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed);
                 bullet.setVelocityY(0);
+                this.shotsFiredThisRun += 1;
             }
         } else {
             // Increased firepower: multiple bullets with spread
@@ -988,6 +1012,7 @@ export class GameScene extends Phaser.Scene {
                     const velocityY =
                         Math.sin(angle) * PLAYER_CONFIG.bulletSpeed;
                     bullet.setVelocity(velocityX, velocityY);
+                    this.shotsFiredThisRun += 1;
                 }
             }
         }
@@ -1224,6 +1249,7 @@ export class GameScene extends Phaser.Scene {
         );
 
         enemy.setData("type", selectedType);
+        enemy.setData("uid", this.enemyUidCounter++);
         enemy.setData(
             "points",
             options?.overridePoints !== undefined
@@ -2364,6 +2390,17 @@ export class GameScene extends Phaser.Scene {
         };
     }
 
+    private applySelectedKernel() {
+        const selectedKey = getSelectedKernelKey();
+        const kernel = PLAYER_KERNELS[selectedKey] ?? PLAYER_KERNELS.sentinel_standard;
+        this.kernelKey = selectedKey;
+        this.kernelSpeedMultiplier = kernel.baseSpeed ?? 1;
+        this.kernelFireRateMultiplier = kernel.fireRate ?? 1;
+        this.kernelHealthMultiplier = kernel.healthPerLife ?? 1;
+        this.kernelBulletPiercing = kernel.bulletPiercing ?? false;
+        this.kernelDamageAccumulator = 0;
+    }
+
     private initRotatingModifier(time: number) {
         const rotation = getRotationInfo(time);
         this.currentModifierKey =
@@ -2661,6 +2698,8 @@ export class GameScene extends Phaser.Scene {
         );
 
         boss.setData("type", bossType);
+        boss.setData("uid", this.enemyUidCounter++);
+        boss.setData("uid", this.enemyUidCounter++);
         boss.setData("points", points);
         boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
@@ -2866,8 +2905,19 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        if (this.kernelBulletPiercing) {
+            const enemyUid = e.getData("uid");
+            const lastHitEnemy = b.getData("lastHitEnemy");
+            const lastHitTime = (b.getData("lastHitTime") as number) || 0;
+            if (enemyUid === lastHitEnemy && this.time.now - lastHitTime < 80) {
+                return;
+            }
+            b.setData("lastHitEnemy", enemyUid);
+            b.setData("lastHitTime", this.time.now);
+        } else {
         // Remove bullet
         b.destroy();
+        }
 
         // Get enemy data
         const enemyType = e.getData("type");
@@ -2876,6 +2926,7 @@ export class GameScene extends Phaser.Scene {
         const isBoss = e.getData("isBoss") || false;
 
         // Deal damage (apply shield drone reduction if applicable)
+        this.shotsHitThisRun += 1;
         const shieldReduction = this.getShieldDamageReduction(e);
         const damage = 1 * (1 - shieldReduction);
         health -= damage;
@@ -3173,7 +3224,11 @@ export class GameScene extends Phaser.Scene {
                 damage = 2;
             }
         }
-        this.lives = Math.max(0, this.lives - damage);
+        this.hitsTakenThisRun += 1;
+        this.kernelDamageAccumulator += damage / this.kernelHealthMultiplier;
+        const appliedDamage = Math.floor(this.kernelDamageAccumulator);
+        this.kernelDamageAccumulator -= appliedDamage;
+        this.lives = Math.max(0, this.lives - appliedDamage);
         this.registry.set("lives", this.lives);
 
         // Debug: Log lives to help diagnose
@@ -3193,6 +3248,21 @@ export class GameScene extends Phaser.Scene {
             this.activeChallenge = null;
             this.registry.set("challengeActive", false);
             this.registry.set("challengeProgress", 0);
+            const kernelResult = recordKernelRunStats({
+                deepestLayer: this.deepestLayer,
+                kills: this.totalEnemiesDefeated,
+                hitsTaken: this.hitsTakenThisRun,
+                shotsFired: this.shotsFiredThisRun,
+                shotsHit: this.shotsHitThisRun,
+            });
+            kernelResult.newlyUnlocked.forEach((key) => {
+                const kernel = PLAYER_KERNELS[key];
+                this.showAnnouncement(
+                    "KERNEL UNLOCKED",
+                    kernel?.name ?? key,
+                    0x00ffff
+                );
+            });
             addLifetimeScore(this.score);
             addLifetimePlayMs(this.time.now - this.runStartTime);
             const lifetime = getLifetimeStats();
@@ -4306,10 +4376,14 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("challengeProgress", 0);
 
         this.runStartTime = this.time.now;
+        this.shotsFiredThisRun = 0;
+        this.shotsHitThisRun = 0;
+        this.hitsTakenThisRun = 0;
         this.nextChallengeTime =
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
+        this.applySelectedKernel();
         this.initRotatingModifier(this.runStartTime);
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
