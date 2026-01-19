@@ -186,6 +186,30 @@ LAYER_CONFIG = {
 }
 ```
 
+### Prestige Configuration
+
+```typescript
+PRESTIGE_CONFIG = {
+    prestigeLevels: [
+        { level: 1, difficultyMultiplier: 1.5, scoreMultiplier: 1.0 },
+        { level: 2, difficultyMultiplier: 2.0, scoreMultiplier: 1.5 },
+        { level: 3, difficultyMultiplier: 2.5, scoreMultiplier: 2.0 },
+        { level: 4, difficultyMultiplier: 3.0, scoreMultiplier: 2.5 },
+    ],
+    prestigeResetThreshold: 100000,
+    visualEffects: {
+        gridGlitchIntensity: 0.3,
+        screenFlashFrequency: 1.2,
+        corruptionVFX: true,
+    },
+}
+```
+
+**Prestige Mechanics**:
+- Unlocks after defeating the Layer 6 graduation boss
+- Loops back to Layer 1 with higher difficulty + score multipliers
+- Multipliers scale beyond the listed tiers
+
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
 - `bossSpeedMultiplier`: Applied to boss base speed per layer
@@ -412,7 +436,7 @@ function isMobileDevice(): boolean {
 ```typescript
 basePoints = enemy.points;
 // addScore is called with basePoints * comboMultiplier
-adjustedPoints = Math.floor(basePoints * comboMultiplier * comboMultiplier * scoreMultiplier);
+adjustedPoints = Math.floor(basePoints * comboMultiplier * scoreMultiplier);
 totalScore += adjustedPoints;
 ```
 
@@ -434,6 +458,8 @@ totalScore += adjustedPoints;
 //   - Updates currentLayer
 //   - Updates deepestLayer
 //   - Resumes normal spawning
+// On Layer 6 graduation boss defeat:
+//   - Enters prestige mode and loops back to Layer 1
 ```
 
 ### Lives System
@@ -650,6 +676,10 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `isPaused`: Pause state
 - `walletAddress`: Connected wallet address
 - `joystickSensitivity`: Mobile joystick sensitivity (0.5x - 2.0x)
+- `prestigeLevel`: Current prestige cycle
+- `prestigeScoreMultiplier`: Current prestige score multiplier
+- `prestigeDifficultyMultiplier`: Current prestige difficulty multiplier
+- `prestigeChampion`: Boolean for Prestige 10 badge
 
 **Usage**:
 ```typescript
@@ -667,6 +697,7 @@ registry.events.on('changedata-score', callback);
 
 **Properties**:
 - `score`, `lives`, `currentLayer`, `deepestLayer`
+- `prestigeLevel`, `prestigeScoreMultiplier`, `prestigeDifficultyMultiplier`
 - `comboMultiplier`, `speedMultiplier`, `fireRateMultiplier`, `scoreMultiplier`
 - `autoShootEnabled`, `isInvisible`, `firepowerLevel`
 - `gameOver`, `isPaused`, `graduationBossActive`, `pendingLayer`
@@ -862,7 +893,7 @@ if (returnToMenu) returnToMenu();
 **Location**: `src/services/scoreService.ts`
 
 **Functions**:
-- `submitScore(score, walletAddress?, deepestLayer?)`: Submit score
+- `submitScore(score, walletAddress?, deepestLayer?, prestigeLevel?)`: Submit score
 - `fetchWeeklyLeaderboard()`: Get weekly leaderboard
 - `getCurrentISOWeek()`: Get current ISO week number
 
@@ -1002,6 +1033,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.0*
+*Last Updated: Game Version 1.1*
 *Maintained by: Neon Sentinel Development Team*
 

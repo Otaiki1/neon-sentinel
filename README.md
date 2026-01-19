@@ -14,12 +14,12 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 ## 🎯 Features
 
 -   **Retro Arcade Gameplay**: Classic shooter mechanics with modern polish
--   **6 System Layers**: Progress through increasingly difficult layers
+-   **Endless Prestige Loop**: Complete Layer 6 to enter Prestige Mode and loop back harder
 -   **7 Power-Up Types**: Speed, fire rate, score multiplier, auto-shoot, lives, firepower, invisibility
 -   **5 Enemy Types**: Green, Yellow, Blue, Purple, and Red bosses
 -   **Graduation Boss System**: Defeat bosses to unlock new layers
 -   **Lives System**: Collect Life Orbs for unlimited lives
--   **Weekly Leaderboards**: Compete for top scores
+-   **Weekly Leaderboards**: Compete for top scores with prestige level tracked
 -   **Wallet Integration**: Connect wallet or play anonymously
 -   **Mobile Support**: On-screen joystick + fire button with adjustable sensitivity
 -   **Neon Aesthetic**: Retro brutalist design with neon green theme
@@ -105,7 +105,7 @@ neon-sentinel/
 3. **Collect**: Grab power-ups and Life Orbs for advantages
 4. **Progress**: Reach score thresholds to unlock new layers
 5. **Defeat Bosses**: Beat graduation bosses to advance layers
-6. **Climb Leaderboards**: Compete for weekly top scores
+6. **Climb Leaderboards**: Compete for weekly top scores with prestige levels
 
 ---
 
@@ -147,6 +147,13 @@ The game features 6 system layers, each with increasing difficulty:
 5. **Kernel Breach** (10,000 points) - Red grid
 6. **System Collapse** (25,000 points) - Bright red grid
 
+### Prestige Mode
+
+- **Unlock**: Defeat the Layer 6 graduation boss
+- **Loop**: Return to Layer 1 with higher difficulty and score multipliers
+- **Scaling**: Multipliers increase each prestige cycle and continue scaling indefinitely
+- **Visuals**: Grid hue shifts, glitch jitter, and screen flashes intensify with prestige
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -177,6 +184,7 @@ All game configuration is in `src/game/config.ts`:
 -   `SPAWN_CONFIG`: Spawn rates, intervals, max enemies
 -   `POWERUP_CONFIG`: Power-up types, durations, effects
 -   `UI_CONFIG`: Fonts, colors, sizes
+-   `PRESTIGE_CONFIG`: Prestige tiers, multipliers, and visuals
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
@@ -197,7 +205,7 @@ The game is fully optimized for mobile devices:
 ## 🏆 Leaderboards
 
 -   **Weekly Reset**: Leaderboards reset every ISO week (localStorage)
--   **Top 10**: Displayed on game over screen with auto-hide
+-   **Top 10**: Displayed on game over screen with auto-hide (includes prestige)
 -   **Wallet Integration**: Connect wallet to attach address to scores
 -   **Anonymous Mode**: Play without wallet (scores show as "Anonymous")
 
@@ -296,4 +304,4 @@ For issues, questions, or contributions, please [open an issue](link-to-issues) 
 
 **Built with ❤️ by the Neon Sentinel team**
 
-_Last Updated: 2026_
+_Last Updated: 2026-01_

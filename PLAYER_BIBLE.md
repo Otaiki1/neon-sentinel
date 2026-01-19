@@ -16,6 +16,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 6. [Scoring System](#scoring-system)
 7. [Progression & Strategy](#progression--strategy)
 8. [Leaderboards](#leaderboards)
+9. [Prestige Mode](#prestige-mode)
 
 ---
 
@@ -296,7 +297,7 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 ### Final Score Calculation
 
 ```
-Final Score = Base Points × Combo Multiplier × Combo Multiplier × Score Multiplier
+Final Score = Base Points × Combo Multiplier × Score Multiplier
 ```
 
 ---
@@ -346,6 +347,7 @@ Final Score = Base Points × Combo Multiplier × Combo Multiplier × Score Multi
 - **Display**: Top 10 players shown on game over screen (auto-hides after a few seconds)
 - **Ranking**: Based on highest score
 - **Deepest Layer**: Also tracked—shows how far you progressed
+- **Prestige**: Prestige level is tracked and displayed with scores
 
 ### Leaderboard Features
 
@@ -368,6 +370,7 @@ Final Score = Base Points × Combo Multiplier × Combo Multiplier × Score Multi
 - **Score**: Top-left, large green text
 - **Combo**: Below score, shows current multiplier
 - **Layer**: Shows current system layer name
+- **Prestige**: Shows current prestige cycle (P0 = none)
 - **Lives**: Orb indicators (each orb shows up to 5 lives, max 4 orbs shown)
 - **Progress Bar**: Faint bar at bottom tracking layer progress
 
@@ -381,6 +384,7 @@ Final Score = Base Points × Combo Multiplier × Combo Multiplier × Score Multi
 
 - **Grid Color**: Changes based on current layer
 - **Screen Flash**: Red flash when boss spawns, green flash when layer advances
+- **Prestige FX**: Purple flash + grid hue shift + glitch jitter on prestige
 - **Screen Shake**: Intensifies in later layers
 - **Health Bars**: All enemies have health bars above them (green >60%, yellow 30-60%, red <30%)
 
@@ -447,6 +451,21 @@ A: You must defeat the graduation boss that spawns when you reach the score thre
 **Q: How does the combo multiplier work?**  
 A: It increases by 0.1x for each enemy destroyed and resets to 1.0x if you get hit.
 
+**Q: What is Prestige Mode?**  
+A: Defeat the Layer 6 graduation boss to loop back to Layer 1 with higher difficulty and score multipliers. Each loop increases the prestige level.
+
+---
+
+## 🧬 Prestige Mode
+
+Prestige Mode makes the game endless by looping after Layer 6:
+
+- **Unlock**: Defeat the Layer 6 graduation boss
+- **Cycle**: Return to Layer 1 with higher difficulty and score multipliers
+- **Scaling**: Multipliers increase each cycle; there’s no cap
+- **Visuals**: Grid hue shifts, glitch jitter, and screen flashes intensify
+- **Badge**: "Prestige Champion" appears when you reach Prestige 10
+
 ---
 
 ## 🎯 Final Words
@@ -457,5 +476,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.0*
+*Last Updated: Game Version 1.1*
 
