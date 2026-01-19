@@ -20,6 +20,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 10. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
 11. [Corruption Meter](#corruption-meter)
 12. [Overclock Mode](#overclock-mode)
+13. [Mid-Run Challenges](#mid-run-challenges)
 
 ---
 
@@ -419,6 +420,7 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 - **Progress Bar**: Faint bar at bottom tracking layer progress
 - **Overclock Bar**: Cyan bar showing active duration
 - **Overclock Status**: Remaining charges and cooldown
+- **Challenge Banner**: Mid-run objective text with progress bar
 
 ### Announcements
 
@@ -568,6 +570,21 @@ Tips:
 
 ---
 
+## 🎯 Mid-Run Challenges
+
+Mid-run challenges are short objectives that appear during a run:
+
+- **Timing**: First challenge after ~1 minute, then every few minutes
+- **Examples**: No-shoot survival, clean kill streaks, high-combo holds, bullet dodging
+- **Rewards**: Bonus score, extra lives, or temporary multipliers
+- **Failure**: No penalties—challenges simply expire
+
+Tips:
+- Commit to the objective once it appears for the best reward
+- Skip safely if the arena state is too chaotic
+
+---
+
 ## 🎯 Final Words
 
 The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the last line of defense. Push deeper, survive longer, and climb the leaderboards to become a legend.
@@ -576,5 +593,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.6*
+*Last Updated: Game Version 1.7*
 

@@ -357,6 +357,36 @@ LEADERBOARD_CATEGORIES = {
 - Weekly featured categories rotate via deterministic selection
 - All-time records shown for inactive categories on the Hall of Fame page
 
+### Mid-Run Challenges Configuration
+
+```typescript
+MID_RUN_CHALLENGES = {
+    challenges: [
+        { id: "no_shoot_20s", description: "Survive 20 seconds without shooting" },
+        { id: "clean_10_enemies", description: "Destroy 10 enemies without taking damage" },
+        { id: "survive_corruption_zone", description: "Stay in 80%+ corruption area for 15 seconds" },
+        { id: "defeat_5_blue", description: "Defeat 5 blue enemies in 30 seconds" },
+        { id: "chain_combo", description: "Maintain 3.0x+ combo for 30 seconds" },
+        { id: "dodge_25_bullets", description: "Dodge 25 enemy bullets without taking damage" },
+    ],
+    triggerIntervals: {
+        firstChallenge: 60000,
+        subsequentChallenges: 120000,
+        minTimeBetweenChallenges: 45000,
+    },
+    display: {
+        announcementCard: true,
+        progressBar: true,
+        celebrationOnCompletion: true,
+    },
+}
+```
+
+**Challenge Mechanics**:
+- Triggered after an initial delay, then every interval without overlap
+- Per-challenge trackers stored in `GameScene` and progress pushed to registry
+- Rewards can be instant (score/lives) or timed modifiers
+
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
 - `bossSpeedMultiplier`: Applied to boss base speed per layer
@@ -840,6 +870,10 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `overclockProgress`: Remaining duration (0-1)
 - `overclockCooldown`: Remaining cooldown (0-1)
 - `overclockCharges`: Remaining activations
+- `challengeActive`: Whether a micro-challenge is live
+- `challengeTitle`: UI banner title
+- `challengeDescription`: UI banner description
+- `challengeProgress`: Progress (0-1)
 
 **Usage**:
 ```typescript
@@ -1197,6 +1231,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.6*
+*Last Updated: Game Version 1.7*
 *Maintained by: Neon Sentinel Development Team*
 
