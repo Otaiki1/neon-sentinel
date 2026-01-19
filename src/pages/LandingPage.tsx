@@ -175,6 +175,15 @@ function LandingPage() {
       }} />
 
       <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
+        <div className="flex justify-end mb-4">
+          <Link
+            to="/profile"
+            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200"
+            style={{ letterSpacing: '0.1em' }}
+          >
+            👤 PROFILE
+          </Link>
+        </div>
         {/* Logo & Sector Section */}
         <div className="text-center mb-10 md:mb-12">
           <div className="logo-container mb-6 flex justify-center">

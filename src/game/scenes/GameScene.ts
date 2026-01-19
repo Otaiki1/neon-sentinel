@@ -26,6 +26,7 @@ import {
     checkAllLeaderboardsTop10,
     getLifetimeStats,
     getSelectedCosmetic,
+    recordProfileRunStats,
     setAchievementProgress,
     shouldNotifyAboutToUnlock,
     unlockAchievement,
@@ -3703,6 +3704,36 @@ export class GameScene extends Phaser.Scene {
             }
             if (lifetime.lifetimePlayMs >= 1000 * 3600000) {
                 this.unlockAchievementWithAnnouncement("1000_hours");
+            }
+
+            const runStats = this.registry.get("runStats") as
+                | {
+                      survivalTimeMs?: number;
+                      enemiesDefeated?: number;
+                      shotsFired?: number;
+                      shotsHit?: number;
+                      accuracy?: number;
+                      bulletsDodged?: number;
+                      powerUpsCollected?: number;
+                      livesUsed?: number;
+                      deaths?: number;
+                      maxCorruption?: number;
+                      bestCombo?: number;
+                  }
+                | undefined;
+            if (runStats) {
+                recordProfileRunStats({
+                    survivalTimeMs: runStats.survivalTimeMs ?? 0,
+                    finalScore: this.score,
+                    deepestLayer: this.deepestLayer,
+                    maxCorruption: runStats.maxCorruption ?? 0,
+                    enemiesDefeated: runStats.enemiesDefeated ?? 0,
+                    accuracy: runStats.accuracy ?? 0,
+                    bestCombo: runStats.bestCombo ?? 1,
+                    livesUsed: runStats.livesUsed ?? 0,
+                    powerUpsCollected: runStats.powerUpsCollected ?? 0,
+                    deaths: runStats.deaths ?? 0,
+                });
             }
 
             // Stop all movement and touch controls

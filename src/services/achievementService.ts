@@ -18,12 +18,33 @@ type AchievementState = {
   notified: string[];
   lifetimeScore: number;
   lifetimePlayMs: number;
+  lifetimeEnemiesDefeated: number;
   bestComboMultiplier: number;
   bestEnemiesDefeated: number;
   bestCorruption: number;
+  bestRunStats: BestRunStats | null;
+  layerVisits: Record<string, number>;
+  recentRecords: Array<{
+    label: string;
+    value: string;
+    timestamp: number;
+  }>;
   selectedCosmetic: string;
   extraBadges: string[];
   extraCosmetics: string[];
+};
+
+type BestRunStats = {
+  survivalTimeMs: number;
+  finalScore: number;
+  deepestLayer: number;
+  maxCorruption: number;
+  enemiesDefeated: number;
+  accuracy: number;
+  bestCombo: number;
+  livesUsed: number;
+  powerUpsCollected: number;
+  deaths: number;
 };
 
 const STORAGE_KEY = "neon-sentinel-achievements";
@@ -46,9 +67,13 @@ function getDefaultState(): AchievementState {
     notified: [],
     lifetimeScore: 0,
     lifetimePlayMs: 0,
+    lifetimeEnemiesDefeated: 0,
     bestComboMultiplier: 0,
     bestEnemiesDefeated: 0,
     bestCorruption: 0,
+    bestRunStats: null,
+    layerVisits: {},
+    recentRecords: [],
     selectedCosmetic: "none",
     extraBadges: [],
     extraCosmetics: [],
@@ -201,6 +226,93 @@ export function getLifetimeStats() {
   return {
     lifetimeScore: state.lifetimeScore,
     lifetimePlayMs: state.lifetimePlayMs,
+    lifetimeEnemiesDefeated: state.lifetimeEnemiesDefeated || 0,
+  };
+}
+
+export function recordProfileRunStats(input: {
+  survivalTimeMs: number;
+  finalScore: number;
+  deepestLayer: number;
+  maxCorruption: number;
+  enemiesDefeated: number;
+  accuracy: number;
+  bestCombo: number;
+  livesUsed: number;
+  powerUpsCollected: number;
+  deaths: number;
+}) {
+  const state = loadAchievementState();
+  state.lifetimeEnemiesDefeated += input.enemiesDefeated;
+  const layerKey = String(input.deepestLayer);
+  state.layerVisits[layerKey] = (state.layerVisits[layerKey] || 0) + 1;
+
+  const recent: Array<{ label: string; value: string; timestamp: number }> = [];
+  if (input.finalScore > (state.bestRunStats?.finalScore || 0)) {
+    recent.push({
+      label: "Best Score",
+      value: input.finalScore.toLocaleString(),
+      timestamp: Date.now(),
+    });
+    state.bestRunStats = { ...input };
+  }
+
+  if (input.bestCombo > state.bestComboMultiplier) {
+    state.bestComboMultiplier = input.bestCombo;
+    recent.push({
+      label: "Best Combo",
+      value: `${input.bestCombo.toFixed(1)}x`,
+      timestamp: Date.now(),
+    });
+  }
+  if (input.enemiesDefeated > state.bestEnemiesDefeated) {
+    state.bestEnemiesDefeated = input.enemiesDefeated;
+    recent.push({
+      label: "Most Enemies",
+      value: input.enemiesDefeated.toLocaleString(),
+      timestamp: Date.now(),
+    });
+  }
+  if (input.maxCorruption > state.bestCorruption) {
+    state.bestCorruption = input.maxCorruption;
+    recent.push({
+      label: "Max Corruption",
+      value: `${Math.round(input.maxCorruption)}%`,
+      timestamp: Date.now(),
+    });
+  }
+
+  if (recent.length > 0) {
+    state.recentRecords = [
+      ...recent,
+      ...state.recentRecords,
+    ].slice(0, 5);
+  }
+
+  saveAchievementState(state);
+}
+
+export function getProfileStats() {
+  const state = loadAchievementState();
+  const achievements = getAllAchievements();
+  const unlockedCount = state.unlocked.length;
+  const layerEntries = Object.entries(state.layerVisits || {});
+  const favoriteLayer = layerEntries.sort((a, b) => b[1] - a[1])[0]?.[0] || "1";
+
+  return {
+    lifetimeScore: state.lifetimeScore,
+    lifetimePlayMs: state.lifetimePlayMs,
+    lifetimeEnemiesDefeated: state.lifetimeEnemiesDefeated || 0,
+    achievementsUnlocked: unlockedCount,
+    achievementsTotal: achievements.length,
+    favoriteLayer: Number(favoriteLayer),
+    bestRunStats: state.bestRunStats,
+    recentRecords: state.recentRecords || [],
+    personalBests: {
+      bestComboMultiplier: state.bestComboMultiplier || 0,
+      bestEnemiesDefeated: state.bestEnemiesDefeated || 0,
+      bestCorruption: state.bestCorruption || 0,
+    },
   };
 }
 
