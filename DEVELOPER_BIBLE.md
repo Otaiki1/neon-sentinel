@@ -143,6 +143,24 @@ ENEMY_CONFIG = {
         spawnWeight: 3,
         canShoot: false,
     },
+    yellowShield: {
+        points: 15,
+        speed: 100,
+        health: 3,
+        spawnWeight: 2,
+        canShoot: false,
+        shieldRadius: 200,
+        shieldDamageReduction: 0.5,
+    },
+    yellowEcho: {
+        points: 25,
+        speed: 180,
+        health: 2,
+        spawnWeight: 2,
+        canShoot: false,
+        echoCount: 2,
+        echoDuration: 2000,
+    },
     blue: {
         points: 50,
         speed: 180,
@@ -152,12 +170,34 @@ ENEMY_CONFIG = {
         shootInterval: 1500, // Milliseconds between shots
         bulletSpeed: 250,    // Enemy bullet speed
     },
+    blueBuff: {
+        points: 50,
+        speed: 150,
+        health: 3,
+        spawnWeight: 1,
+        canShoot: true,
+        shootInterval: 1700,
+        bulletSpeed: 240,
+        buffRadius: 250,
+        buffShootingSpeed: 1.3,
+        buffDamage: 1.2,
+    },
     purple: {
         points: 100,
         speed: 220,
         health: 6,
         spawnWeight: 1,
         canShoot: false,
+    },
+    purpleFragmenter: {
+        points: 100,
+        speed: 200,
+        health: 4,
+        spawnWeight: 1,
+        canShoot: false,
+        fragmentsOnDeath: 3,
+        fragmentType: "green",
+        fragmentHealth: 1,
     },
     red: {
         points: 500,
@@ -423,6 +463,7 @@ function isMobileDevice(): boolean {
 
 **Enemy Types**:
 - **Regular Enemies**: Green, Yellow, Blue, Purple
+- **Synergy Enemies**: Shield drones, echo decoys, buff nodes, fragmenters
 - **Bosses**: Red enemies (spawned separately)
 - **Graduation Bosses**: Special bosses for layer progression
 
@@ -438,6 +479,11 @@ function isMobileDevice(): boolean {
 - **Graduation Boss Movement**: Bounces off all walls (including right edge)
 - **Shooting**: Blue enemies shoot every 1.5 seconds; coordinated fire syncs in phase 3+
 - **Space Denial**: Graduation bosses add spread bursts in later phases
+- **Synergy Effects**:
+  - Shield drones reduce damage for nearby enemies
+  - Buff nodes increase nearby fire rate and damage
+  - Fragmenters split into greens on death
+  - Echo enemies spawn decoy after-images
 - **Health Bars**: Dynamic health bars above all enemies
 - **Destruction**: Destroyed when health reaches 0 or goes off-screen right
 
@@ -1096,6 +1142,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.3*
+*Last Updated: Game Version 1.4*
 *Maintained by: Neon Sentinel Development Team*
 

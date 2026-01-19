@@ -95,6 +95,20 @@ Each enemy type represents a different level of system corruption. Understanding
 - **Lore**: Corrupted security routines that have been recompiled by The Swarm
 - **Strategy**: Slightly tougher and faster. Requires 2 hits to destroy.
 
+### 🟡 Yellow Shield Drones - Protective Subroutines
+- **Points**: 15
+- **Health**: 3
+- **Speed**: 100
+- **Behavior**: Generates a shield around nearby enemies (50% damage reduction)
+- **Strategy**: Prioritize these or tougher enemies take longer to kill
+
+### 🟡 Yellow Echo Enemies - Signal Decoys
+- **Points**: 25
+- **Health**: 2
+- **Speed**: 180
+- **Behavior**: Leaves harmless echo copies that fade after 2 seconds
+- **Strategy**: Track the real target; echoes are distractions
+
 ### 🔵 Blue Enemies - Hijacked Security Bots
 - **Points**: 50
 - **Health**: 4 (scales with layer)
@@ -104,6 +118,13 @@ Each enemy type represents a different level of system corruption. Understanding
 - **Lore**: Autonomous security bots that have been hijacked by The Swarm
 - **Strategy**: **DANGEROUS!** They shoot back, so prioritize dodging their bullets. Requires 4 hits to destroy. This is where most players start dying.
 
+### 🔵 Blue Buff Enemies - Overclock Nodes
+- **Points**: 50
+- **Health**: 3
+- **Speed**: 150
+- **Behavior**: Buffs nearby enemies (faster shooting, higher damage)
+- **Strategy**: Remove them first to weaken the group
+
 ### 🟣 Purple Enemies - Corrupted AI Cores
 - **Points**: 100
 - **Health**: 6 (scales with layer)
@@ -111,6 +132,13 @@ Each enemy type represents a different level of system corruption. Understanding
 - **Behavior**: Elite enemies that move quickly and are hard to kill
 - **Lore**: High-level corrupted AI cores—the most dangerous non-boss enemies
 - **Strategy**: Very tough and fast. Requires 6 hits to destroy. Can drop power-ups when destroyed.
+
+### 🟣 Purple Fragmenters - Fractured Cores
+- **Points**: 100
+- **Health**: 4
+- **Speed**: 200
+- **Behavior**: Splits into 3 green enemies on death
+- **Strategy**: Decide when to finish them to avoid swarm pressure
 
 ### 🔴 Red Enemies - System Guardians (Bosses)
 - **Points**: 500
@@ -151,7 +179,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 ### Layer 2: Firewall
 - **Score Threshold**: 500 points
 - **Grid Color**: Yellow
-- **Enemies**: Green, Yellow
+- **Enemies**: Green, Yellow, Yellow Shield, Yellow Echo
 - **Difficulty**: Moderate
 - **Enemy Health**: +30% more health
 - **Spawn Rate**: +20% more enemies
@@ -160,7 +188,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 ### Layer 3: Security Core
 - **Score Threshold**: 1,500 points
 - **Grid Color**: Blue
-- **Enemies**: Green, Yellow, Blue
+- **Enemies**: Green, Yellow, Yellow Echo, Blue, Blue Buff
 - **Difficulty**: Hard—**enemies start shooting back!**
 - **Enemy Health**: +60% more health
 - **Spawn Rate**: +50% more enemies
@@ -169,7 +197,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 ### Layer 4: Corrupted AI
 - **Score Threshold**: 4,000 points
 - **Grid Color**: Purple
-- **Enemies**: Green, Yellow, Blue, Purple
+- **Enemies**: Green, Yellow, Yellow Echo, Blue, Blue Buff, Purple, Purple Fragmenter
 - **Boss Chance**: 1% chance for purple boss
 - **Difficulty**: Very Hard
 - **Enemy Health**: 2x health
@@ -179,7 +207,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 ### Layer 5: Kernel Breach
 - **Score Threshold**: 10,000 points
 - **Grid Color**: Red
-- **Enemies**: Green, Yellow, Blue, Purple
+- **Enemies**: Green, Yellow, Yellow Shield, Yellow Echo, Blue, Blue Buff, Purple, Purple Fragmenter
 - **Boss Chance**: 5% chance for mini/medium boss
 - **Difficulty**: Extreme
 - **Enemy Health**: 2.5x health
@@ -189,7 +217,7 @@ The Grid is divided into **6 system layers**. Each layer represents deeper corru
 ### Layer 6: System Collapse
 - **Score Threshold**: 25,000 points
 - **Grid Color**: Bright Red
-- **Enemies**: Green, Yellow, Blue, Purple
+- **Enemies**: Green, Yellow, Yellow Shield, Yellow Echo, Blue, Blue Buff, Purple, Purple Fragmenter
 - **Boss Chance**: 10% chance for final boss
 - **Difficulty**: Legendary
 - **Enemy Health**: 3x health
@@ -523,5 +551,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.3*
+*Last Updated: Game Version 1.4*
 

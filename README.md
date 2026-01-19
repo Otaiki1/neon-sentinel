@@ -16,7 +16,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Retro Arcade Gameplay**: Classic shooter mechanics with modern polish
 -   **Endless Prestige Loop**: Complete Layer 6 to enter Prestige Mode and loop back harder
 -   **7 Power-Up Types**: Speed, fire rate, score multiplier, auto-shoot, lives, firepower, invisibility
--   **5 Enemy Types**: Green, Yellow, Blue, Purple, and Red bosses
+-   **Synergy Enemies**: Shield drones, echo decoys, fragmenters, and buff auras
 -   **Graduation Boss System**: Defeat bosses to unlock new layers
 -   **Dynamic Difficulty Evolution**: Enemy behavior changes over time (formations, prediction, coordinated fire)
 -   **Corruption Meter**: Risk-reward system that boosts score and enemy aggression
@@ -172,8 +172,12 @@ The game features 6 system layers, each with increasing difficulty:
 
 -   **Green**: Basic enemies (10 points, 2 health)
 -   **Yellow**: Faster enemies (25 points, 2 health)
+-   **Yellow Shield Drone**: Protects nearby enemies (50% damage reduction)
+-   **Yellow Echo**: Creates decoy echoes to distract
 -   **Blue**: Shooting enemies (50 points, 4 health) ⚠️
+-   **Blue Buff**: Boosts nearby enemy fire rate and damage
 -   **Purple**: Elite enemies (100 points, 6 health)
+-   **Purple Fragmenter**: Splits into multiple greens on death
 -   **Red**: Bosses (500 points, 20 health)
 
 ### Power-Ups
