@@ -17,6 +17,7 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 7. [Progression & Strategy](#progression--strategy)
 8. [Leaderboards](#leaderboards)
 9. [Prestige Mode](#prestige-mode)
+10. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
 
 ---
 
@@ -328,6 +329,12 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier
 - Use Score Multiplier when you're about to destroy many enemies
 - Graduation bosses require strategy—learn their patterns
 
+### Endgame (Time-Based Evolution)
+
+- After ~8 minutes, enemies begin coordinating fire and using formations
+- After ~15 minutes, adaptive behavior adjusts spawn lanes based on movement habits
+- Movement variety helps reduce predictive accuracy and adaptive pressure
+
 ### General Tips
 
 1. **Movement**: Always keep moving. Standing still is death.
@@ -385,6 +392,7 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier
 - **Grid Color**: Changes based on current layer
 - **Screen Flash**: Red flash when boss spawns, green flash when layer advances
 - **Prestige FX**: Purple flash + grid hue shift + glitch jitter on prestige
+- **Evolution Pressure**: More formations and bullet patterns appear as time passes
 - **Screen Shake**: Intensifies in later layers
 - **Health Bars**: All enemies have health bars above them (green >60%, yellow 30-60%, red <30%)
 
@@ -468,6 +476,22 @@ Prestige Mode makes the game endless by looping after Layer 6:
 
 ---
 
+## 🧠 Dynamic Difficulty Evolution
+
+Enemy behavior evolves over time, not just by score:
+
+- **Phase 1 (0-3 min)**: Simple pursuit and random spawns
+- **Phase 2 (3-8 min)**: Predictive movement begins
+- **Phase 3 (8-15 min)**: Coordinated fire and formation waves
+- **Phase 4 (15+ min)**: Adaptive learning shifts spawn lanes
+
+Tips:
+- Change direction often to reduce predictive accuracy
+- Avoid camping edges; it biases spawns to trap you
+- Watch for formation waves and coordinated fire windows
+
+---
+
 ## 🎯 Final Words
 
 The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the last line of defense. Push deeper, survive longer, and climb the leaderboards to become a legend.
@@ -476,5 +500,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.1*
+*Last Updated: Game Version 1.2*
 

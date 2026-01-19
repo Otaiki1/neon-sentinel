@@ -210,6 +210,31 @@ PRESTIGE_CONFIG = {
 - Loops back to Layer 1 with higher difficulty + score multipliers
 - Multipliers scale beyond the listed tiers
 
+### Difficulty Evolution Configuration
+
+```typescript
+DIFFICULTY_EVOLUTION = {
+    phase1: { startMs: 0, endMs: 180000, enemyBehaviors: ["basic_pursuit"] },
+    phase2: { startMs: 180000, endMs: 480000, enemyBehaviors: ["predictive_movement"] },
+    phase3: { startMs: 480000, endMs: 900000, enemyBehaviors: ["coordinated_fire"] },
+    phase4: { startMs: 900000, endMs: Infinity, enemyBehaviors: ["adaptive_learning"] },
+}
+
+ENEMY_BEHAVIOR_CONFIG = {
+    predictiveLeadTime: 0.7,
+    adaptationThreshold: 30,
+    formationSpawnChance: 0.3,
+    coordinatedFireDistance: 400,
+    behaviourResetInterval: 120000,
+}
+```
+
+**Evolution Mechanics**:
+- Phase selection is time-based (ms since run start)
+- Predictive aiming uses player velocity with movement-stability dampening
+- Coordinated fire triggers when blue enemies cluster within range
+- Adaptive learning biases spawn lanes after threshold kills, resets every interval
+
 **Key Mechanics**:
 - `healthMultiplier`: Applied to all enemy health when spawning
 - `bossSpeedMultiplier`: Applied to boss base speed per layer
@@ -356,6 +381,7 @@ function isMobileDevice(): boolean {
 **Spawn Logic**:
 ```typescript
 // Weighted random selection based on layer
+// Formation wave spawns based on difficulty phase and formation chance
 // Health scaled by: baseHealth * layerConfig.healthMultiplier
 // Spawns from right side only
 // Moves toward player with slight randomness
@@ -374,9 +400,10 @@ function isMobileDevice(): boolean {
 ```
 
 **Enemy Behavior**:
-- **Movement**: Moves toward player, bounces off top/bottom/left walls
+- **Movement**: Pursuit + predictive movement in later phases
 - **Graduation Boss Movement**: Bounces off all walls (including right edge)
-- **Shooting**: Blue enemies shoot every 1.5 seconds; graduation bosses fire a 3-bullet spread
+- **Shooting**: Blue enemies shoot every 1.5 seconds; coordinated fire syncs in phase 3+
+- **Space Denial**: Graduation bosses add spread bursts in later phases
 - **Health Bars**: Dynamic health bars above all enemies
 - **Destruction**: Destroyed when health reaches 0 or goes off-screen right
 
@@ -1033,6 +1060,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.1*
+*Last Updated: Game Version 1.2*
 *Maintained by: Neon Sentinel Development Team*
 

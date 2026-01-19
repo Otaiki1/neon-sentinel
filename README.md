@@ -18,6 +18,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **7 Power-Up Types**: Speed, fire rate, score multiplier, auto-shoot, lives, firepower, invisibility
 -   **5 Enemy Types**: Green, Yellow, Blue, Purple, and Red bosses
 -   **Graduation Boss System**: Defeat bosses to unlock new layers
+-   **Dynamic Difficulty Evolution**: Enemy behavior changes over time (formations, prediction, coordinated fire)
 -   **Lives System**: Collect Life Orbs for unlimited lives
 -   **Weekly Leaderboards**: Compete for top scores with prestige level tracked
 -   **Wallet Integration**: Connect wallet or play anonymously
@@ -154,6 +155,12 @@ The game features 6 system layers, each with increasing difficulty:
 - **Scaling**: Multipliers increase each prestige cycle and continue scaling indefinitely
 - **Visuals**: Grid hue shifts, glitch jitter, and screen flashes intensify with prestige
 
+### Dynamic Difficulty Evolution
+
+- **Phases**: Difficulty evolves based on run time (learning → prediction → coordinated fire → adaptive)
+- **Behaviors**: Predictive movement, coordinated fire, space denial, adaptive spawns
+- **Spawn Patterns**: Formations, ambush waves, and boss rushes introduced in later phases
+
 ### Enemies
 
 -   **Green**: Basic enemies (10 points, 2 health)
@@ -185,6 +192,8 @@ All game configuration is in `src/game/config.ts`:
 -   `POWERUP_CONFIG`: Power-up types, durations, effects
 -   `UI_CONFIG`: Fonts, colors, sizes
 -   `PRESTIGE_CONFIG`: Prestige tiers, multipliers, and visuals
+-   `DIFFICULTY_EVOLUTION`: Timed phases and behavior/spawn evolution
+-   `ENEMY_BEHAVIOR_CONFIG`: Predictive lead time, coordination range, adaptation tuning
 
 See [Developer's Bible](./DEVELOPER_BIBLE.md) for detailed configuration documentation.
 
