@@ -43,6 +43,24 @@ export const ENEMY_CONFIG = {
         spawnWeight: 3,
         canShoot: false,
     },
+    yellowShield: {
+        points: 15,
+        speed: 100,
+        health: 3,
+        spawnWeight: 2,
+        canShoot: false,
+        shieldRadius: 200,
+        shieldDamageReduction: 0.5,
+    },
+    yellowEcho: {
+        points: 25,
+        speed: 180,
+        health: 2,
+        spawnWeight: 2,
+        canShoot: false,
+        echoCount: 2,
+        echoDuration: 2000,
+    },
     blue: {
         points: 50,
         speed: 180, // Increased from 120
@@ -52,12 +70,34 @@ export const ENEMY_CONFIG = {
         shootInterval: 1500, // Faster shooting (was 2000)
         bulletSpeed: 250, // Faster bullets (was 200)
     },
+    blueBuff: {
+        points: 50,
+        speed: 150,
+        health: 3,
+        spawnWeight: 1,
+        canShoot: true,
+        shootInterval: 1700,
+        bulletSpeed: 240,
+        buffRadius: 250,
+        buffShootingSpeed: 1.3,
+        buffDamage: 1.2,
+    },
     purple: {
         points: 100,
         speed: 220, // Increased from 180
         health: 6, // Doubled from 3
         spawnWeight: 1,
         canShoot: false,
+    },
+    purpleFragmenter: {
+        points: 100,
+        speed: 200,
+        health: 4,
+        spawnWeight: 1,
+        canShoot: false,
+        fragmentsOnDeath: 3,
+        fragmentType: "green",
+        fragmentHealth: 1,
     },
     red: {
         points: 500,
@@ -83,7 +123,7 @@ export const LAYER_CONFIG = {
     2: {
         name: "Firewall",
         scoreThreshold: 500,
-        enemies: ["green", "yellow"],
+        enemies: ["green", "yellow", "yellowShield", "yellowEcho"],
         bossChance: 0,
         gridColor: 0xffff00, // Yellow
         healthMultiplier: 1.3, // 30% more health
@@ -93,7 +133,7 @@ export const LAYER_CONFIG = {
     3: {
         name: "Security Core",
         scoreThreshold: 1500,
-        enemies: ["green", "yellow", "blue"],
+        enemies: ["green", "yellow", "yellowEcho", "blue", "blueBuff"],
         bossChance: 0,
         gridColor: 0x00aaff, // Blue
         healthMultiplier: 1.6, // 60% more health
@@ -103,7 +143,15 @@ export const LAYER_CONFIG = {
     4: {
         name: "Corrupted AI",
         scoreThreshold: 4000,
-        enemies: ["green", "yellow", "blue", "purple"],
+        enemies: [
+            "green",
+            "yellow",
+            "yellowEcho",
+            "blue",
+            "blueBuff",
+            "purple",
+            "purpleFragmenter",
+        ],
         bossChance: 0.01, // 1% chance for purple boss
         gridColor: 0xaa00ff, // Purple
         healthMultiplier: 2.0, // 2x health
@@ -113,7 +161,16 @@ export const LAYER_CONFIG = {
     5: {
         name: "Kernel Breach",
         scoreThreshold: 10000,
-        enemies: ["green", "yellow", "blue", "purple"],
+        enemies: [
+            "green",
+            "yellow",
+            "yellowShield",
+            "yellowEcho",
+            "blue",
+            "blueBuff",
+            "purple",
+            "purpleFragmenter",
+        ],
         bossChance: 0.05, // 5% chance for mini/medium boss
         gridColor: 0xff3333, // Red
         healthMultiplier: 2.5, // 2.5x health
@@ -123,7 +180,16 @@ export const LAYER_CONFIG = {
     6: {
         name: "System Collapse",
         scoreThreshold: 25000,
-        enemies: ["green", "yellow", "blue", "purple"],
+        enemies: [
+            "green",
+            "yellow",
+            "yellowShield",
+            "yellowEcho",
+            "blue",
+            "blueBuff",
+            "purple",
+            "purpleFragmenter",
+        ],
         bossChance: 0.1, // 10% chance for final boss
         gridColor: 0xff0000, // Bright red
         healthMultiplier: 3.0, // 3x health

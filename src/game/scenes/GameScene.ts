@@ -416,6 +416,12 @@ export class GameScene extends Phaser.Scene {
             // Update health bar position to follow enemy
             if (enemy.active) {
                 this.updateEnemyHealthBar(enemy);
+                const aura = enemy.getData("aura") as
+                    | Phaser.GameObjects.Graphics
+                    | undefined;
+                if (aura) {
+                    aura.setPosition(enemy.x, enemy.y);
+                }
             }
 
             // Graduation bosses should not be destroyed and should continuously move toward player
@@ -475,6 +481,7 @@ export class GameScene extends Phaser.Scene {
                         | undefined;
                     if (healthBarBg) healthBarBg.destroy();
                     if (healthBarFill) healthBarFill.destroy();
+                    this.cleanupEnemyEffects(enemy);
                     enemy.destroy();
                     return;
                 }
@@ -495,7 +502,13 @@ export class GameScene extends Phaser.Scene {
 
             if (canShoot && enemy.active) {
                 const lastShot = enemy.getData("lastShot") || 0;
-                const shootInterval = enemy.getData("shootInterval") || 2000;
+                const baseShootInterval =
+                    enemy.getData("baseShootInterval") ||
+                    enemy.getData("shootInterval") ||
+                    2000;
+                const shootSpeedMultiplier =
+                    (enemy.getData("shootSpeedMultiplier") as number) || 1;
+                const shootInterval = baseShootInterval / shootSpeedMultiplier;
 
                 if (time - lastShot > shootInterval) {
                     // Graduation bosses shoot more frequently and with multiple bullets
@@ -537,6 +550,7 @@ export class GameScene extends Phaser.Scene {
         ) {
             this.handleCoordinatedFire(time);
         }
+        this.updateBuffEffects();
 
         // Update combo multiplier (reset if player hasn't been hit in a while)
         const timeSinceLastHit = time - this.lastHitTime;
@@ -912,28 +926,52 @@ export class GameScene extends Phaser.Scene {
     private spawnEnemyOfType(
         selectedType: keyof typeof ENEMY_CONFIG,
         options?: {
+            absoluteX?: number;
             xOffset?: number;
             y?: number;
             healthMultiplier?: number;
             speedMultiplier?: number;
             isFormation?: boolean;
+            overrideHealth?: number;
+            overridePoints?: number;
+            isFragment?: boolean;
         }
     ) {
         const config = ENEMY_CONFIG[selectedType];
         const keyMap: Record<string, string> = {
             green: "enemyGreen",
             yellow: "enemyYellow",
+            yellowShield: "enemyYellow",
+            yellowEcho: "enemyYellow",
             blue: "enemyBlue",
+            blueBuff: "enemyBlue",
             purple: "enemyPurple",
+            purpleFragmenter: "enemyPurple",
         };
         const key = keyMap[selectedType] || "enemyGreen";
 
         const gameWidth = this.scale.width;
-        const x = gameWidth + 50 + (options?.xOffset || 0);
+        const x =
+            options?.absoluteX !== undefined
+                ? options.absoluteX
+                : gameWidth + 50 + (options?.xOffset || 0);
         const y = options?.y ?? this.getSpawnY();
 
         const enemy = this.physics.add.sprite(x, y, key);
         enemy.setScale(0.5 * MOBILE_SCALE);
+
+        if (selectedType === "yellowShield") {
+            enemy.setTint(0xffcc33);
+            this.createEnemyAura(enemy, 0xffcc33, config.shieldRadius || 200);
+        } else if (selectedType === "yellowEcho") {
+            enemy.setTint(0xffff66);
+            this.startEchoTrail(enemy, config.echoCount || 2, config.echoDuration || 2000);
+        } else if (selectedType === "blueBuff") {
+            enemy.setTint(0x66ccff);
+            this.createEnemyAura(enemy, 0x66ccff, config.buffRadius || 250);
+        } else if (selectedType === "purpleFragmenter") {
+            enemy.setTint(0xcc66ff);
+        }
 
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
@@ -941,8 +979,12 @@ export class GameScene extends Phaser.Scene {
         const extraHealthMultiplier = options?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
             this.getCorruptionDifficultyMultiplier();
+        const baseHealth =
+            options?.overrideHealth !== undefined
+                ? options.overrideHealth
+                : config.health;
         const scaledHealth = Math.ceil(
-            config.health *
+            baseHealth *
                 baseHealthMultiplier *
                 extraHealthMultiplier *
                 this.prestigeDifficultyMultiplier *
@@ -964,12 +1006,36 @@ export class GameScene extends Phaser.Scene {
         );
 
         enemy.setData("type", selectedType);
-        enemy.setData("points", config.points);
+        enemy.setData(
+            "points",
+            options?.overridePoints !== undefined
+                ? options.overridePoints
+                : config.points
+        );
         enemy.setData("speed", scaledSpeed);
         enemy.setData("health", scaledHealth);
         enemy.setData("maxHealth", scaledHealth);
         enemy.setData("canShoot", config.canShoot || false);
         enemy.setData("behaviors", behaviors);
+        enemy.setData("isFragment", options?.isFragment || false);
+        enemy.setData("shootSpeedMultiplier", 1);
+        enemy.setData("damageMultiplier", 1);
+
+        if (selectedType === "yellowShield") {
+            enemy.setData("shieldRadius", config.shieldRadius);
+            enemy.setData("shieldDamageReduction", config.shieldDamageReduction);
+        } else if (selectedType === "yellowEcho") {
+            enemy.setData("echoCount", config.echoCount);
+            enemy.setData("echoDuration", config.echoDuration);
+        } else if (selectedType === "blueBuff") {
+            enemy.setData("buffRadius", config.buffRadius);
+            enemy.setData("buffShootingSpeed", config.buffShootingSpeed);
+            enemy.setData("buffDamage", config.buffDamage);
+        } else if (selectedType === "purpleFragmenter") {
+            enemy.setData("fragmentsOnDeath", config.fragmentsOnDeath);
+            enemy.setData("fragmentType", config.fragmentType);
+            enemy.setData("fragmentHealth", config.fragmentHealth);
+        }
 
         const corruptionRatio = this.getCorruptionRatio();
         if (corruptionRatio > 0.25) {
@@ -985,11 +1051,10 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (config.canShoot) {
+            const baseShootInterval = (config as any).shootInterval || 2000;
             enemy.setData("lastShot", 0);
-            enemy.setData(
-                "shootInterval",
-                (config as any).shootInterval || 2000
-            );
+            enemy.setData("baseShootInterval", baseShootInterval);
+            enemy.setData("shootInterval", baseShootInterval);
         }
 
         this.createEnemyHealthBar(enemy);
@@ -1324,6 +1389,160 @@ export class GameScene extends Phaser.Scene {
             enemy.setData("lastShot", time);
         });
         this.lastCoordinatedFireTime = time;
+    }
+
+    private updateBuffEffects() {
+        const buffEnemies = this.enemies.children.entries.filter((enemyObj) => {
+            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            return enemy.active && enemy.getData("type") === "blueBuff";
+        }) as Phaser.Physics.Arcade.Sprite[];
+
+        const defaultShootMultiplier = 1;
+        const defaultDamageMultiplier = 1;
+
+        this.enemies.children.entries.forEach((enemyObj) => {
+            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            if (!enemy.active) return;
+            enemy.setData("shootSpeedMultiplier", defaultShootMultiplier);
+            enemy.setData("damageMultiplier", defaultDamageMultiplier);
+        });
+
+        buffEnemies.forEach((buffEnemy) => {
+            const buffRadius =
+                (buffEnemy.getData("buffRadius") as number) || 250;
+            const buffShootingSpeed =
+                (buffEnemy.getData("buffShootingSpeed") as number) || 1.3;
+            const buffDamage =
+                (buffEnemy.getData("buffDamage") as number) || 1.2;
+
+            this.enemies.children.entries.forEach((enemyObj) => {
+                const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+                if (!enemy.active) return;
+                const distance = Phaser.Math.Distance.Between(
+                    enemy.x,
+                    enemy.y,
+                    buffEnemy.x,
+                    buffEnemy.y
+                );
+                if (distance <= buffRadius) {
+                    const currentSpeedMultiplier =
+                        (enemy.getData("shootSpeedMultiplier") as number) || 1;
+                    const currentDamageMultiplier =
+                        (enemy.getData("damageMultiplier") as number) || 1;
+                    enemy.setData(
+                        "shootSpeedMultiplier",
+                        Math.max(currentSpeedMultiplier, buffShootingSpeed)
+                    );
+                    enemy.setData(
+                        "damageMultiplier",
+                        Math.max(currentDamageMultiplier, buffDamage)
+                    );
+                }
+            });
+        });
+    }
+
+    private createEnemyAura(
+        enemy: Phaser.Physics.Arcade.Sprite,
+        color: number,
+        radius: number
+    ) {
+        const aura = this.add.graphics();
+        aura.lineStyle(1, color, 0.4);
+        aura.strokeCircle(0, 0, radius * MOBILE_SCALE);
+        aura.setPosition(enemy.x, enemy.y);
+        aura.setDepth(enemy.depth - 1);
+        aura.setBlendMode(Phaser.BlendModes.ADD);
+        enemy.setData("aura", aura);
+    }
+
+    private startEchoTrail(
+        enemy: Phaser.Physics.Arcade.Sprite,
+        echoCount: number,
+        echoDuration: number
+    ) {
+        const echoTimer = this.time.addEvent({
+            delay: 900,
+            loop: true,
+            callback: () => {
+                if (!enemy.active) return;
+                for (let i = 0; i < echoCount; i++) {
+                    const echo = this.add.sprite(
+                        enemy.x + Phaser.Math.Between(-20, 20),
+                        enemy.y + Phaser.Math.Between(-20, 20),
+                        enemy.texture.key
+                    );
+                    echo.setScale(enemy.scaleX, enemy.scaleY);
+                    echo.setAlpha(0.35);
+                    echo.setTint(0xffffaa);
+                    this.tweens.add({
+                        targets: echo,
+                        alpha: 0,
+                        duration: echoDuration,
+                        onComplete: () => {
+                            echo.destroy();
+                        },
+                    });
+                }
+            },
+        });
+        enemy.setData("echoTimer", echoTimer);
+    }
+
+    private cleanupEnemyEffects(enemy: Phaser.Physics.Arcade.Sprite) {
+        const aura = enemy.getData("aura") as
+            | Phaser.GameObjects.Graphics
+            | undefined;
+        if (aura) {
+            aura.destroy();
+        }
+        const echoTimer = enemy.getData("echoTimer") as
+            | Phaser.Time.TimerEvent
+            | undefined;
+        if (echoTimer) {
+            echoTimer.remove();
+        }
+    }
+
+    private getShieldDamageReduction(enemy: Phaser.Physics.Arcade.Sprite) {
+        if (enemy.getData("type") === "yellowShield") {
+            return 0;
+        }
+        let maxReduction = 0;
+        this.enemies.children.entries.forEach((enemyObj) => {
+            const shieldEnemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            if (!shieldEnemy.active) return;
+            if (shieldEnemy.getData("type") !== "yellowShield") return;
+            const radius = shieldEnemy.getData("shieldRadius") || 200;
+            const reduction =
+                (shieldEnemy.getData("shieldDamageReduction") as number) || 0.5;
+            const distance = Phaser.Math.Distance.Between(
+                enemy.x,
+                enemy.y,
+                shieldEnemy.x,
+                shieldEnemy.y
+            );
+            if (distance <= radius) {
+                maxReduction = Math.max(maxReduction, reduction);
+            }
+        });
+        return maxReduction;
+    }
+
+    private spawnFragments(
+        enemy: Phaser.Physics.Arcade.Sprite,
+        fragmentsOnDeath: number,
+        fragmentType: keyof typeof ENEMY_CONFIG,
+        fragmentHealth: number
+    ) {
+        for (let i = 0; i < fragmentsOnDeath; i++) {
+            this.spawnEnemyOfType(fragmentType, {
+                absoluteX: enemy.x + Phaser.Math.Between(-20, 20),
+                y: enemy.y + Phaser.Math.Between(-20, 20),
+                overrideHealth: fragmentHealth,
+                isFragment: true,
+            });
+        }
     }
 
     private startCorruptionTimer() {
@@ -1724,6 +1943,7 @@ export class GameScene extends Phaser.Scene {
         boss.setData("isBoss", true);
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
         boss.setData("lastShot", 0);
+        boss.setData("baseShootInterval", 1500);
         boss.setData("shootInterval", 1500); // Shoot every 1.5 seconds
         boss.setData(
             "behaviors",
@@ -1788,8 +2008,10 @@ export class GameScene extends Phaser.Scene {
         let health = e.getData("health") || 1;
         const isBoss = e.getData("isBoss") || false;
 
-        // Deal damage
-        health -= 1;
+        // Deal damage (apply shield drone reduction if applicable)
+        const shieldReduction = this.getShieldDamageReduction(e);
+        const damage = 1 * (1 - shieldReduction);
+        health -= damage;
         e.setData("health", health);
 
         // Update health bar
@@ -1804,7 +2026,7 @@ export class GameScene extends Phaser.Scene {
                 this.graduationBossActive = false;
             }
 
-            // Destroy health bar before destroying enemy
+            // Destroy health bar and special effects before destroying enemy
             const healthBarBg = e.getData("healthBarBg") as
                 | Phaser.GameObjects.Graphics
                 | undefined;
@@ -1813,6 +2035,7 @@ export class GameScene extends Phaser.Scene {
                 | undefined;
             if (healthBarBg) healthBarBg.destroy();
             if (healthBarFill) healthBarFill.destroy();
+            this.cleanupEnemyEffects(e);
 
             // Enemy destroyed
             this.addScore(points * this.comboMultiplier);
@@ -1834,6 +2057,20 @@ export class GameScene extends Phaser.Scene {
                     "BOSS DEFEATED!",
                     `+${points} points`,
                     0x00ff00 // Green color for success
+                );
+            }
+
+            // If fragmenter was defeated, spawn fragments
+            if (
+                enemyType === "purpleFragmenter" &&
+                !e.getData("isFragment")
+            ) {
+                const fragmentConfig = ENEMY_CONFIG.purpleFragmenter;
+                this.spawnFragments(
+                    e,
+                    fragmentConfig.fragmentsOnDeath,
+                    fragmentConfig.fragmentType as keyof typeof ENEMY_CONFIG,
+                    fragmentConfig.fragmentHealth
                 );
             }
 
@@ -1950,12 +2187,13 @@ export class GameScene extends Phaser.Scene {
         if (this.gameOver) return;
 
         const b = bullet as Phaser.Physics.Arcade.Sprite;
+        const damageMultiplier = (b.getData("damageMultiplier") as number) || 1;
 
         // Remove bullet
         b.destroy();
 
         // Take damage (lose a life)
-        this.takeDamage();
+        this.takeDamage(damageMultiplier);
     }
 
     private handlePlayerEnemyCollision(
@@ -1963,16 +2201,19 @@ export class GameScene extends Phaser.Scene {
         _enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody
     ) {
         if (this.gameOver) return;
+        const enemy = _enemy as Phaser.Physics.Arcade.Sprite;
+        const damageMultiplier =
+            (enemy.getData("damageMultiplier") as number) || 1;
 
         // Player takes damage (loses 1 life)
         // The takeDamage() method already creates an explosion at player position
-        this.takeDamage();
+        this.takeDamage(damageMultiplier);
 
         // Enemy is NOT destroyed - it continues to exist and can damage player again
         // This makes enemies more dangerous and requires players to shoot them
     }
 
-    private takeDamage() {
+    private takeDamage(damageMultiplier: number = 1) {
         // If player has invisibility power-up, ignore damage
         if (this.isInvisible) {
             return; // Invisible, no damage taken
@@ -2000,7 +2241,14 @@ export class GameScene extends Phaser.Scene {
 
         // Reduce lives by exactly 1
         const previousLives = this.lives;
-        this.lives -= 1;
+        let damage = 1;
+        if (damageMultiplier > 1) {
+            const bonusChance = Phaser.Math.Clamp(damageMultiplier - 1, 0, 1);
+            if (Math.random() < bonusChance) {
+                damage = 2;
+            }
+        }
+        this.lives = Math.max(0, this.lives - damage);
         this.registry.set("lives", this.lives);
 
         // Debug: Log lives to help diagnose
@@ -2093,7 +2341,9 @@ export class GameScene extends Phaser.Scene {
 
     private destroyAllEnemyHealthBars() {
         this.enemies.children.entries.forEach((enemy) => {
-            this.destroyEnemyHealthBar(enemy as Phaser.Physics.Arcade.Sprite);
+            const sprite = enemy as Phaser.Physics.Arcade.Sprite;
+            this.destroyEnemyHealthBar(sprite);
+            this.cleanupEnemyEffects(sprite);
         });
     }
 
@@ -2475,10 +2725,13 @@ export class GameScene extends Phaser.Scene {
                 ((config as any).bulletSpeed || 200) *
                 this.prestigeDifficultyMultiplier *
                 this.getCorruptionDifficultyMultiplier();
+            const damageMultiplier =
+                (enemy.getData("damageMultiplier") as number) || 1;
 
             const velocityX = Math.cos(angle) * bulletSpeed;
             const velocityY = Math.sin(angle) * bulletSpeed;
             bullet.setVelocity(velocityX, velocityY);
+            bullet.setData("damageMultiplier", damageMultiplier);
         }
     }
 
