@@ -61,6 +61,7 @@ neon-sentinel/
 │   │   ├── scoreService.ts     # Leaderboard logic
 │   │   └── achievementService.ts # Achievement persistence + cosmetics
 │   │   └── rotatingLayerService.ts # Rotating modifier schedule helper
+│   │   └── kernelService.ts # Kernel selection + unlock tracking
 │   └── assets/           # Static assets
 │       └── sprites/       # SVG game sprites
 ├── public/               # Public assets
@@ -417,6 +418,25 @@ FAILURE_FEEDBACK = {
 - Game over UI pulls run metrics from Phaser registry (`runMetrics`)
 - Weekly leaderboard proximity uses `fetchWeeklyLeaderboard()`
 - Personal bests are persisted in achievement state and updated after display
+
+### Kernel Configuration
+
+```typescript
+PLAYER_KERNELS = {
+    sentinel_standard: { baseSpeed: 1.0, fireRate: 1.0, unlocked: true },
+    sentinel_speed: { baseSpeed: 1.3, fireRate: 1.2, unlocked: false },
+    sentinel_firepower: { baseSpeed: 0.85, fireRate: 0.6, unlocked: false },
+    sentinel_tanky: { baseSpeed: 0.8, fireRate: 1.0, healthPerLife: 1.2 },
+    sentinel_precision: { baseSpeed: 1.0, fireRate: 2.0, bulletPiercing: true },
+}
+```
+
+**Kernel Mechanics**:
+- Selected on landing page and applied at run start only
+- Speed multiplier scales player movement
+- Fire rate multiplier scales `PLAYER_CONFIG.fireRate`
+- Tanky kernel uses fractional damage accumulator to reduce life loss
+- Precision kernel enables bullet piercing
 
 ### Mid-Run Challenges Configuration
 

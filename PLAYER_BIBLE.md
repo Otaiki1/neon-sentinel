@@ -23,7 +23,8 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 13. [Mid-Run Challenges](#mid-run-challenges)
 14. [Rotating Layer Modifiers](#rotating-layer-modifiers)
 15. [Almost Success Feedback](#almost-success-feedback)
-16. [Achievements & Badges](#achievements--badges)
+16. [Kernel Playstyles](#kernel-playstyles)
+17. [Achievements & Badges](#achievements--badges)
 
 ---
 
@@ -618,6 +619,20 @@ After game over, the HUD shows quick, personalized nudges like:
 - New personal bests (kills, combo, corruption)
 
 Use these hints to choose a target for your next run.
+
+---
+
+## 🧠 Kernel Playstyles
+
+Before each run, choose a Kernel that changes how your Sentinel handles:
+
+- **Standard Sentinel**: Balanced
+- **Swift Interceptor**: Faster movement, slower fire rate
+- **Artillery Unit**: Faster fire rate, slower movement
+- **Guardian Core**: Extra durability per life
+- **Sniper Kernel**: Piercing shots, much slower fire
+
+Kernels are sidegrades, not upgrades—pick the one that fits your style.
 
 ---
 
