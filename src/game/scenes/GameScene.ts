@@ -57,6 +57,11 @@ export class GameScene extends Phaser.Scene {
     private overclockFireRateMultiplier = 1;
     private overclockSpeedMultiplier = 1;
     private overclockSpawnMultiplier = 1;
+    private totalEnemiesDefeated = 0;
+    private maxCorruptionReached = 0;
+    private tookDamageThisRun = false;
+    private peakComboMultiplier = 1;
+    private timeToReachLayer6: number | null = null;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -234,6 +239,11 @@ export class GameScene extends Phaser.Scene {
             OVERCLOCK_CONFIG.maxActivationsPerRun - this.overclockActivations
         );
         this.runStartTime = this.time.now;
+        this.totalEnemiesDefeated = 0;
+        this.maxCorruptionReached = this.corruption;
+        this.tookDamageThisRun = false;
+        this.peakComboMultiplier = this.comboMultiplier;
+        this.timeToReachLayer6 = null;
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         if (this.registry.get("joystickSensitivity") === undefined) {
@@ -1627,6 +1637,9 @@ export class GameScene extends Phaser.Scene {
             this.currentCorruptionTier = nextTier;
             this.updateCorruptionEffects();
         }
+        if (this.corruption > this.maxCorruptionReached) {
+            this.maxCorruptionReached = this.corruption;
+        }
     }
 
     private getCorruptionRatio() {
@@ -1781,6 +1794,11 @@ export class GameScene extends Phaser.Scene {
         this.overclockFireRateMultiplier = 1;
         this.overclockSpeedMultiplier = 1;
         this.overclockSpawnMultiplier = 1;
+        this.totalEnemiesDefeated = 0;
+        this.maxCorruptionReached = this.corruption;
+        this.tookDamageThisRun = false;
+        this.peakComboMultiplier = this.comboMultiplier;
+        this.timeToReachLayer6 = null;
         this.player.clearTint();
         this.player.setAlpha(1);
         this.registry.set("overclockActive", false);
@@ -2133,6 +2151,7 @@ export class GameScene extends Phaser.Scene {
         if (health <= 0) {
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
+            this.totalEnemiesDefeated += 1;
 
             // If graduation boss, set flag to false BEFORE addScore (which calls updateLayer)
             if (isGraduationBoss) {
@@ -2195,6 +2214,14 @@ export class GameScene extends Phaser.Scene {
                 this.currentLayer = this.pendingLayer;
                 if (this.pendingLayer > this.deepestLayer) {
                     this.deepestLayer = this.pendingLayer;
+                }
+                if (
+                    this.currentLayer >= MAX_LAYER &&
+                    this.timeToReachLayer6 === null
+                ) {
+                    this.timeToReachLayer6 = Math.round(
+                        (this.time.now - this.runStartTime) / 1000
+                    );
                 }
                 this.registry.set("currentLayer", this.currentLayer);
                 this.registry.set(
@@ -2346,6 +2373,7 @@ export class GameScene extends Phaser.Scene {
 
         // Reset combo
         this.comboMultiplier = 1;
+        this.tookDamageThisRun = true;
         this.lastHitTime = this.time.now;
         this.registry.set("comboMultiplier", this.comboMultiplier);
 
@@ -2397,6 +2425,19 @@ export class GameScene extends Phaser.Scene {
             // Submit score after a short delay
             this.time.delayedCall(500, () => {
                 const walletAddress = this.registry.get("walletAddress");
+                const survivalTime = Math.round(
+                    (this.time.now - this.runStartTime) / 1000
+                );
+                const runMetrics = {
+                    survivalTime,
+                    maxCorruptionReached: this.maxCorruptionReached,
+                    totalEnemiesDefeated: this.totalEnemiesDefeated,
+                    runsWithoutDamage: this.tookDamageThisRun ? 0 : 1,
+                    peakComboMultiplier: Number(this.peakComboMultiplier.toFixed(2)),
+                    timeToReachLayer6: this.timeToReachLayer6 || undefined,
+                    deepestLayerWithPrestige:
+                        this.deepestLayer + this.prestigeLevel,
+                };
                 // Communicate to UIScene via game events
                 const uiScene = this.scene.get("UIScene");
                 if (uiScene && uiScene.scene.isActive()) {
@@ -2405,7 +2446,8 @@ export class GameScene extends Phaser.Scene {
                         this.score,
                         walletAddress,
                         this.deepestLayer,
-                        this.prestigeLevel
+                        this.prestigeLevel,
+                        runMetrics
                     );
                 }
             });
@@ -3172,6 +3214,10 @@ export class GameScene extends Phaser.Scene {
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
         this.lastHitTime = this.time.now;
+        this.peakComboMultiplier = Math.max(
+            this.peakComboMultiplier,
+            this.comboMultiplier
+        );
 
         if (this.comboMultiplier > 2) {
             const comboBonus =

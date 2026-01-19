@@ -291,11 +291,13 @@ function LandingPage() {
 
         {/* Hall of Fame Link */}
         <div className="mb-4 md:mb-6">
-          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
-            letterSpacing: '0.1em'
-          }}>
+          <Link
+            to="/leaderboards"
+            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
+            style={{ letterSpacing: '0.1em' }}
+          >
             &gt; HALL OF FAME
-          </button>
+          </Link>
         </div>
 
         {/* Bottom Section: Unlocked Systems */}

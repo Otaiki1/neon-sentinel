@@ -302,6 +302,55 @@ export const OVERCLOCK_CONFIG = {
     },
 } as const;
 
+export const LEADERBOARD_CATEGORIES = {
+    highestScore: {
+        title: "Score Champion",
+        metric: "finalScore",
+        reward: "👑 Crown Badge",
+    },
+    longestSurvival: {
+        title: "Endurance Sentinel",
+        metric: "survivalTime",
+        unit: "seconds",
+        reward: "⏱️ Clock Badge",
+    },
+    highestCorruption: {
+        title: "Risk Taker",
+        metric: "maxCorruptionReached",
+        unit: "percentage",
+        reward: "🔥 Danger Badge",
+    },
+    mostEnemiesDefeated: {
+        title: "Swarm Slayer",
+        metric: "totalEnemiesDefeated",
+        reward: "⚔️ Slayer Badge",
+    },
+    cleanRuns: {
+        title: "Perfect Sentinel",
+        metric: "runsWithoutDamage",
+        note: "Runs completed without taking damage",
+        reward: "✨ Flawless Badge",
+    },
+    highestCombo: {
+        title: "Rhythm Master",
+        metric: "peakComboMultiplier",
+        reward: "🎵 Combo Badge",
+    },
+    deepestLayer: {
+        title: "System Diver",
+        metric: "deepestLayerWithPrestige",
+        reward: "🌀 Depth Badge",
+    },
+    speedrun: {
+        title: "Speed Runner",
+        metric: "timeToReachLayer6",
+        unit: "seconds",
+        reward: "⚡ Speed Badge",
+    },
+} as const;
+
+export const FEATURED_LEADERBOARD_COUNT = 4;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

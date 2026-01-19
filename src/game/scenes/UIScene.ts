@@ -899,11 +899,12 @@ export class UIScene extends Phaser.Scene {
     score: number,
     walletAddress?: string,
     deepestLayer?: number,
-    prestigeLevel?: number
+    prestigeLevel?: number,
+    runMetrics?: any
   ) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress, deepestLayer, prestigeLevel);
+    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics);
     
     // Show leaderboard after a short delay
     this.time.delayedCall(500, () => {
@@ -923,8 +924,8 @@ export class UIScene extends Phaser.Scene {
 
       // Import score service
       const { fetchWeeklyLeaderboard, getCurrentISOWeek } = await import('../../services/scoreService');
-      const scores = fetchWeeklyLeaderboard();
       const weekNumber = getCurrentISOWeek();
+      const scores = fetchWeeklyLeaderboard();
 
       // Update title with week number
       const title = this.leaderboardPanel.list[1] as Phaser.GameObjects.Text;
