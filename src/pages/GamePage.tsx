@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { initGame } from "../game/Game";
+import { getGameplaySettings } from "../services/settingsService";
 import "./GamePage.css";
 
 function GamePage() {
@@ -29,6 +30,8 @@ function GamePage() {
         updateViewportSize();
         const game = initGame(gameContainerRef.current);
         gameInstanceRef.current = game;
+        const settings = getGameplaySettings();
+        game.registry.set("gameplaySettings", settings);
 
         // Listen for return to menu event
         const handleReturnToMenu = () => {

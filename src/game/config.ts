@@ -707,6 +707,26 @@ export const SENSORY_ESCALATION = {
     },
 } as const;
 
+export const CUSTOMIZABLE_SETTINGS = {
+    difficulty: {
+        easyMode: { enemySpeedReduction: 0.8, spawnRateReduction: 0.7 },
+        hardMode: { enemySpeedIncrease: 1.3, spawnRateIncrease: 1.5 },
+    },
+    accessibility: {
+        colorBlindMode: true,
+        highContrast: true,
+        dyslexiaFont: true,
+        reduceMotion: true,
+        reduceFlash: true,
+    },
+    visual: {
+        uiScale: [0.5, 1.0, 1.5, 2.0],
+        uiOpacity: [0.5, 1.0],
+        screenShakeIntensity: [0.0, 0.5, 1.0],
+        gridIntensity: [0.3, 0.7, 1.0],
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

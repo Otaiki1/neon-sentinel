@@ -18,6 +18,7 @@ import {
     ROTATING_LAYER_MODIFIERS,
     PLAYER_KERNELS,
     SENSORY_ESCALATION,
+    CUSTOMIZABLE_SETTINGS,
 } from "../config";
 import {
     addLifetimePlayMs,
@@ -159,6 +160,13 @@ export class GameScene extends Phaser.Scene {
     private totalBulletsDodged = 0;
     private totalLivesLost = 0;
     private lastRunStatsUpdate = 0;
+    private settingsEnemySpeedMultiplier = 1;
+    private settingsSpawnRateMultiplier = 1;
+    private settingsGridIntensity = 1;
+    private settingsScreenShakeMultiplier = 1;
+    private settingsReduceMotion = false;
+    private settingsReduceFlash = false;
+    private settingsColorBlindMode = false;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -207,6 +215,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     create() {
+        this.applyGameplaySettings();
         // Draw background grid
         this.drawBackgroundGrid();
         this.createSensoryOverlays();
@@ -438,7 +447,9 @@ export class GameScene extends Phaser.Scene {
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const baseGridColor = layerConfig?.gridColor || 0x00ff00;
-        const gridColor = this.getPrestigeGridColor(baseGridColor);
+        const gridColor = this.getPrestigeGridColor(
+            this.getGridColorForLayer(this.currentLayer, baseGridColor)
+        );
 
         // Destroy old grid if it exists
         if (this.backgroundGrid) {
@@ -446,7 +457,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         this.backgroundGrid = this.add.graphics();
-        this.backgroundGrid.lineStyle(1, gridColor, 0.3);
+        this.backgroundGrid.lineStyle(1, gridColor, 0.3 * this.settingsGridIntensity);
 
         // Vertical lines
         for (let x = 0; x <= width; x += gridSize) {
@@ -600,7 +611,7 @@ export class GameScene extends Phaser.Scene {
             this.currentLayer,
             SENSORY_ESCALATION.screenEffects.screenDistortion
         );
-        this.distortionIntensity = distortion;
+        this.distortionIntensity = this.settingsReduceMotion ? 0 : distortion;
 
         const baseGridOpacity = SENSORY_ESCALATION.screenEffects.baseGridOpacity;
         if (this.gridOpacityMultiplier !== baseGridOpacity) {
@@ -625,7 +636,7 @@ export class GameScene extends Phaser.Scene {
 
         if (this.distortionIntensity > 0 && time > this.distortionCooldown) {
             if (Math.random() < 0.3) {
-                this.cameras.main.shake(
+            this.applyCameraShake(
                     120,
                     this.distortionIntensity * 0.01
                 );
@@ -651,7 +662,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (this.comboMultiplier >= 3 && time > this.comboShakeCooldown) {
-            this.cameras.main.shake(
+            this.applyCameraShake(
                 80,
                 Math.min(0.02, this.comboMultiplier * 0.0015)
             );
@@ -694,6 +705,108 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    private applyGameplaySettings() {
+        const settings = this.registry.get("gameplaySettings") as
+            | {
+                  difficulty?: "normal" | "easy" | "hard";
+                  accessibility?: {
+                      colorBlindMode?: boolean;
+                      highContrast?: boolean;
+                      dyslexiaFont?: boolean;
+                      reduceMotion?: boolean;
+                      reduceFlash?: boolean;
+                  };
+                  visual?: {
+                      uiScale?: number;
+                      uiOpacity?: number;
+                      screenShakeIntensity?: number;
+                      gridIntensity?: number;
+                  };
+              }
+            | undefined;
+        const difficulty = settings?.difficulty ?? "normal";
+        if (difficulty === "easy") {
+            this.settingsEnemySpeedMultiplier =
+                CUSTOMIZABLE_SETTINGS.difficulty.easyMode.enemySpeedReduction;
+            this.settingsSpawnRateMultiplier =
+                CUSTOMIZABLE_SETTINGS.difficulty.easyMode.spawnRateReduction;
+        } else if (difficulty === "hard") {
+            this.settingsEnemySpeedMultiplier =
+                CUSTOMIZABLE_SETTINGS.difficulty.hardMode.enemySpeedIncrease;
+            this.settingsSpawnRateMultiplier =
+                CUSTOMIZABLE_SETTINGS.difficulty.hardMode.spawnRateIncrease;
+        } else {
+            this.settingsEnemySpeedMultiplier = 1;
+            this.settingsSpawnRateMultiplier = 1;
+        }
+
+        this.settingsColorBlindMode =
+            settings?.accessibility?.colorBlindMode ?? false;
+        this.settingsReduceMotion =
+            settings?.accessibility?.reduceMotion ?? false;
+        this.settingsReduceFlash =
+            settings?.accessibility?.reduceFlash ?? false;
+
+        this.settingsGridIntensity =
+            settings?.visual?.gridIntensity ?? 1;
+        this.settingsScreenShakeMultiplier =
+            settings?.visual?.screenShakeIntensity ?? 1;
+
+        this.registry.set(
+            "uiScale",
+            settings?.visual?.uiScale ?? 1
+        );
+        this.registry.set(
+            "uiOpacity",
+            settings?.visual?.uiOpacity ?? 1
+        );
+        this.registry.set(
+            "uiHighContrast",
+            settings?.accessibility?.highContrast ?? false
+        );
+        this.registry.set(
+            "uiDyslexiaFont",
+            settings?.accessibility?.dyslexiaFont ?? false
+        );
+    }
+
+    private getGridColorForLayer(layer: number, defaultColor: number) {
+        if (!this.settingsColorBlindMode) {
+            return defaultColor;
+        }
+        const palette: Record<number, number> = {
+            1: 0x00b7ff,
+            2: 0xffb703,
+            3: 0x9b5de5,
+            4: 0x00f5d4,
+            5: 0xff006e,
+            6: 0xffffff,
+        };
+        return palette[layer] ?? defaultColor;
+    }
+
+    private applyCameraShake(duration: number, intensity: number) {
+        if (this.settingsReduceMotion || this.settingsScreenShakeMultiplier <= 0) {
+            return;
+        }
+        this.cameras.main.shake(
+            duration,
+            intensity * this.settingsScreenShakeMultiplier
+        );
+    }
+
+    private applyCameraFlash(
+        duration: number,
+        red: number,
+        green: number,
+        blue: number
+    ) {
+        if (this.settingsReduceFlash) {
+            return;
+        }
+        this.cameras.main.flash(duration, red, green, blue, false);
+    }
+
     private createFloatingText(
         x: number,
         y: number,
@@ -707,8 +820,9 @@ export class GameScene extends Phaser.Scene {
         }
     ) {
         const fontSize = options?.fontSize ?? 18 * MOBILE_SCALE;
+        const dyslexiaFont = !!this.registry.get("uiDyslexiaFont");
         const label = this.add.text(x, y, text, {
-            fontFamily: UI_CONFIG.scoreFont,
+            fontFamily: dyslexiaFont ? "Arial" : UI_CONFIG.scoreFont,
             fontSize,
             color: options?.color ?? UI_CONFIG.neonGreen,
             stroke: "#000000",
@@ -1493,7 +1607,8 @@ export class GameScene extends Phaser.Scene {
             config.speed *
                 baseSpeedMultiplier *
                 this.prestigeDifficultyMultiplier *
-                corruptionDifficultyMultiplier
+                corruptionDifficultyMultiplier *
+                this.settingsEnemySpeedMultiplier
         );
 
         const behaviors = this.getBehaviorsForEnemy(
@@ -2186,7 +2301,7 @@ export class GameScene extends Phaser.Scene {
                           : Phaser.Math.FloatBetween(0.5, 0.85);
                 this.backgroundGrid.setAlpha(alpha * this.gridOpacityMultiplier);
 
-                if (!this.prestigeGlitchTimer) {
+                if (!this.prestigeGlitchTimer && !this.settingsReduceMotion) {
                     this.backgroundGrid.setPosition(
                         Phaser.Math.FloatBetween(-maxOffset, maxOffset),
                         Phaser.Math.FloatBetween(-maxOffset, maxOffset)
@@ -2194,7 +2309,7 @@ export class GameScene extends Phaser.Scene {
                 }
 
                 if (this.currentCorruptionTier === "critical") {
-                    this.cameras.main.flash(80, 255, 0, 0, false);
+                    this.applyCameraFlash(80, 255, 0, 0);
                 }
             },
         });
@@ -2249,7 +2364,7 @@ export class GameScene extends Phaser.Scene {
         );
 
         if (OVERCLOCK_CONFIG.indicators.screenBurnEffect) {
-            this.cameras.main.flash(500, 255, 255, 255, false);
+            this.applyCameraFlash(500, 255, 255, 255);
         }
         if (OVERCLOCK_CONFIG.indicators.playerGlowEffect) {
             this.player.setTint(0xffffff);
@@ -2454,8 +2569,8 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("challengeProgress", 0);
 
         if (MID_RUN_CHALLENGES.display.celebrationOnCompletion) {
-            this.cameras.main.flash(250, 0, 255, 255, false);
-            this.cameras.main.shake(200, 0.01);
+            this.applyCameraFlash(250, 0, 255, 255);
+            this.applyCameraShake(200, 0.01);
         }
         this.showAnnouncement(
             "CHALLENGE COMPLETE",
@@ -2832,7 +2947,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (this.modifierGlitchIntensity > 0 && Math.random() < 0.02) {
-            this.cameras.main.shake(100, this.modifierGlitchIntensity * 0.002);
+        this.applyCameraShake(100, this.modifierGlitchIntensity * 0.002);
         }
     }
 
@@ -2869,6 +2984,7 @@ export class GameScene extends Phaser.Scene {
         );
         const overclockSpawnMultiplier = this.overclockSpawnMultiplier;
         const modifierSpawnMultiplier = this.modifierSpawnMultiplier;
+        const settingsSpawnMultiplier = this.settingsSpawnRateMultiplier;
 
         // Calculate spawn interval (faster spawns = lower delay)
         // Base interval is middle of min/max, then divided by multiplier
@@ -2880,7 +2996,8 @@ export class GameScene extends Phaser.Scene {
                 (spawnRateMultiplier *
                     prestigeSpawnMultiplier *
                     overclockSpawnMultiplier *
-                    modifierSpawnMultiplier)
+                    modifierSpawnMultiplier *
+                    settingsSpawnMultiplier)
         );
 
         // Remove existing timer if any
@@ -2965,7 +3082,8 @@ export class GameScene extends Phaser.Scene {
                 speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
-                    corruptionDifficultyMultiplier
+                    corruptionDifficultyMultiplier *
+                    this.settingsEnemySpeedMultiplier
             )
         );
 
@@ -3103,7 +3221,8 @@ export class GameScene extends Phaser.Scene {
                 speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
-                    corruptionDifficultyMultiplier
+                    corruptionDifficultyMultiplier *
+                    this.settingsEnemySpeedMultiplier
             )
         );
 
@@ -3145,8 +3264,8 @@ export class GameScene extends Phaser.Scene {
         boss.setVelocity(velocityX, velocityY);
 
         // Visual effect - screen flash and shake
-        this.cameras.main.flash(300, 255, 0, 0, false); // Red flash
-        this.cameras.main.shake(500, 0.02);
+        this.applyCameraFlash(300, 255, 0, 0); // Red flash
+        this.applyCameraShake(500, 0.02);
 
         // Show announcement card for boss incoming
         const bossName =
@@ -3356,8 +3475,8 @@ export class GameScene extends Phaser.Scene {
                 this.drawBackgroundGrid();
 
                 // Visual effect for layer transition
-                this.cameras.main.flash(500, 0, 255, 0, false); // Green flash for success
-                this.cameras.main.shake(300, 0.01);
+                this.applyCameraFlash(500, 0, 255, 0); // Green flash for success
+                this.applyCameraShake(300, 0.01);
 
                 // Show announcement card for boss defeated and layer advanced
                 const layerName =
@@ -4636,6 +4755,7 @@ export class GameScene extends Phaser.Scene {
         this.lastRunStatsUpdate = 0;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
+        this.applyGameplaySettings();
 
         // Reset player to dynamic position
         const gameWidth = this.scale.width;
@@ -4767,8 +4887,8 @@ export class GameScene extends Phaser.Scene {
         this.updateSpawnTimer();
         this.updatePrestigeEffects();
 
-        this.cameras.main.flash(700, 255, 0, 255, false);
-        this.cameras.main.shake(500, 0.02);
+        this.applyCameraFlash(700, 255, 0, 255);
+        this.applyCameraShake(500, 0.02);
 
         for (let i = 0; i < 4; i++) {
             this.time.delayedCall(i * 200, () => {
@@ -4869,7 +4989,7 @@ export class GameScene extends Phaser.Scene {
             loop: true,
             callback: () => {
                 if (this.gameOver || this.isPaused) return;
-                this.cameras.main.flash(120, 255, 0, 100, false);
+                this.applyCameraFlash(120, 255, 0, 100);
             },
         });
 

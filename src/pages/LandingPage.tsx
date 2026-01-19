@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreService';
-import { PLAYER_KERNELS } from '../game/config';
+import { CUSTOMIZABLE_SETTINGS, PLAYER_KERNELS } from '../game/config';
 import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
+import { getGameplaySettings, saveGameplaySettings, type GameplaySettings } from '../services/settingsService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
 import WalletConnectionModal from '../components/WalletConnectionModal';
@@ -32,8 +33,10 @@ function LandingPage() {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
+  const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
@@ -42,6 +45,7 @@ function LandingPage() {
     const kernelState = getKernelState();
     setKernelUnlocks(kernelState.unlocked);
     setSelectedKernel(kernelState.selectedKernel);
+    setSettings(getGameplaySettings());
   }, []);
 
   // Show wallet modal on first visit if wallet not connected
@@ -77,6 +81,20 @@ function LandingPage() {
   const handleKernelSelect = (key: keyof typeof PLAYER_KERNELS) => {
     const next = setSelectedKernelKey(key);
     setSelectedKernel(next);
+  };
+
+  const handleOpenSettings = () => {
+    setSettings(getGameplaySettings());
+    setShowSettingsModal(true);
+  };
+
+  const handleCloseSettings = () => {
+    setShowSettingsModal(false);
+  };
+
+  const handleSaveSettings = () => {
+    saveGameplaySettings(settings);
+    setShowSettingsModal(false);
   };
 
 
@@ -471,7 +489,7 @@ function LandingPage() {
           </div>
           <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
             letterSpacing: '0.1em'
-          }}>
+          }} onClick={handleOpenSettings}>
             &gt; SETTINGS
           </button>
         </div>
@@ -483,6 +501,152 @@ function LandingPage() {
         onClose={handleCloseModal}
         onAnonymous={handleAnonymous}
       />
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 px-4">
+          <div className="retro-panel w-full max-w-2xl">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              SETTINGS
+            </h2>
+            <div className="space-y-6 text-sm text-neon-green">
+              <div>
+                <div className="font-menu text-xs mb-2">DIFFICULTY</div>
+                <select
+                  value={settings.difficulty}
+                  onChange={(event) =>
+                    setSettings({ ...settings, difficulty: event.target.value as GameplaySettings['difficulty'] })
+                  }
+                  className="w-full bg-black border border-neon-green px-3 py-2 font-body"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="easy">Easy</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="font-menu text-xs mb-2">ACCESSIBILITY</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {[
+                    { key: 'colorBlindMode', label: 'Color Blind Mode' },
+                    { key: 'highContrast', label: 'High Contrast UI' },
+                    { key: 'dyslexiaFont', label: 'Dyslexia-Friendly Font' },
+                    { key: 'reduceMotion', label: 'Reduce Motion' },
+                    { key: 'reduceFlash', label: 'Reduce Flash' },
+                  ].map((option) => (
+                    <label key={option.key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={settings.accessibility[option.key as keyof GameplaySettings['accessibility']]}
+                        onChange={(event) =>
+                          setSettings({
+                            ...settings,
+                            accessibility: {
+                              ...settings.accessibility,
+                              [option.key]: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                      <span className="font-body">{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="font-menu text-xs mb-2">VISUAL</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-2">
+                    <span>UI Scale</span>
+                    <select
+                      value={settings.visual.uiScale}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          visual: { ...settings.visual, uiScale: Number(event.target.value) },
+                        })
+                      }
+                      className="bg-black border border-neon-green px-3 py-2"
+                    >
+                      {CUSTOMIZABLE_SETTINGS.visual.uiScale.map((value) => (
+                        <option key={value} value={value}>{value}x</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span>UI Opacity</span>
+                    <select
+                      value={settings.visual.uiOpacity}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          visual: { ...settings.visual, uiOpacity: Number(event.target.value) },
+                        })
+                      }
+                      className="bg-black border border-neon-green px-3 py-2"
+                    >
+                      {CUSTOMIZABLE_SETTINGS.visual.uiOpacity.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span>Screen Shake</span>
+                    <select
+                      value={settings.visual.screenShakeIntensity}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          visual: { ...settings.visual, screenShakeIntensity: Number(event.target.value) },
+                        })
+                      }
+                      className="bg-black border border-neon-green px-3 py-2"
+                    >
+                      {CUSTOMIZABLE_SETTINGS.visual.screenShakeIntensity.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2">
+                    <span>Grid Intensity</span>
+                    <select
+                      value={settings.visual.gridIntensity}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          visual: { ...settings.visual, gridIntensity: Number(event.target.value) },
+                        })
+                      }
+                      className="bg-black border border-neon-green px-3 py-2"
+                    >
+                      {CUSTOMIZABLE_SETTINGS.visual.gridIntensity.map((value) => (
+                        <option key={value} value={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col md:flex-row gap-3 justify-end">
+              <button
+                className="retro-button font-menu text-sm px-6 py-3"
+                onClick={handleSaveSettings}
+              >
+                SAVE
+              </button>
+              <button
+                className="retro-button font-menu text-sm px-6 py-3"
+                onClick={handleCloseSettings}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <StoryModal
         isOpen={showStoryModal}
         onClose={handleCloseStoryModal}

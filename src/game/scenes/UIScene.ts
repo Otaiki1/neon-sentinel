@@ -49,6 +49,12 @@ export class UIScene extends Phaser.Scene {
   private achievementTexts: Phaser.GameObjects.Text[] = [];
   private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
   private celebrationLines: Phaser.GameObjects.Text[] = [];
+  private uiTextColor = UI_CONFIG.neonGreen;
+  private uiOpacityMultiplier = 1;
+  private uiMenuFont = UI_CONFIG.menuFont;
+  private uiScoreFont = UI_CONFIG.scoreFont;
+  private uiBodyFont = UI_CONFIG.bodyFont;
+  private uiLogoFont = UI_CONFIG.logoFont;
   private uiGlitchIntensity = 0;
   private uiGlitchNextTime = 0;
   private uiGlitchTargets: Phaser.GameObjects.Text[] = [];
@@ -72,7 +78,18 @@ export class UIScene extends Phaser.Scene {
 
   create() {
     // Mobile UI scaling - reduce sizes on mobile
-    const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0; // 60% size on mobile
+    const settingsScale = (this.registry.get('uiScale') as number) || 1;
+    const settingsOpacity = (this.registry.get('uiOpacity') as number) || 1;
+    const highContrast = !!this.registry.get('uiHighContrast');
+    const dyslexiaFont = !!this.registry.get('uiDyslexiaFont');
+    this.uiTextColor = highContrast ? '#ffffff' : UI_CONFIG.neonGreen;
+    this.uiOpacityMultiplier = settingsOpacity;
+    this.uiMenuFont = dyslexiaFont ? 'Arial' : UI_CONFIG.menuFont;
+    this.uiScoreFont = dyslexiaFont ? 'Arial' : UI_CONFIG.scoreFont;
+    this.uiBodyFont = dyslexiaFont ? 'Arial' : UI_CONFIG.bodyFont;
+    this.uiLogoFont = dyslexiaFont ? 'Arial' : UI_CONFIG.logoFont;
+
+    const uiScale = (MOBILE_SCALE < 1.0 ? 0.6 : 1.0) * settingsScale; // 60% size on mobile
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30; // Closer to edge on mobile
     const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
     const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
@@ -87,9 +104,9 @@ export class UIScene extends Phaser.Scene {
 
     // Score display (top-left) - Scaled for mobile
     this.scoreText = this.add.text(baseX, baseY, 'SCORE: 0', {
-      fontFamily: UI_CONFIG.scoreFont,
+      fontFamily: this.uiScoreFont,
       fontSize: 56 * uiScale,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 8 * uiScale,
     });
@@ -101,42 +118,46 @@ export class UIScene extends Phaser.Scene {
       this.scoreText.setShadow(1, 1, '#00ff00', 4, true, true);
       this.scoreText.setAlpha(0.9); // Slightly transparent on mobile to reduce obstruction
     }
+    this.scoreText.setAlpha(this.scoreText.alpha * this.uiOpacityMultiplier);
 
     // Combo multiplier display (adjusted position to accommodate larger score)
     this.comboText = this.add.text(baseX, baseY + lineSpacing * 2, 'COMBO: 1.0x', {
-      fontFamily: UI_CONFIG.scoreFont,
+      fontFamily: this.uiScoreFont,
       fontSize: 24 * uiScale,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 3 * uiScale,
     });
     if (MOBILE_SCALE < 1.0) {
       this.comboText.setAlpha(0.85); // Slightly transparent on mobile
     }
+    this.comboText.setAlpha(this.comboText.alpha * this.uiOpacityMultiplier);
 
     // Layer display - Oxanium for menu/subtitle style (adjusted position)
     this.layerText = this.add.text(baseX, baseY + lineSpacing * 3, 'LAYER: Boot Sector', {
-      fontFamily: UI_CONFIG.menuFont,
+      fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small * uiScale,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 3 * uiScale,
     });
     if (MOBILE_SCALE < 1.0) {
       this.layerText.setAlpha(0.85); // Slightly transparent on mobile
     }
+    this.layerText.setAlpha(this.layerText.alpha * this.uiOpacityMultiplier);
 
     // Prestige display
     this.prestigeText = this.add.text(baseX, baseY + lineSpacing * 4, 'PRESTIGE: 0', {
-      fontFamily: UI_CONFIG.menuFont,
+      fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small * uiScale,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 3 * uiScale,
     });
     if (MOBILE_SCALE < 1.0) {
       this.prestigeText.setAlpha(0.85);
     }
+    this.prestigeText.setAlpha(this.prestigeText.alpha * this.uiOpacityMultiplier);
 
     this.registerUiGlitchTargets([
       this.scoreText,
@@ -150,6 +171,7 @@ export class UIScene extends Phaser.Scene {
     const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
     this.livesOrb = this.add.graphics();
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
+    this.livesOrb.setAlpha(this.uiOpacityMultiplier);
 
     this.createRunStatsDisplay(baseX, baseY + lineSpacing * 6, uiScale);
 
@@ -301,9 +323,9 @@ export class UIScene extends Phaser.Scene {
 
     // Game Over text - Orbitron for big titles
     this.gameOverText = this.add.text(width / 2, height / 2 - 100, 'GAME OVER', {
-      fontFamily: UI_CONFIG.logoFont,
+      fontFamily: this.uiLogoFont,
       fontSize: UI_CONFIG.fontSize.xlarge,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 6,
     });
@@ -311,9 +333,9 @@ export class UIScene extends Phaser.Scene {
 
     // Final score - VT323 for score display
     this.finalScoreText = this.add.text(width / 2, height / 2 - 50, 'FINAL SCORE: 0', {
-      fontFamily: UI_CONFIG.scoreFont,
+      fontFamily: this.uiScoreFont,
       fontSize: 28,
-      color: UI_CONFIG.neonGreen,
+      color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 4,
     });
@@ -386,13 +408,14 @@ export class UIScene extends Phaser.Scene {
         summaryStartY + index * summaryLineSpacing,
         `${label} 0`,
         {
-          fontFamily: UI_CONFIG.bodyFont,
+          fontFamily: this.uiBodyFont,
           fontSize: UI_CONFIG.fontSize.small,
-          color: UI_CONFIG.neonGreen,
+          color: this.uiTextColor,
           align: 'center',
         }
       );
       line.setOrigin(0.5, 0.5);
+      line.setAlpha(this.uiOpacityMultiplier);
       line.setVisible(false);
       return line;
     });
@@ -889,15 +912,16 @@ export class UIScene extends Phaser.Scene {
     ];
     this.runStatsTexts = labels.map((label, index) => {
       const line = this.add.text(baseX, startY + index * 16 * uiScale, `${label}: 0`, {
-        fontFamily: UI_CONFIG.bodyFont,
+        fontFamily: this.uiBodyFont,
         fontSize: 12 * uiScale,
-        color: UI_CONFIG.neonGreen,
+        color: this.uiTextColor,
         stroke: '#000000',
         strokeThickness: 2 * uiScale,
       });
       if (MOBILE_SCALE < 1.0) {
         line.setAlpha(0.8);
       }
+      line.setAlpha(line.alpha * this.uiOpacityMultiplier);
       return line;
     });
   }
