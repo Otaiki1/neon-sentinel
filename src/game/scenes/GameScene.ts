@@ -14,7 +14,18 @@ import {
     CORRUPTION_SYSTEM,
     OVERCLOCK_CONFIG,
     MID_RUN_CHALLENGES,
+    ACHIEVEMENTS,
 } from "../config";
+import {
+    addLifetimePlayMs,
+    addLifetimeScore,
+    checkAllLeaderboardsTop10,
+    getLifetimeStats,
+    getSelectedCosmetic,
+    setAchievementProgress,
+    shouldNotifyAboutToUnlock,
+    unlockAchievement,
+} from "../../services/achievementService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -81,6 +92,9 @@ export class GameScene extends Phaser.Scene {
     private challengeCorruptionMultiplier = 1;
     private challengeInvincibilityBonusMs = 0;
     private challengeRewardTimers = new Map<string, Phaser.Time.TimerEvent>();
+    private runLifeOrbs = 0;
+    private runBossesDefeated = 0;
+    private tookDamageBeforeLayer3 = false;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -140,6 +154,7 @@ export class GameScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(startX, startY, "hero");
         this.player.setCollideWorldBounds(true);
         this.player.setScale(0.5 * MOBILE_SCALE);
+        this.applySelectedCosmetic();
 
         // Create groups
         this.bullets = this.physics.add.group({
@@ -268,6 +283,9 @@ export class GameScene extends Phaser.Scene {
         this.peakComboMultiplier = this.comboMultiplier;
         this.timeToReachLayer6 = null;
         this.challengeDamageTaken = false;
+        this.runLifeOrbs = 0;
+        this.runBossesDefeated = 0;
+        this.tookDamageBeforeLayer3 = false;
         this.nextChallengeTime =
             this.runStartTime + MID_RUN_CHALLENGES.triggerIntervals.firstChallenge;
         this.lastChallengeEndTime = this.runStartTime;
@@ -900,6 +918,57 @@ export class GameScene extends Phaser.Scene {
                         Math.sin(angle) * PLAYER_CONFIG.bulletSpeed;
                     bullet.setVelocity(velocityX, velocityY);
                 }
+            }
+        }
+    }
+
+    private applySelectedCosmetic() {
+        const cosmetic = getSelectedCosmetic();
+        if (cosmetic === "cosmetic_prestige_glow") {
+            this.player.setTint(0x66ffff);
+        } else if (cosmetic === "cosmetic_corrupted_theme") {
+            this.player.setTint(0xff66cc);
+        } else if (cosmetic === "cosmetic_champion_skin") {
+            this.player.setTint(0xffcc33);
+        } else if (cosmetic === "cosmetic_legendary_aura") {
+            this.player.setTint(0xffffff);
+        } else if (cosmetic === "cosmetic_eternal_theme") {
+            this.player.setTint(0x66ff66);
+        } else {
+            this.player.clearTint();
+        }
+    }
+
+    private getAchievementDefinition(id: string) {
+        const all = [
+            ...ACHIEVEMENTS.tier1_basic,
+            ...ACHIEVEMENTS.tier2_intermediate,
+            ...ACHIEVEMENTS.tier3_advanced,
+            ...ACHIEVEMENTS.tier4_legendary,
+        ];
+        return all.find((achievement) => achievement.id === id);
+    }
+
+    private unlockAchievementWithAnnouncement(id: string) {
+        const unlocked = unlockAchievement(id);
+        if (!unlocked) return;
+        const def = this.getAchievementDefinition(id);
+        setAchievementProgress(id, 1, 1);
+        if (def) {
+            this.showAnnouncement("ACHIEVEMENT UNLOCKED", def.name, 0xffcc33);
+        }
+    }
+
+    private updateAchievementProgress(id: string, current: number, target: number) {
+        setAchievementProgress(id, current, target);
+        if (shouldNotifyAboutToUnlock(id, current, target)) {
+            const def = this.getAchievementDefinition(id);
+            if (def) {
+                this.showAnnouncement(
+                    "ALMOST THERE",
+                    `${def.name} is 70% complete`,
+                    0x00ffff
+                );
             }
         }
     }
@@ -1669,6 +1738,9 @@ export class GameScene extends Phaser.Scene {
             CORRUPTION_SYSTEM.maxCorruption
         );
         this.registry.set("corruption", this.corruption);
+        if (this.corruption >= CORRUPTION_SYSTEM.maxCorruption) {
+            this.unlockAchievementWithAnnouncement("corruption_100");
+        }
 
         const nextTier = this.getCorruptionTier();
         if (nextTier !== this.currentCorruptionTier) {
@@ -1858,6 +1930,7 @@ export class GameScene extends Phaser.Scene {
         this.challengeRewardTimers.clear();
         this.player.clearTint();
         this.player.setAlpha(1);
+        this.applySelectedCosmetic();
         this.registry.set("overclockActive", false);
         this.registry.set("overclockProgress", 0);
         this.registry.set("overclockCooldown", 1);
@@ -2469,6 +2542,9 @@ export class GameScene extends Phaser.Scene {
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
             this.totalEnemiesDefeated += 1;
+            if (this.totalEnemiesDefeated === 1) {
+                this.unlockAchievementWithAnnouncement("first_blood");
+            }
             if (this.activeChallenge?.id === "clean_10_enemies") {
                 this.challengeKills += 1;
             }
@@ -2503,6 +2579,18 @@ export class GameScene extends Phaser.Scene {
             }
             if (isBoss || isGraduationBoss) {
                 this.addCorruption(CORRUPTION_SYSTEM.riskPlayBonus.defeatBoss);
+                this.runBossesDefeated += 1;
+                if (this.runBossesDefeated === 1) {
+                    this.unlockAchievementWithAnnouncement("first_boss");
+                }
+                this.updateAchievementProgress(
+                    "defeat_5_bosses",
+                    this.runBossesDefeated,
+                    5
+                );
+                if (this.runBossesDefeated >= 5) {
+                    this.unlockAchievementWithAnnouncement("defeat_5_bosses");
+                }
             }
 
             // Create explosion based on enemy type and layer
@@ -2540,6 +2628,17 @@ export class GameScene extends Phaser.Scene {
                 this.currentLayer = this.pendingLayer;
                 if (this.pendingLayer > this.deepestLayer) {
                     this.deepestLayer = this.pendingLayer;
+                }
+                if (this.currentLayer >= 2) {
+                    this.unlockAchievementWithAnnouncement("layer_2");
+                }
+                if (this.currentLayer >= 5) {
+                    this.unlockAchievementWithAnnouncement("layer_5");
+                }
+                if (this.currentLayer >= 3 && !this.tookDamageBeforeLayer3) {
+                    this.unlockAchievementWithAnnouncement(
+                        "clean_run_layer_3"
+                    );
                 }
                 if (
                     this.currentLayer >= MAX_LAYER &&
@@ -2704,6 +2803,9 @@ export class GameScene extends Phaser.Scene {
         if (this.activeChallenge) {
             this.challengeDamageTaken = true;
         }
+        if (this.currentLayer < 3) {
+            this.tookDamageBeforeLayer3 = true;
+        }
         this.lastHitTime = this.time.now;
         this.registry.set("comboMultiplier", this.comboMultiplier);
         if (
@@ -2743,6 +2845,25 @@ export class GameScene extends Phaser.Scene {
             this.activeChallenge = null;
             this.registry.set("challengeActive", false);
             this.registry.set("challengeProgress", 0);
+            addLifetimeScore(this.score);
+            addLifetimePlayMs(this.time.now - this.runStartTime);
+            const lifetime = getLifetimeStats();
+            this.updateAchievementProgress(
+                "1m_points",
+                lifetime.lifetimeScore,
+                1000000
+            );
+            this.updateAchievementProgress(
+                "1000_hours",
+                lifetime.lifetimePlayMs / 3600000,
+                1000
+            );
+            if (lifetime.lifetimeScore >= 1000000) {
+                this.unlockAchievementWithAnnouncement("1m_points");
+            }
+            if (lifetime.lifetimePlayMs >= 1000 * 3600000) {
+                this.unlockAchievementWithAnnouncement("1000_hours");
+            }
 
             // Stop all movement and touch controls
             this.player.setVelocity(0, 0);
@@ -3476,6 +3597,15 @@ export class GameScene extends Phaser.Scene {
             // Grant lives
             this.lives += config.livesGranted;
             this.registry.set("lives", this.lives);
+            this.runLifeOrbs += 1;
+            this.updateAchievementProgress(
+                "collect_5_lives",
+                this.runLifeOrbs,
+                5
+            );
+            if (this.runLifeOrbs >= 5) {
+                this.unlockAchievementWithAnnouncement("collect_5_lives");
+            }
 
             // Visual feedback with larger explosion
             this.createExplosion(this.player.x, this.player.y, "medium");
@@ -3559,6 +3689,19 @@ export class GameScene extends Phaser.Scene {
             this.peakComboMultiplier,
             this.comboMultiplier
         );
+
+        this.updateAchievementProgress("10k_points", this.score, 10000);
+        this.updateAchievementProgress("100k_points", this.score, 100000);
+        if (this.score >= 10000) {
+            this.unlockAchievementWithAnnouncement("10k_points");
+        }
+        if (this.score >= 100000) {
+            this.unlockAchievementWithAnnouncement("100k_points");
+        }
+        this.updateAchievementProgress("5x_combo", this.comboMultiplier, 5);
+        if (this.comboMultiplier >= 5) {
+            this.unlockAchievementWithAnnouncement("5x_combo");
+        }
 
         if (this.comboMultiplier > 2) {
             const comboBonus =
@@ -3896,6 +4039,15 @@ export class GameScene extends Phaser.Scene {
 
         const prestigeChampion = this.prestigeLevel >= 10;
         this.registry.set("prestigeChampion", prestigeChampion);
+        if (this.prestigeLevel >= 1) {
+            this.unlockAchievementWithAnnouncement("prestige_1");
+        }
+        if (this.prestigeLevel >= 5) {
+            this.unlockAchievementWithAnnouncement("prestige_5");
+        }
+        if (this.prestigeLevel >= 10) {
+            this.unlockAchievementWithAnnouncement("prestige_10");
+        }
     }
 
     private getPrestigeTier(level: number) {

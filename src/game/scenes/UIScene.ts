@@ -1,5 +1,10 @@
 import Phaser from 'phaser';
 import { UI_CONFIG, MOBILE_SCALE, OVERCLOCK_CONFIG } from '../config';
+import {
+  checkAllLeaderboardsTop10,
+  getAchievementProgressSummary,
+  unlockAchievement,
+} from '../../services/achievementService';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -31,6 +36,7 @@ export class UIScene extends Phaser.Scene {
   private settingsContainer!: Phaser.GameObjects.Container;
   private settingsVisible = false;
   private sensitivityValueText!: Phaser.GameObjects.Text;
+  private achievementTexts: Phaser.GameObjects.Text[] = [];
   private readonly joystickSensitivityKey =
     'neon-sentinel-joystick-sensitivity';
   // Buttons
@@ -358,6 +364,33 @@ export class UIScene extends Phaser.Scene {
       this.toggleSettings();
     });
 
+    const achievementsTitle = this.add.text(width / 2, height / 2 + 170, 'ACHIEVEMENTS', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    achievementsTitle.setOrigin(0.5, 0.5);
+
+    this.achievementTexts = [];
+    for (let i = 0; i < 4; i += 1) {
+      const line = this.add.text(
+        width / 2,
+        height / 2 + 195 + i * 18,
+        '',
+        {
+          fontFamily: UI_CONFIG.bodyFont,
+          fontSize: UI_CONFIG.fontSize.small,
+          color: UI_CONFIG.neonGreen,
+          stroke: '#000000',
+          strokeThickness: 1,
+        }
+      );
+      line.setOrigin(0.5, 0.5);
+      this.achievementTexts.push(line);
+    }
+
     // Create container and hide it initially
     this.pauseContainer = this.add.container(0, 0, [
       overlay,
@@ -365,6 +398,8 @@ export class UIScene extends Phaser.Scene {
       this.resumeButton,
       pauseMenuButton,
       settingsButton,
+      achievementsTitle,
+      ...this.achievementTexts,
     ]);
     this.pauseContainer.setVisible(false);
   }
@@ -968,12 +1003,26 @@ export class UIScene extends Phaser.Scene {
     if (isPaused && !this.registry.get('gameOver')) {
       this.pauseContainer.setVisible(true);
       this.pauseButton.setVisible(false); // Hide pause button when paused
+      this.refreshAchievementProgress();
     } else {
       this.pauseContainer.setVisible(false);
       this.settingsContainer.setVisible(false);
       this.settingsVisible = false;
       this.pauseButton.setVisible(true); // Show pause button when resumed
     }
+  }
+
+  private refreshAchievementProgress() {
+    const progress = getAchievementProgressSummary(this.achievementTexts.length);
+    this.achievementTexts.forEach((text, index) => {
+      const entry = progress[index];
+      if (!entry) {
+        text.setText('');
+        return;
+      }
+      const status = entry.unlocked ? 'UNLOCKED' : `${Math.round(entry.progressValue)}%`;
+      text.setText(`${entry.name}: ${status}`);
+    });
   }
 
   private async onSubmitScore(
@@ -986,6 +1035,13 @@ export class UIScene extends Phaser.Scene {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
     submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics);
+
+    const playerName = walletAddress
+      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+      : 'Anonymous';
+    if (checkAllLeaderboardsTop10(walletAddress || 'anonymous', playerName)) {
+      unlockAchievement('all_leaderboards');
+    }
     
     // Show leaderboard after a short delay
     this.time.delayedCall(500, () => {

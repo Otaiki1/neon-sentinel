@@ -408,6 +408,119 @@ export const MID_RUN_CHALLENGES = {
     },
 } as const;
 
+export const ACHIEVEMENTS = {
+    tier1_basic: [
+        {
+            id: "first_blood",
+            name: "First Blood",
+            description: "Defeat your first enemy",
+            reward: "badge_first_blood",
+        },
+        {
+            id: "layer_2",
+            name: "Ascending",
+            description: "Reach Layer 2",
+            reward: "badge_ascending",
+        },
+        {
+            id: "first_boss",
+            name: "Boss Slayer",
+            description: "Defeat your first boss",
+            reward: "badge_slayer",
+        },
+        {
+            id: "collect_5_lives",
+            name: "Resilient",
+            description: "Collect 5 life orbs in one run",
+            reward: "badge_resilient",
+        },
+        {
+            id: "10k_points",
+            name: "Millionaire",
+            description: "Earn 10,000 points",
+            reward: "badge_millionaire",
+        },
+    ],
+    tier2_intermediate: [
+        {
+            id: "layer_5",
+            name: "Deep Diver",
+            description: "Reach Layer 5",
+            reward: "badge_deep_diver",
+        },
+        {
+            id: "clean_run_layer_3",
+            name: "Flawless",
+            description: "Complete Layer 3 without taking damage",
+            reward: "badge_flawless",
+        },
+        {
+            id: "5x_combo",
+            name: "Flow Master",
+            description: "Achieve 5.0x combo multiplier",
+            reward: "badge_flow_master",
+        },
+        {
+            id: "defeat_5_bosses",
+            name: "Guardian",
+            description: "Defeat 5 bosses in one run",
+            reward: "badge_guardian",
+        },
+        {
+            id: "100k_points",
+            name: "Legend",
+            description: "Earn 100,000 points",
+            reward: "badge_legend",
+        },
+    ],
+    tier3_advanced: [
+        {
+            id: "prestige_1",
+            name: "Ascended",
+            description: "Reach Prestige Level 1",
+            reward: "cosmetic_prestige_glow",
+        },
+        {
+            id: "prestige_5",
+            name: "System Master",
+            description: "Reach Prestige Level 5",
+            reward: "cosmetic_corrupted_theme",
+        },
+        {
+            id: "all_leaderboards",
+            name: "Decathlete",
+            description: "Top 10 in all leaderboard categories",
+            reward: "cosmetic_champion_skin",
+        },
+        {
+            id: "corruption_100",
+            name: "Corruption Sage",
+            description: "Survive with 100% corruption",
+            reward: "badge_corruption_sage",
+        },
+    ],
+    tier4_legendary: [
+        {
+            id: "prestige_10",
+            name: "Sentinel Prime",
+            description: "Reach Prestige Level 10",
+            reward: "cosmetic_legendary_aura",
+        },
+        {
+            id: "1m_points",
+            name: "The Grid Slayer",
+            description: "Earn 1,000,000 lifetime points",
+            reward: "badge_grid_slayer",
+        },
+        {
+            id: "1000_hours",
+            name: "Eternal Sentinel",
+            description: "Play 1000 hours",
+            reward: "cosmetic_eternal_theme",
+        },
+    ],
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

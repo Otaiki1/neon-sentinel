@@ -10,6 +10,12 @@ import {
   type ScoreEntry,
 } from '../services/scoreService';
 import { LEADERBOARD_CATEGORIES, FEATURED_LEADERBOARD_COUNT } from '../game/config';
+import {
+  getUnlockedBadges,
+  getUnlockedCosmetics,
+  getSelectedCosmetic,
+  setSelectedCosmetic,
+} from '../services/achievementService';
 import './LandingPage.css';
 
 type CategoryBoard = { key: LeaderboardCategoryKey; entries: ScoreEntry[] };
@@ -18,6 +24,9 @@ function LeaderboardPage() {
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [featuredBoards, setFeaturedBoards] = useState<CategoryBoard[]>([]);
   const [allTimeBoards, setAllTimeBoards] = useState<CategoryBoard[]>([]);
+  const [badges, setBadges] = useState<string[]>([]);
+  const [cosmetics, setCosmetics] = useState<string[]>([]);
+  const [selectedCosmetic, setSelectedCosmeticState] = useState<string>('none');
 
   useEffect(() => {
     const week = getCurrentISOWeek();
@@ -39,6 +48,9 @@ function LeaderboardPage() {
         entries: fetchAllTimeCategoryLeaderboard(key),
       }))
     );
+    setBadges(getUnlockedBadges());
+    setCosmetics(getUnlockedCosmetics());
+    setSelectedCosmeticState(getSelectedCosmetic());
   }, []);
 
   const getValueLabel = (key: LeaderboardCategoryKey, entry: ScoreEntry) => {
@@ -152,6 +164,48 @@ function LeaderboardPage() {
           </div>
           <div className="font-body text-xs text-neon-green opacity-70">
             Week {currentWeek}
+          </div>
+        </div>
+
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
+            YOUR ACHIEVEMENTS
+          </h2>
+          <div className="mb-4">
+            <div className="font-body text-xs text-neon-green opacity-70 mb-2">Badges</div>
+            {badges.length ? (
+              <div className="flex flex-wrap gap-2">
+                {badges.map((badge) => (
+                  <span
+                    key={badge}
+                    className="font-score text-xs text-neon-green border border-neon-green px-2 py-1"
+                  >
+                    {badge.replace('badge_', '').replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="font-body text-sm text-neon-green opacity-50">NO BADGES YET</div>
+            )}
+          </div>
+          <div>
+            <div className="font-body text-xs text-neon-green opacity-70 mb-2">Cosmetic Loadout</div>
+            <select
+              className="bg-black text-neon-green border border-neon-green px-2 py-1 font-body text-sm"
+              value={selectedCosmetic}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedCosmeticState(value);
+                setSelectedCosmetic(value);
+              }}
+            >
+              <option value="none">NONE</option>
+              {cosmetics.map((cosmetic) => (
+                <option key={cosmetic} value={cosmetic}>
+                  {cosmetic.replace('cosmetic_', '').replace(/_/g, ' ').toUpperCase()}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
