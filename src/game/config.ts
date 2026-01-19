@@ -283,6 +283,25 @@ export const CORRUPTION_SYSTEM = {
     },
 } as const;
 
+export const OVERCLOCK_CONFIG = {
+    activationKey: "Q",
+    cooldownBetweenActivations: 60000,
+    maxActivationsPerRun: 5,
+    duration: 15000,
+    effects: {
+        playerSpeedMultiplier: 1.4,
+        scoreMultiplier: 2.0,
+        fireRateMultiplier: 0.6,
+        enemySpawningMultiplier: 1.8,
+        playerVisibility: 1.0,
+    },
+    indicators: {
+        overclockBar: true,
+        screenBurnEffect: true,
+        playerGlowEffect: true,
+    },
+} as const;
+
 export const SPAWN_CONFIG = {
     initialDelay: 1500, // Faster start (was 2000)
     minInterval: 800, // Much faster spawns (was 1500)

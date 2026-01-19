@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { UI_CONFIG, MOBILE_SCALE } from '../config';
+import { UI_CONFIG, MOBILE_SCALE, OVERCLOCK_CONFIG } from '../config';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -10,6 +10,10 @@ export class UIScene extends Phaser.Scene {
   private livesOrb!: Phaser.GameObjects.Graphics;
   private corruptionBarBg!: Phaser.GameObjects.Graphics;
   private corruptionBarFill!: Phaser.GameObjects.Graphics;
+  private overclockBarBg!: Phaser.GameObjects.Graphics;
+  private overclockBarFill!: Phaser.GameObjects.Graphics;
+  private overclockStatusText!: Phaser.GameObjects.Text;
+  private overclockCooldownText!: Phaser.GameObjects.Text;
   private gameOverContainer!: Phaser.GameObjects.Container;
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
@@ -110,6 +114,19 @@ export class UIScene extends Phaser.Scene {
 
     // Corruption meter
     this.createCorruptionMeter();
+    this.createOverclockMeter();
+    const initialCharges = this.registry.get('overclockCharges') as number | undefined;
+    if (Number.isFinite(initialCharges)) {
+      this.overclockStatusText.setText(`OC: ${initialCharges}`);
+    }
+    const initialCooldown = this.registry.get('overclockCooldown') as number | undefined;
+    if (Number.isFinite(initialCooldown)) {
+      const seconds = Math.max(
+        0,
+        Math.ceil((initialCooldown * OVERCLOCK_CONFIG.cooldownBetweenActivations) / 1000)
+      );
+      this.overclockCooldownText.setText(`CD: ${seconds}s`);
+    }
 
     // Pause button (top-right corner)
     this.createPauseButton();
@@ -132,6 +149,9 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
     this.registry.events.on('changedata-corruption', this.updateCorruption, this);
+    this.registry.events.on('changedata-overclockProgress', this.updateOverclock, this);
+    this.registry.events.on('changedata-overclockCooldown', this.updateOverclockCooldown, this);
+    this.registry.events.on('changedata-overclockCharges', this.updateOverclockCharges, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -662,6 +682,53 @@ export class UIScene extends Phaser.Scene {
     this.renderCorruptionFill(0, barX, barY, barWidth, barHeight);
   }
 
+  private createOverclockMeter() {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 10 * uiScale;
+    const barHeight = 160 * uiScale;
+    const barX = width - 50 * uiScale;
+    const barY = height / 2 - barHeight / 2;
+
+    this.overclockBarBg = this.add.graphics();
+    this.overclockBarBg.fillStyle(0x000000, 0.6);
+    this.overclockBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.overclockBarBg.lineStyle(2, 0x00ffff, 0.8);
+    this.overclockBarBg.strokeRect(barX, barY, barWidth, barHeight);
+
+    this.overclockBarFill = this.add.graphics();
+    this.renderOverclockFill(0, barX, barY, barWidth, barHeight);
+
+    this.overclockStatusText = this.add.text(
+      barX - 6 * uiScale,
+      barY + barHeight + 8 * uiScale,
+      'OC: 0',
+      {
+        fontFamily: UI_CONFIG.menuFont,
+        fontSize: 12 * uiScale,
+        color: '#00ffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }
+    );
+    this.overclockStatusText.setOrigin(1, 0);
+
+    this.overclockCooldownText = this.add.text(
+      barX - 6 * uiScale,
+      barY - 18 * uiScale,
+      'CD: 0s',
+      {
+        fontFamily: UI_CONFIG.menuFont,
+        fontSize: 12 * uiScale,
+        color: '#00ffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }
+    );
+    this.overclockCooldownText.setOrigin(1, 0);
+  }
+
   private updateCorruption(_parent: Phaser.Data.DataManager, value: number) {
     const width = this.scale.width;
     const height = this.scale.height;
@@ -671,6 +738,29 @@ export class UIScene extends Phaser.Scene {
     const barX = width - 30 * uiScale;
     const barY = height / 2 - barHeight / 2;
     this.renderCorruptionFill(value, barX, barY, barWidth, barHeight);
+  }
+
+  private updateOverclock(_parent: Phaser.Data.DataManager, value: number) {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 10 * uiScale;
+    const barHeight = 160 * uiScale;
+    const barX = width - 50 * uiScale;
+    const barY = height / 2 - barHeight / 2;
+    this.renderOverclockFill(value, barX, barY, barWidth, barHeight);
+  }
+
+  private updateOverclockCooldown(_parent: Phaser.Data.DataManager, value: number) {
+    const seconds = Math.max(
+      0,
+      Math.ceil((value * OVERCLOCK_CONFIG.cooldownBetweenActivations) / 1000)
+    );
+    this.overclockCooldownText.setText(`CD: ${seconds}s`);
+  }
+
+  private updateOverclockCharges(_parent: Phaser.Data.DataManager, value: number) {
+    this.overclockStatusText.setText(`OC: ${value}`);
   }
 
   private renderCorruptionFill(
@@ -702,6 +792,26 @@ export class UIScene extends Phaser.Scene {
       width,
       fillHeight
     );
+  }
+
+  private renderOverclockFill(
+    progress: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) {
+    const clamped = Phaser.Math.Clamp(progress, 0, 1);
+    const fillHeight = height * clamped;
+    this.overclockBarFill.clear();
+    this.overclockBarFill.fillStyle(0x00ffff, clamped > 0 ? 0.9 : 0.2);
+    this.overclockBarFill.fillRect(
+      x,
+      y + (height - fillHeight),
+      width,
+      fillHeight
+    );
+    this.overclockBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
   }
 
   private updateLives(_parent: Phaser.Data.DataManager, value: number) {

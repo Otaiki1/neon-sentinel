@@ -12,6 +12,7 @@ import {
     DIFFICULTY_EVOLUTION,
     ENEMY_BEHAVIOR_CONFIG,
     CORRUPTION_SYSTEM,
+    OVERCLOCK_CONFIG,
 } from "../config";
 
 export class GameScene extends Phaser.Scene {
@@ -46,6 +47,16 @@ export class GameScene extends Phaser.Scene {
     private lastRiskyKillTime = 0;
     private currentCorruptionTier: "low" | "medium" | "high" | "critical" =
         "low";
+    private overclockKey!: Phaser.Input.Keyboard.Key;
+    private overclockActive = false;
+    private overclockReadyAt = 0;
+    private overclockActivations = 0;
+    private overclockTimer: Phaser.Time.TimerEvent | null = null;
+    private overclockEndTime = 0;
+    private overclockScoreMultiplier = 1;
+    private overclockFireRateMultiplier = 1;
+    private overclockSpeedMultiplier = 1;
+    private overclockSpawnMultiplier = 1;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -133,6 +144,12 @@ export class GameScene extends Phaser.Scene {
         this.spaceKey = this.input.keyboard!.addKey(
             Phaser.Input.Keyboard.KeyCodes.SPACE
         );
+        this.overclockKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes[OVERCLOCK_CONFIG.activationKey]
+        );
+        this.overclockKey.on("down", () => {
+            this.tryActivateOverclock();
+        });
 
         // Mobile touch controls: joystick + fire button
         if (MOBILE_SCALE < 1.0) {
@@ -209,6 +226,13 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
         this.registry.set("corruption", this.corruption);
+        this.registry.set("overclockActive", false);
+        this.registry.set("overclockProgress", 0);
+        this.registry.set("overclockCooldown", 0);
+        this.registry.set(
+            "overclockCharges",
+            OVERCLOCK_CONFIG.maxActivationsPerRun - this.overclockActivations
+        );
         this.runStartTime = this.time.now;
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
@@ -348,7 +372,9 @@ export class GameScene extends Phaser.Scene {
 
         // Shooting - manual or auto-shoot power-up
         const currentFireRate =
-            PLAYER_CONFIG.fireRate * this.fireRateMultiplier;
+            PLAYER_CONFIG.fireRate *
+            this.fireRateMultiplier *
+            this.overclockFireRateMultiplier;
 
         if (this.autoShootEnabled) {
             // Auto-shoot when power-up is active
@@ -551,6 +577,7 @@ export class GameScene extends Phaser.Scene {
             this.handleCoordinatedFire(time);
         }
         this.updateBuffEffects();
+        this.updateOverclockProgress(time);
 
         // Update combo multiplier (reset if player hasn't been hit in a while)
         const timeSinceLastHit = time - this.lastHitTime;
@@ -566,7 +593,10 @@ export class GameScene extends Phaser.Scene {
         let velocityY = 0;
 
         // Calculate speed with power-up multiplier
-        const currentSpeed = PLAYER_CONFIG.speed * this.speedMultiplier;
+        const currentSpeed =
+            PLAYER_CONFIG.speed *
+            this.speedMultiplier *
+            this.overclockSpeedMultiplier;
 
         // Mobile joystick controls
         if (MOBILE_SCALE < 1.0) {
@@ -1693,6 +1723,85 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    private tryActivateOverclock() {
+        if (this.gameOver || this.isPaused) return;
+        if (this.overclockActive) return;
+        if (this.overclockActivations >= OVERCLOCK_CONFIG.maxActivationsPerRun) {
+            return;
+        }
+        if (this.time.now < this.overclockReadyAt) return;
+
+        this.overclockActive = true;
+        this.overclockActivations += 1;
+        this.overclockReadyAt =
+            this.time.now + OVERCLOCK_CONFIG.cooldownBetweenActivations;
+        this.overclockEndTime = this.time.now + OVERCLOCK_CONFIG.duration;
+        this.overclockScoreMultiplier =
+            OVERCLOCK_CONFIG.effects.scoreMultiplier;
+        this.overclockFireRateMultiplier =
+            OVERCLOCK_CONFIG.effects.fireRateMultiplier;
+        this.overclockSpeedMultiplier =
+            OVERCLOCK_CONFIG.effects.playerSpeedMultiplier;
+        this.overclockSpawnMultiplier =
+            OVERCLOCK_CONFIG.effects.enemySpawningMultiplier;
+
+        this.registry.set("overclockActive", true);
+        this.registry.set("overclockProgress", 1);
+        this.registry.set("overclockCooldown", 1);
+        this.registry.set(
+            "overclockCharges",
+            OVERCLOCK_CONFIG.maxActivationsPerRun - this.overclockActivations
+        );
+
+        if (OVERCLOCK_CONFIG.indicators.screenBurnEffect) {
+            this.cameras.main.flash(500, 255, 255, 255, false);
+        }
+        if (OVERCLOCK_CONFIG.indicators.playerGlowEffect) {
+            this.player.setTint(0xffffff);
+            this.player.setAlpha(OVERCLOCK_CONFIG.effects.playerVisibility);
+        }
+
+        this.updateSpawnTimer();
+
+        if (this.overclockTimer) {
+            this.overclockTimer.remove();
+        }
+        this.overclockTimer = this.time.addEvent({
+            delay: OVERCLOCK_CONFIG.duration,
+            callback: () => {
+                this.endOverclock();
+            },
+        });
+    }
+
+    private endOverclock() {
+        this.overclockActive = false;
+        this.overclockEndTime = 0;
+        this.overclockScoreMultiplier = 1;
+        this.overclockFireRateMultiplier = 1;
+        this.overclockSpeedMultiplier = 1;
+        this.overclockSpawnMultiplier = 1;
+        this.player.clearTint();
+        this.player.setAlpha(1);
+        this.registry.set("overclockActive", false);
+        this.registry.set("overclockProgress", 0);
+        this.registry.set("overclockCooldown", 1);
+        this.updateSpawnTimer();
+    }
+
+    private updateOverclockProgress(time: number) {
+        if (this.overclockActive && this.overclockEndTime > 0) {
+            const remaining = Math.max(0, this.overclockEndTime - time);
+            const progress = remaining / OVERCLOCK_CONFIG.duration;
+            this.registry.set("overclockProgress", progress);
+        }
+
+        const cooldownRemaining = Math.max(0, this.overclockReadyAt - time);
+        const cooldownProgress =
+            cooldownRemaining / OVERCLOCK_CONFIG.cooldownBetweenActivations;
+        this.registry.set("overclockCooldown", cooldownProgress);
+    }
+
     private updateSpawnTimer() {
         // Get spawn rate multiplier based on current layer
         const layerConfig =
@@ -1702,6 +1811,7 @@ export class GameScene extends Phaser.Scene {
             1,
             this.prestigeDifficultyMultiplier
         );
+        const overclockSpawnMultiplier = this.overclockSpawnMultiplier;
 
         // Calculate spawn interval (faster spawns = lower delay)
         // Base interval is middle of min/max, then divided by multiplier
@@ -1709,7 +1819,10 @@ export class GameScene extends Phaser.Scene {
             (SPAWN_CONFIG.minInterval + SPAWN_CONFIG.maxInterval) / 2;
         const adjustedInterval = Math.max(
             SPAWN_CONFIG.minInterval,
-            baseInterval / (spawnRateMultiplier * prestigeSpawnMultiplier)
+            baseInterval /
+                (spawnRateMultiplier *
+                    prestigeSpawnMultiplier *
+                    overclockSpawnMultiplier)
         );
 
         // Remove existing timer if any
@@ -3053,7 +3166,8 @@ export class GameScene extends Phaser.Scene {
                 this.scoreMultiplier *
                 this.comboMultiplier *
                 this.prestigeScoreMultiplier *
-                corruptionMultiplier
+                corruptionMultiplier *
+                this.overclockScoreMultiplier
         );
         this.score += adjustedPoints;
         this.comboMultiplier += 0.1;
@@ -3225,6 +3339,13 @@ export class GameScene extends Phaser.Scene {
         this.lastNoHitRewardTime = 0;
         this.lastRiskyKillTime = 0;
         this.currentCorruptionTier = "low";
+        this.overclockActive = false;
+        this.overclockReadyAt = 0;
+        this.overclockActivations = 0;
+        this.overclockScoreMultiplier = 1;
+        this.overclockFireRateMultiplier = 1;
+        this.overclockSpeedMultiplier = 1;
+        this.overclockSpawnMultiplier = 1;
         this.currentDifficultyPhase = "phase1";
         this.lastMovementSampleTime = 0;
         this.lastEdgeSampleTime = 0;
@@ -3290,6 +3411,13 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
         this.registry.set("corruption", this.corruption);
+        this.registry.set("overclockActive", false);
+        this.registry.set("overclockProgress", 0);
+        this.registry.set("overclockCooldown", 0);
+        this.registry.set(
+            "overclockCharges",
+            OVERCLOCK_CONFIG.maxActivationsPerRun
+        );
 
         this.runStartTime = this.time.now;
         this.resetAdaptiveLearning();
