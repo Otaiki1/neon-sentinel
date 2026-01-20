@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { initGame } from "../game/Game";
 import { getGameplaySettings } from "../services/settingsService";
+import { getAvailableCoins } from "../services/coinService";
 import "./GamePage.css";
 
 function GamePage() {
@@ -32,6 +33,7 @@ function GamePage() {
         gameInstanceRef.current = game;
         const settings = getGameplaySettings();
         game.registry.set("gameplaySettings", settings);
+        game.registry.set("coins", getAvailableCoins());
 
         // Listen for return to menu event
         const handleReturnToMenu = () => {

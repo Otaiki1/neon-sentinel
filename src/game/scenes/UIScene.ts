@@ -5,6 +5,8 @@ import {
   LAYER_CONFIG,
   MOBILE_SCALE,
   OVERCLOCK_CONFIG,
+  SHOCK_BOMB_CONFIG,
+  GOD_MODE_CONFIG,
   UI_CONFIG,
 } from '../config';
 import {
@@ -15,6 +17,7 @@ import {
   updatePersonalBests,
 } from '../../services/achievementService';
 import { fetchWeeklyLeaderboard } from '../../services/scoreService';
+import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
 import { GameScene } from './GameScene';
 
 export class UIScene extends Phaser.Scene {
@@ -23,12 +26,16 @@ export class UIScene extends Phaser.Scene {
   private layerText!: Phaser.GameObjects.Text;
   private prestigeText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
-  private corruptionBarBg!: Phaser.GameObjects.Graphics;
-  private corruptionBarFill!: Phaser.GameObjects.Graphics;
-  private overclockBarBg!: Phaser.GameObjects.Graphics;
-  private overclockBarFill!: Phaser.GameObjects.Graphics;
-  private overclockStatusText!: Phaser.GameObjects.Text;
-  private overclockCooldownText!: Phaser.GameObjects.Text;
+  // Shock bomb meter (red/orange)
+  private shockBombBarBg!: Phaser.GameObjects.Graphics;
+  private shockBombBarFill!: Phaser.GameObjects.Graphics;
+  private shockBombKeyText!: Phaser.GameObjects.Text;
+  private shockBombGlow!: Phaser.GameObjects.Graphics;
+  // God mode meter (blue)
+  private godModeBarBg!: Phaser.GameObjects.Graphics;
+  private godModeBarFill!: Phaser.GameObjects.Graphics;
+  private godModeKeyText!: Phaser.GameObjects.Text;
+  private godModeGlow!: Phaser.GameObjects.Graphics;
   private challengeContainer!: Phaser.GameObjects.Container;
   private challengeTitleText!: Phaser.GameObjects.Text;
   private challengeDescriptionText!: Phaser.GameObjects.Text;
@@ -71,6 +78,12 @@ export class UIScene extends Phaser.Scene {
   private resumeButton!: Phaser.GameObjects.Container;
   private runStatsTexts: Phaser.GameObjects.Text[] = [];
   private runSummaryTexts: Phaser.GameObjects.Text[] = [];
+  private progressStatementText!: Phaser.GameObjects.Text;
+  private summaryContainer!: Phaser.GameObjects.Container;
+  private revivePromptContainer!: Phaser.GameObjects.Container;
+  private revivePromptCountdownText!: Phaser.GameObjects.Text;
+  private revivePromptButton!: Phaser.GameObjects.Container;
+  private revivePromptTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -173,22 +186,15 @@ export class UIScene extends Phaser.Scene {
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
     this.livesOrb.setAlpha(this.uiOpacityMultiplier);
 
-    this.createRunStatsDisplay(baseX, baseY + lineSpacing * 6, uiScale);
+    // Removed top-left run stats panel per UX request
 
-    // Corruption meter
-    this.createCorruptionMeter();
-    this.createOverclockMeter();
-    const initialCharges = this.registry.get('overclockCharges') as number | undefined;
-    if (Number.isFinite(initialCharges)) {
-      this.overclockStatusText.setText(`OC: ${initialCharges}`);
+    // Create shock bomb and god mode meters
+    // Only create meters if abilities are unlocked
+    if (isShockBombUnlocked()) {
+      this.createShockBombMeter();
     }
-    const initialCooldown = this.registry.get('overclockCooldown') as number | undefined;
-    if (Number.isFinite(initialCooldown)) {
-      const seconds = Math.max(
-        0,
-        Math.ceil((initialCooldown * OVERCLOCK_CONFIG.cooldownBetweenActivations) / 1000)
-      );
-      this.overclockCooldownText.setText(`CD: ${seconds}s`);
+    if (isGodModeUnlocked()) {
+      this.createGodModeMeter();
     }
 
     // Pause button (top-right corner)
@@ -212,17 +218,18 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
-    this.registry.events.on('changedata-corruption', this.updateCorruption, this);
-    this.registry.events.on('changedata-overclockProgress', this.updateOverclock, this);
-    this.registry.events.on('changedata-overclockCooldown', this.updateOverclockCooldown, this);
-    this.registry.events.on('changedata-overclockCharges', this.updateOverclockCharges, this);
+    this.registry.events.on('changedata-shockBombProgress', this.updateShockBomb, this);
+    this.registry.events.on('changedata-shockBombReady', this.updateShockBombReady, this);
+    this.registry.events.on('changedata-godModeProgress', this.updateGodMode, this);
+    this.registry.events.on('changedata-godModeReady', this.updateGodModeReady, this);
+    this.registry.events.on('changedata-godModeActive', this.updateGodModeActive, this);
     this.registry.events.on('changedata-challengeActive', this.updateChallengeActive, this);
     this.registry.events.on('changedata-challengeTitle', this.updateChallengeTitle, this);
     this.registry.events.on('changedata-challengeDescription', this.updateChallengeDescription, this);
     this.registry.events.on('changedata-challengeProgress', this.updateChallengeProgress, this);
     this.registry.events.on('changedata-lives', this.updateLives, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
-    this.registry.events.on('changedata-runStats', this.updateRunStats, this);
+    // Run stats UI is hidden (summary shown on game over only)
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
     
     // Listen for score submission from GameScene
@@ -388,19 +395,10 @@ export class UIScene extends Phaser.Scene {
       this.celebrationLines.push(line);
     }
 
-    const summaryStartY = height / 2 + 120;
+    const summaryStartY = height / 2 + 20;
     const summaryLineSpacing = MOBILE_SCALE < 1.0 ? 14 : 16;
     const summaryLines = [
       'SURVIVAL TIME:',
-      'FINAL SCORE:',
-      'DEEPEST LAYER:',
-      'MAX CORRUPTION:',
-      'ENEMIES DEFEATED:',
-      'ACCURACY:',
-      'BEST COMBO:',
-      'LIVES USED:',
-      'POWER-UPS COLLECTED:',
-      'DEATHS:',
     ];
     this.runSummaryTexts = summaryLines.map((label, index) => {
       const line = this.add.text(
@@ -411,22 +409,35 @@ export class UIScene extends Phaser.Scene {
           fontFamily: this.uiBodyFont,
           fontSize: UI_CONFIG.fontSize.small,
           color: this.uiTextColor,
-          align: 'center',
+          align: 'left',
         }
       );
-      line.setOrigin(0.5, 0.5);
+      line.setOrigin(0.5, 0);
       line.setAlpha(this.uiOpacityMultiplier);
       line.setVisible(false);
       return line;
     });
 
+    const progressStartY = summaryStartY + summaryLines.length * summaryLineSpacing + 20;
+    this.progressStatementText = this.add.text(width / 2, progressStartY, '', {
+      fontFamily: this.uiBodyFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: '#00ff99',
+      stroke: '#000000',
+      strokeThickness: 2,
+      align: 'center',
+      wordWrap: { width: width * 0.8, useAdvancedWrap: true },
+    });
+    this.progressStatementText.setOrigin(0.5, 0.5);
+
     // Restart button
+    const buttonStartY = progressStartY + 50;
     this.restartButton = this.createButton(
       width / 2,
-      height - 140,
+      buttonStartY,
       'RESTART',
-      180,
-      45,
+      200,
+      50,
       18
     );
     const restartBg = this.restartButton.list[0] as Phaser.GameObjects.Rectangle;
@@ -437,10 +448,10 @@ export class UIScene extends Phaser.Scene {
     // Menu button
     this.menuButton = this.createButton(
       width / 2,
-      height - 80,
+      buttonStartY + 65,
       'MENU',
-      180,
-      45,
+      200,
+      50,
       18
     );
     const menuBg = this.menuButton.list[0] as Phaser.GameObjects.Rectangle;
@@ -451,17 +462,105 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    // Create container and hide it initially
-    this.gameOverContainer = this.add.container(0, 0, [
-      overlay,
+    this.summaryContainer = this.add.container(0, 0, [
       this.gameOverText,
       this.finalScoreText,
       this.prestigeBadgeText,
-      ...this.failureFeedbackLines,
-      ...this.celebrationLines,
       ...this.runSummaryTexts,
+      this.progressStatementText,
       this.restartButton,
       this.menuButton,
+    ]);
+    this.summaryContainer.setVisible(false);
+
+    // Revive prompt modal (shown for 10 seconds)
+    const revivePanel = this.add.rectangle(width / 2, height / 2, 380, 260, 0x000000, 0.95);
+    revivePanel.setStrokeStyle(3, 0x00ff99);
+
+    // Title at top
+    const reviveTitle = this.add.text(width / 2, height / 2 - 95, 'REVIVE AVAILABLE', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.medium,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    reviveTitle.setOrigin(0.5, 0.5);
+
+    // Create coin icon (Lucide-style coin design) - centered in upper middle
+    const coinIcon = this.add.graphics();
+    const coinX = width / 2;
+    const coinY = height / 2 - 25;
+    const coinRadius = 28;
+    // Outer ring
+    coinIcon.fillStyle(0xffcc33, 1);
+    coinIcon.fillCircle(coinX, coinY, coinRadius);
+    coinIcon.lineStyle(3, 0xffaa00, 1);
+    coinIcon.strokeCircle(coinX, coinY, coinRadius);
+    // Inner circle for depth
+    coinIcon.fillStyle(0xffdd44, 1);
+    coinIcon.fillCircle(coinX, coinY, coinRadius - 4);
+    // Inner detail lines (like Lucide coin)
+    coinIcon.lineStyle(2, 0xffaa00, 0.6);
+    coinIcon.beginPath();
+    coinIcon.arc(coinX, coinY, coinRadius - 8, Phaser.Math.DegToRad(45), Phaser.Math.DegToRad(135));
+    coinIcon.strokePath();
+    coinIcon.beginPath();
+    coinIcon.arc(coinX, coinY, coinRadius - 8, Phaser.Math.DegToRad(225), Phaser.Math.DegToRad(315));
+    coinIcon.strokePath();
+    // Add coin symbol (circle with line, like Lucide)
+    const coinSymbol = this.add.graphics();
+    coinSymbol.lineStyle(3, 0x000000, 1);
+    coinSymbol.strokeCircle(coinX, coinY - 2, 8);
+    coinSymbol.lineStyle(2, 0x000000, 1);
+    coinSymbol.beginPath();
+    coinSymbol.moveTo(coinX - 6, coinY + 2);
+    coinSymbol.lineTo(coinX + 6, coinY + 2);
+    coinSymbol.strokePath();
+
+    // Countdown timer (prominent display) - centered below coin
+    this.revivePromptCountdownText = this.add.text(width / 2, height / 2 + 30, '10', {
+      fontFamily: this.uiScoreFont,
+      fontSize: 52,
+      color: '#00ff99',
+      stroke: '#000000',
+      strokeThickness: 6,
+    });
+    this.revivePromptCountdownText.setOrigin(0.5, 0.5);
+
+    // Button at bottom with proper spacing
+    this.revivePromptButton = this.createButton(
+      width / 2,
+      height / 2 + 95,
+      'REVIVE (1 COIN)',
+      240,
+      50,
+      18
+    );
+    const revivePromptBg = this.revivePromptButton.list[0] as Phaser.GameObjects.Rectangle;
+    revivePromptBg.on('pointerdown', () => {
+      const gameScene = this.scene.get('GameScene') as GameScene;
+      if (gameScene && gameScene.tryReviveWithCoin()) {
+        this.clearRevivePrompt();
+        this.registry.set('gameOver', false);
+      }
+    });
+
+    this.revivePromptContainer = this.add.container(0, 0, [
+      revivePanel,
+      reviveTitle,
+      coinIcon,
+      coinSymbol,
+      this.revivePromptCountdownText,
+      this.revivePromptButton,
+    ]);
+    this.revivePromptContainer.setVisible(false);
+
+    // Create container and hide it initially
+    this.gameOverContainer = this.add.container(0, 0, [
+      overlay,
+      this.summaryContainer,
+      this.revivePromptContainer,
     ]);
     this.gameOverContainer.setVisible(false);
   }
@@ -883,24 +982,6 @@ export class UIScene extends Phaser.Scene {
     this.prestigeText.setText(`PRESTIGE: ${value}`);
   }
 
-  private createCorruptionMeter() {
-    const width = this.scale.width;
-    const height = this.scale.height;
-    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
-    const barWidth = 14 * uiScale;
-    const barHeight = 220 * uiScale;
-    const barX = width - 30 * uiScale;
-    const barY = height / 2 - barHeight / 2;
-
-    this.corruptionBarBg = this.add.graphics();
-    this.corruptionBarBg.fillStyle(0x000000, 0.6);
-    this.corruptionBarBg.fillRect(barX, barY, barWidth, barHeight);
-    this.corruptionBarBg.lineStyle(2, 0x00ff00, 0.8);
-    this.corruptionBarBg.strokeRect(barX, barY, barWidth, barHeight);
-
-    this.corruptionBarFill = this.add.graphics();
-    this.renderCorruptionFill(0, barX, barY, barWidth, barHeight);
-  }
 
   private createRunStatsDisplay(baseX: number, startY: number, uiScale: number) {
     const labels = [
@@ -955,51 +1036,114 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
-  private createOverclockMeter() {
+  private createShockBombMeter() {
     const width = this.scale.width;
     const height = this.scale.height;
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
-    const barWidth = 10 * uiScale;
-    const barHeight = 160 * uiScale;
-    const barX = width - 50 * uiScale;
-    const barY = height / 2 - barHeight / 2;
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Smaller height for top placement
+    const barX = width - 80 * uiScale; // Move left to make room for both meters
+    const barY = 20 * uiScale; // Top of screen near score panel
 
-    this.overclockBarBg = this.add.graphics();
-    this.overclockBarBg.fillStyle(0x000000, 0.6);
-    this.overclockBarBg.fillRect(barX, barY, barWidth, barHeight);
-    this.overclockBarBg.lineStyle(2, 0x00ffff, 0.8);
-    this.overclockBarBg.strokeRect(barX, barY, barWidth, barHeight);
+    // Background
+    this.shockBombBarBg = this.add.graphics();
+    this.shockBombBarBg.fillStyle(0x000000, 0.6);
+    this.shockBombBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.shockBombBarBg.lineStyle(2, 0xff4400, 0.8);
+    this.shockBombBarBg.strokeRect(barX, barY, barWidth, barHeight);
 
-    this.overclockBarFill = this.add.graphics();
-    this.renderOverclockFill(0, barX, barY, barWidth, barHeight);
+    // Fill
+    this.shockBombBarFill = this.add.graphics();
+    this.renderShockBombFill(0, barX, barY, barWidth, barHeight);
 
-    this.overclockStatusText = this.add.text(
-      barX - 6 * uiScale,
-      barY + barHeight + 8 * uiScale,
-      'OC: 0',
-      {
-        fontFamily: UI_CONFIG.menuFont,
-        fontSize: 12 * uiScale,
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 2,
-      }
-    );
-    this.overclockStatusText.setOrigin(1, 0);
+    // Glow effect (hidden until ready)
+    this.shockBombGlow = this.add.graphics();
+    this.shockBombGlow.setVisible(false);
 
-    this.overclockCooldownText = this.add.text(
-      barX - 6 * uiScale,
-      barY - 18 * uiScale,
-      'CD: 0s',
-      {
-        fontFamily: UI_CONFIG.menuFont,
-        fontSize: 12 * uiScale,
-        color: '#00ffff',
-        stroke: '#000000',
-        strokeThickness: 2,
-      }
-    );
-    this.overclockCooldownText.setOrigin(1, 0);
+    // Key indicator (B key on desktop)
+    if (MOBILE_SCALE >= 1.0) {
+      this.shockBombKeyText = this.add.text(
+        barX + barWidth / 2,
+        barY - 20 * uiScale,
+        '',
+        {
+          fontFamily: UI_CONFIG.menuFont,
+          fontSize: 16 * uiScale,
+          color: '#ff4400',
+          stroke: '#000000',
+          strokeThickness: 3,
+        }
+      );
+      this.shockBombKeyText.setOrigin(0.5, 0.5);
+      this.shockBombKeyText.setVisible(false);
+    }
+
+    // Make meter touchable on mobile
+    if (MOBILE_SCALE < 1.0) {
+      const hitArea = this.add.rectangle(barX + barWidth / 2, barY + barHeight / 2, barWidth + 10, barHeight + 10, 0x000000, 0);
+      hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on('pointerdown', () => {
+        const gameScene = this.scene.get('GameScene') as GameScene;
+        if (gameScene) {
+          gameScene.tryActivateShockBomb();
+        }
+      });
+    }
+  }
+
+  private createGodModeMeter() {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Smaller height for top placement
+    const barX = width - 50 * uiScale; // Right side, next to shock bomb meter
+    const barY = 20 * uiScale; // Top of screen near score panel
+
+    // Background
+    this.godModeBarBg = this.add.graphics();
+    this.godModeBarBg.fillStyle(0x000000, 0.6);
+    this.godModeBarBg.fillRect(barX, barY, barWidth, barHeight);
+    this.godModeBarBg.lineStyle(2, 0x00aaff, 0.8);
+    this.godModeBarBg.strokeRect(barX, barY, barWidth, barHeight);
+
+    // Fill
+    this.godModeBarFill = this.add.graphics();
+    this.renderGodModeFill(0, barX, barY, barWidth, barHeight);
+
+    // Glow effect (hidden until ready)
+    this.godModeGlow = this.add.graphics();
+    this.godModeGlow.setVisible(false);
+
+    // Key indicator (Q key on desktop)
+    if (MOBILE_SCALE >= 1.0) {
+      this.godModeKeyText = this.add.text(
+        barX + barWidth / 2,
+        barY - 20 * uiScale,
+        '',
+        {
+          fontFamily: UI_CONFIG.menuFont,
+          fontSize: 16 * uiScale,
+          color: '#00aaff',
+          stroke: '#000000',
+          strokeThickness: 3,
+        }
+      );
+      this.godModeKeyText.setOrigin(0.5, 0.5);
+      this.godModeKeyText.setVisible(false);
+    }
+
+    // Make meter touchable on mobile
+    if (MOBILE_SCALE < 1.0) {
+      const hitArea = this.add.rectangle(barX + barWidth / 2, barY + barHeight / 2, barWidth + 10, barHeight + 10, 0x000000, 0);
+      hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on('pointerdown', () => {
+        const gameScene = this.scene.get('GameScene') as GameScene;
+        if (gameScene) {
+          gameScene.tryActivateGodMode();
+        }
+      });
+    }
   }
 
   private createChallengeDisplay() {
@@ -1048,38 +1192,106 @@ export class UIScene extends Phaser.Scene {
     this.challengeContainer.setVisible(false);
   }
 
-  private updateCorruption(_parent: Phaser.Data.DataManager, value: number) {
+
+  private updateShockBomb(_parent: Phaser.Data.DataManager, value: number) {
     const width = this.scale.width;
     const height = this.scale.height;
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
-    const barWidth = 14 * uiScale;
-    const barHeight = 220 * uiScale;
-    const barX = width - 30 * uiScale;
-    const barY = height / 2 - barHeight / 2;
-    this.renderCorruptionFill(value, barX, barY, barWidth, barHeight);
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Match createShockBombMeter
+    const barX = width - 80 * uiScale; // Match createShockBombMeter
+    const barY = 20 * uiScale; // Match createShockBombMeter
+    this.renderShockBombFill(value, barX, barY, barWidth, barHeight);
   }
 
-  private updateOverclock(_parent: Phaser.Data.DataManager, value: number) {
+  private updateShockBombReady(_parent: Phaser.Data.DataManager, ready: boolean) {
     const width = this.scale.width;
     const height = this.scale.height;
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
-    const barWidth = 10 * uiScale;
-    const barHeight = 160 * uiScale;
-    const barX = width - 50 * uiScale;
-    const barY = height / 2 - barHeight / 2;
-    this.renderOverclockFill(value, barX, barY, barWidth, barHeight);
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Match createShockBombMeter
+    const barX = width - 80 * uiScale; // Match createShockBombMeter
+    const barY = 20 * uiScale; // Match createShockBombMeter
+
+    this.shockBombGlow.setVisible(ready);
+    if (ready) {
+      // Pulsing glow effect
+      this.tweens.add({
+        targets: this.shockBombGlow,
+        alpha: { from: 0.3, to: 0.8 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+      });
+      this.shockBombGlow.clear();
+      this.shockBombGlow.fillStyle(0xff4400, 0.5);
+      this.shockBombGlow.fillRect(barX - 3, barY - 3, barWidth + 6, barHeight + 6);
+    }
+
+    // Show key indicator on desktop
+    if (MOBILE_SCALE >= 1.0 && this.shockBombKeyText) {
+      this.shockBombKeyText.setVisible(ready);
+      if (ready) {
+        this.shockBombKeyText.setText('B');
+      }
+    }
   }
 
-  private updateOverclockCooldown(_parent: Phaser.Data.DataManager, value: number) {
-    const seconds = Math.max(
-      0,
-      Math.ceil((value * OVERCLOCK_CONFIG.cooldownBetweenActivations) / 1000)
-    );
-    this.overclockCooldownText.setText(`CD: ${seconds}s`);
+  private updateGodMode(_parent: Phaser.Data.DataManager, value: number) {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Match createGodModeMeter
+    const barX = width - 50 * uiScale; // Match createGodModeMeter
+    const barY = 20 * uiScale; // Match createGodModeMeter
+    this.renderGodModeFill(value, barX, barY, barWidth, barHeight);
   }
 
-  private updateOverclockCharges(_parent: Phaser.Data.DataManager, value: number) {
-    this.overclockStatusText.setText(`OC: ${value}`);
+  private updateGodModeReady(_parent: Phaser.Data.DataManager, ready: boolean) {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+    const barWidth = 12 * uiScale;
+    const barHeight = 60 * uiScale; // Match createGodModeMeter
+    const barX = width - 50 * uiScale; // Match createGodModeMeter
+    const barY = 20 * uiScale; // Match createGodModeMeter
+
+    this.godModeGlow.setVisible(ready);
+    if (ready) {
+      // Pulsing glow effect
+      this.tweens.add({
+        targets: this.godModeGlow,
+        alpha: { from: 0.3, to: 0.8 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+      });
+      this.godModeGlow.clear();
+      this.godModeGlow.fillStyle(0x00aaff, 0.5);
+      this.godModeGlow.fillRect(barX - 3, barY - 3, barWidth + 6, barHeight + 6);
+    }
+
+    // Show key indicator on desktop
+    if (MOBILE_SCALE >= 1.0 && this.godModeKeyText) {
+      this.godModeKeyText.setVisible(ready);
+      if (ready) {
+        this.godModeKeyText.setText('Q');
+      }
+    }
+  }
+
+  private updateGodModeActive(_parent: Phaser.Data.DataManager, active: boolean) {
+    // Visual feedback when god mode is active
+    if (active && this.godModeBarBg) {
+      this.tweens.add({
+        targets: [this.godModeBarBg, this.godModeBarFill],
+        alpha: { from: 1, to: 0.5 },
+        duration: 200,
+        yoyo: true,
+        repeat: 5,
+      });
+    }
   }
 
   private updateChallengeActive(_parent: Phaser.Data.DataManager, value: boolean) {
@@ -1107,38 +1319,8 @@ export class UIScene extends Phaser.Scene {
     this.challengeBarFill.fillRect(barX, barY, barWidth * clamped, barHeight);
   }
 
-  private renderCorruptionFill(
-    corruption: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number
-  ) {
-    const clamped = Phaser.Math.Clamp(corruption / 100, 0, 1);
-    const fillHeight = height * clamped;
-    const startColor = Phaser.Display.Color.ValueToColor(0x00ff00);
-    const endColor = Phaser.Display.Color.ValueToColor(0xff0033);
-    const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
-      startColor,
-      endColor,
-      100,
-      Math.round(clamped * 100)
-    );
 
-    this.corruptionBarFill.clear();
-    this.corruptionBarFill.fillStyle(
-      Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b),
-      0.9
-    );
-    this.corruptionBarFill.fillRect(
-      x,
-      y + (height - fillHeight),
-      width,
-      fillHeight
-    );
-  }
-
-  private renderOverclockFill(
+  private renderShockBombFill(
     progress: number,
     x: number,
     y: number,
@@ -1147,15 +1329,37 @@ export class UIScene extends Phaser.Scene {
   ) {
     const clamped = Phaser.Math.Clamp(progress, 0, 1);
     const fillHeight = height * clamped;
-    this.overclockBarFill.clear();
-    this.overclockBarFill.fillStyle(0x00ffff, clamped > 0 ? 0.9 : 0.2);
-    this.overclockBarFill.fillRect(
+    this.shockBombBarFill.clear();
+    const color = clamped >= 1 ? 0xff6600 : 0xff4400;
+    this.shockBombBarFill.fillStyle(color, clamped > 0 ? 0.9 : 0.2);
+    this.shockBombBarFill.fillRect(
       x,
       y + (height - fillHeight),
       width,
       fillHeight
     );
-    this.overclockBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
+    this.shockBombBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
+  }
+
+  private renderGodModeFill(
+    progress: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ) {
+    const clamped = Phaser.Math.Clamp(progress, 0, 1);
+    const fillHeight = height * clamped;
+    this.godModeBarFill.clear();
+    const color = clamped >= 1 ? 0x00ccff : 0x00aaff;
+    this.godModeBarFill.fillStyle(color, clamped > 0 ? 0.9 : 0.2);
+    this.godModeBarFill.fillRect(
+      x,
+      y + (height - fillHeight),
+      width,
+      fillHeight
+    );
+    this.godModeBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
   }
 
   private updateLives(_parent: Phaser.Data.DataManager, value: number) {
@@ -1214,20 +1418,24 @@ export class UIScene extends Phaser.Scene {
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
-      this.updateFailureFeedback(finalScore);
+      const coins = (this.registry.get('coins') as number) || 0;
+      const reviveCount = (this.registry.get('reviveCount') as number) || 0;
+      const reviveCost = reviveCount + 1;
       this.updateRunSummary(finalScore);
+      this.updateProgressStatement(finalScore);
       this.runSummaryTexts.forEach((line) => line.setVisible(true));
       this.gameOverContainer.setVisible(true);
       this.pauseContainer.setVisible(false);
       this.pauseButton.setVisible(false); // Hide pause button when game over
       this.settingsContainer.setVisible(false);
       this.settingsVisible = false;
+      this.showRevivePrompt(coins, reviveCost);
     } else {
       this.gameOverContainer.setVisible(false);
       this.prestigeBadgeText.setVisible(false);
-      this.failureFeedbackLines.forEach((line) => line.setVisible(false));
-      this.celebrationLines.forEach((line) => line.setVisible(false));
       this.runSummaryTexts.forEach((line) => line.setVisible(false));
+      this.summaryContainer.setVisible(false);
+      this.clearRevivePrompt();
       this.hideLeaderboard();
       this.pauseButton.setVisible(true); // Show pause button when game restarts
     }
@@ -1236,34 +1444,17 @@ export class UIScene extends Phaser.Scene {
   private updateRunSummary(finalScore: number) {
     const stats = (this.registry.get('runStats') as {
       survivalTimeMs?: number;
-      enemiesDefeated?: number;
-      accuracy?: number;
-      maxCorruption?: number;
-      bestCombo?: number;
-      livesUsed?: number;
-      powerUpsCollected?: number;
-      deaths?: number;
     }) || {};
-    const deepestLayer = (this.registry.get('deepestLayer') as number) || 1;
-    const layerName =
-      LAYER_CONFIG[deepestLayer as keyof typeof LAYER_CONFIG]?.name || 'Boot Sector';
     const minutes = Math.floor((stats.survivalTimeMs ?? 0) / 60000);
     const seconds = Math.floor(((stats.survivalTimeMs ?? 0) % 60000) / 1000);
-    const accuracyPct = Math.round((stats.accuracy ?? 0) * 100);
     const lines = [
       `SURVIVAL TIME: ${minutes}m ${seconds}s`,
-      `FINAL SCORE: ${finalScore.toLocaleString()}`,
-      `DEEPEST LAYER: Layer ${deepestLayer} (${layerName})`,
-      `MAX CORRUPTION: ${Math.round(stats.maxCorruption ?? 0)}%`,
-      `ENEMIES DEFEATED: ${(stats.enemiesDefeated ?? 0).toLocaleString()}`,
-      `ACCURACY: ${accuracyPct}%`,
-      `BEST COMBO: ${(stats.bestCombo ?? 1).toFixed(1)}x`,
-      `LIVES USED: ${(stats.livesUsed ?? 0).toLocaleString()}`,
-      `POWER-UPS COLLECTED: ${(stats.powerUpsCollected ?? 0).toLocaleString()}`,
-      `DEATHS: ${(stats.deaths ?? 0).toLocaleString()}`,
     ];
     this.runSummaryTexts.forEach((text, index) => {
-      text.setText(lines[index] || '');
+      if (lines[index]) {
+        text.setText(lines[index]);
+        text.setOrigin(0.5, 0);
+      }
     });
   }
 
@@ -1396,6 +1587,72 @@ export class UIScene extends Phaser.Scene {
       line.setText(entry);
       line.setVisible(true);
     });
+  }
+
+  private updateProgressStatement(finalScore: number) {
+    const nextLayerEntry = Object.values(LAYER_CONFIG).find(
+      (layer) => layer.scoreThreshold > finalScore
+    );
+    if (nextLayerEntry) {
+      const diff = nextLayerEntry.scoreThreshold - finalScore;
+      this.progressStatementText.setText(
+        `PROGRESS: ${diff.toLocaleString()} pts to reach ${nextLayerEntry.name}`
+      );
+      return;
+    }
+    this.progressStatementText.setText('PROGRESS: MAX LAYER REACHED');
+  }
+
+  private showRevivePrompt(coins: number, reviveCost: number) {
+    if (coins < reviveCost) {
+      this.revivePromptContainer.setVisible(false);
+      this.summaryContainer.setVisible(true);
+      return;
+    }
+    this.summaryContainer.setVisible(false);
+    this.revivePromptContainer.setVisible(true);
+
+    const reviveLabel = this.revivePromptButton.list[1] as Phaser.GameObjects.Text;
+    reviveLabel.setText(`REVIVE (${reviveCost} COIN${reviveCost > 1 ? 'S' : ''})`);
+
+    let remaining = 10;
+    this.revivePromptCountdownText.setText(`${remaining}`);
+    this.revivePromptCountdownText.setColor('#00ff99');
+    this.revivePromptTimer?.remove();
+    this.revivePromptTimer = this.time.addEvent({
+      delay: 1000,
+      repeat: 9,
+      callback: () => {
+        remaining -= 1;
+        this.revivePromptCountdownText.setText(`${remaining}`);
+        
+        // Change color to red at 3 seconds or less
+        if (remaining <= 3) {
+          this.revivePromptCountdownText.setColor('#ff0000');
+          // Pulse effect as time runs out
+          this.tweens.add({
+            targets: this.revivePromptCountdownText,
+            scaleX: 1.3,
+            scaleY: 1.3,
+            duration: 200,
+            yoyo: true,
+          });
+        } else {
+          this.revivePromptCountdownText.setColor('#00ff99');
+        }
+        
+        if (remaining <= 0) {
+          this.clearRevivePrompt();
+          this.summaryContainer.setVisible(true);
+        }
+      },
+    });
+  }
+
+  private clearRevivePrompt() {
+    this.revivePromptTimer?.remove();
+    this.revivePromptTimer = undefined;
+    this.revivePromptContainer.setVisible(false);
   }
 
   private onPauseChanged(_parent: Phaser.Data.DataManager, isPaused: boolean) {

@@ -71,6 +71,10 @@ export class BootScene extends Phaser.Scene {
 
     // Load sprites from public folder
     this.load.image('hero', '/sprites/hero.svg');
+    this.load.image('heroVanguard', '/sprites/hero_2.svg');
+    this.load.image('heroGhost', '/sprites/hero_3.svg');
+    this.load.image('heroDrone', '/sprites/hero_sidekick_2.svg');
+    this.load.image('heroGodMode', '/sprites/hero-god-mode.svg');
     
     // Enemy sprites
     this.load.image('enemyGreen', '/sprites/enemy_green.svg');

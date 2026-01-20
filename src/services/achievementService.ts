@@ -30,6 +30,8 @@ type AchievementState = {
     timestamp: number;
   }>;
   selectedCosmetic: string;
+  selectedHero: string;
+  selectedSkin: string;
   extraBadges: string[];
   extraCosmetics: string[];
 };
@@ -75,6 +77,8 @@ function getDefaultState(): AchievementState {
     layerVisits: {},
     recentRecords: [],
     selectedCosmetic: "none",
+    selectedHero: "sentinel_standard",
+    selectedSkin: "skin_default",
     extraBadges: [],
     extraCosmetics: [],
   };
@@ -202,6 +206,26 @@ export function getSelectedCosmetic(): string {
 export function setSelectedCosmetic(cosmetic: string) {
   const state = loadAchievementState();
   state.selectedCosmetic = cosmetic;
+  saveAchievementState(state);
+}
+
+export function getSelectedHero(): string {
+  return loadAchievementState().selectedHero || "sentinel_standard";
+}
+
+export function setSelectedHero(heroKey: string) {
+  const state = loadAchievementState();
+  state.selectedHero = heroKey;
+  saveAchievementState(state);
+}
+
+export function getSelectedSkin(): string {
+  return loadAchievementState().selectedSkin || "skin_default";
+}
+
+export function setSelectedSkin(skinKey: string) {
+  const state = loadAchievementState();
+  state.selectedSkin = skinKey;
   saveAchievementState(state);
 }
 

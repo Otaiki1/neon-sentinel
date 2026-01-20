@@ -4,8 +4,14 @@ import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreServ
 import { CUSTOMIZABLE_SETTINGS, PLAYER_KERNELS } from '../game/config';
 import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
 import { getGameplaySettings, saveGameplaySettings, type GameplaySettings } from '../services/settingsService';
+import { addCoins, getAvailableCoins, getDailyCoinCount } from '../services/coinService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
+import iconProfile from '../assets/icons/icon-profile.svg';
+import iconHall from '../assets/icons/icon-hall.svg';
+import iconSettings from '../assets/icons/icon-settings.svg';
+import iconMarketplace from '../assets/icons/icon-marketplace.svg';
+import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
 import './LandingPage.css';
@@ -27,6 +33,10 @@ export function setUserMode(mode: UserMode): void {
 
 function LandingPage() {
   const { primaryWallet } = useDynamicContext();
+  const isWalletConnected = !!primaryWallet;
+  const walletLabel = isWalletConnected
+    ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
+    : 'LOGIN';
   const [leaderboard, setLeaderboard] = useState<
     Array<{ score: number; playerName: string; prestigeLevel?: number }>
   >([]);
@@ -34,9 +44,11 @@ function LandingPage() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
   const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
   const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
+  const [coins, setCoins] = useState(getAvailableCoins());
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
@@ -46,13 +58,13 @@ function LandingPage() {
     setKernelUnlocks(kernelState.unlocked);
     setSelectedKernel(kernelState.selectedKernel);
     setSettings(getGameplaySettings());
+    setCoins(getAvailableCoins());
   }, []);
 
   // Show wallet modal on first visit if wallet not connected
   useEffect(() => {
     const hasSeenModal = localStorage.getItem(WALLET_MODAL_SEEN_KEY) === 'true';
     const userMode = getUserMode();
-    const isWalletConnected = !!primaryWallet;
 
     // Show modal if:
     // 1. User hasn't seen the modal before
@@ -66,6 +78,10 @@ function LandingPage() {
   const handleCloseModal = () => {
     setShowWalletModal(false);
     localStorage.setItem(WALLET_MODAL_SEEN_KEY, 'true');
+  };
+
+  const handleOpenWalletModal = () => {
+    setShowWalletModal(true);
   };
 
   const handleAnonymous = () => {
@@ -97,6 +113,20 @@ function LandingPage() {
     setShowSettingsModal(false);
   };
 
+  const handleOpenMarketplace = () => {
+    setCoins(getAvailableCoins());
+    setShowMarketplaceModal(true);
+  };
+
+  const handleCloseMarketplace = () => {
+    setShowMarketplaceModal(false);
+  };
+
+  const handleBuyCoins = (amount: number) => {
+    const next = addCoins(amount);
+    setCoins(next);
+  };
+
 
   // Update user mode when wallet connects
   useEffect(() => {
@@ -108,12 +138,11 @@ function LandingPage() {
   useEffect(() => {
     const hasSeenStory = localStorage.getItem(STORY_MODAL_SEEN_KEY) === 'true';
     const userMode = getUserMode();
-    const isWalletConnected = !!primaryWallet;
 
     if (!hasSeenStory && !showWalletModal && (userMode || isWalletConnected)) {
       setShowStoryModal(true);
     }
-  }, [primaryWallet, showWalletModal]);
+  }, [isWalletConnected, showWalletModal]);
 
   // Generate weekly sector name based on week number
   const weeklySectorNames = [
@@ -175,14 +204,27 @@ function LandingPage() {
       }} />
 
       <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
-        <div className="flex justify-end mb-4">
-          <Link
-            to="/profile"
-            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200"
-            style={{ letterSpacing: '0.1em' }}
-          >
-            👤 PROFILE
+        <div className="landing-nav mb-6">
+          <Link to="/leaderboards" className="nav-icon-button" aria-label="Hall of Fame">
+            <img src={iconHall} alt="" className="nav-icon-image" />
+            <span className="nav-icon-label">HALL</span>
           </Link>
+          <Link to="/profile" className="nav-icon-button" aria-label="Profile">
+            <img src={iconProfile} alt="" className="nav-icon-image" />
+            <span className="nav-icon-label">PROFILE</span>
+          </Link>
+          <button type="button" className="nav-icon-button" onClick={handleOpenSettings} aria-label="Settings">
+            <img src={iconSettings} alt="" className="nav-icon-image" />
+            <span className="nav-icon-label">SETTINGS</span>
+          </button>
+          <button type="button" className="nav-icon-button" onClick={handleOpenMarketplace} aria-label="Marketplace">
+            <img src={iconMarketplace} alt="" className="nav-icon-image" />
+            <span className="nav-icon-label">MARKET</span>
+          </button>
+          <button type="button" className="nav-icon-button" onClick={handleOpenWalletModal} aria-label="Login">
+            <img src={iconLogin} alt="" className="nav-icon-image" />
+            <span className="nav-icon-label">{walletLabel}</span>
+          </button>
         </div>
         {/* Logo & Sector Section */}
         <div className="text-center mb-10 md:mb-12">
@@ -366,7 +408,21 @@ function LandingPage() {
           </div>
         </div>
 
-        {/* Hall of Fame Link */}
+        {/* Hall of Fame & About Links */}
+        <div className="flex gap-4 justify-center mb-6">
+          <Link
+            to="/leaderboards"
+            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
+          >
+            &gt; HALL OF FAME
+          </Link>
+          <Link
+            to="/about"
+            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
+          >
+            &gt; ABOUT
+          </Link>
+        </div>
         <div className="mb-4 md:mb-6">
           <Link
             to="/leaderboards"
@@ -384,6 +440,10 @@ function LandingPage() {
           }}>
             UNLOCKED SYSTEMS
           </h2>
+          <p className="font-body text-xs text-neon-green opacity-70 mb-4">
+            Systems unlock as you earn lifetime points. Some slots are visible now so you can
+            see what will open next.
+          </p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {/* Kernel Walker */}
             <div className="text-center">
@@ -429,6 +489,35 @@ function LandingPage() {
           </div>
         </div>
 
+        {/* How To Play */}
+        <div className="retro-panel mb-8">
+          <h2
+            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
+            style={{ letterSpacing: '0.1em' }}
+          >
+            HOW TO PLAY
+          </h2>
+          <div className="space-y-3 text-sm md:text-base font-body text-neon-green">
+            <p className="opacity-90 leading-relaxed">
+              Move to dodge, shoot to clear corrupted entities, and keep your combo alive for
+              bonus score. Survive longer to reach deeper layers with tougher enemies and higher
+              rewards.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="space-y-1">
+                <p>Desktop: WASD / Arrow Keys to move</p>
+                <p>Desktop: Space / Click to fire</p>
+                <p>Desktop: Hold Shift for focus movement</p>
+              </div>
+              <div className="space-y-1">
+                <p>Mobile: Drag to move</p>
+                <p>Auto-fire enabled on mobile</p>
+                <p>Coins allow revives on death</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* About Section */}
         <div className="retro-panel mb-8">
           <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
@@ -442,16 +531,20 @@ function LandingPage() {
                 THE GRID
               </h3>
               <p className="opacity-90 leading-relaxed">
-                Inside a collapsing digital megasystem called <strong>The Grid</strong>, autonomous security programs—<strong>Neon Sentinels</strong>—fight to contain a spreading corruption known as <strong>The Swarm</strong>.
+                The Grid is a collapsing megasystem. You are a Neon Sentinel tasked with pushing
+                back a corruption called the Swarm. Every layer is deeper, darker, and more
+                unstable.
               </p>
             </div>
-            
+
             <div>
               <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
-                THE INFECTION
+                THE MISSION
               </h3>
               <p className="opacity-90 leading-relaxed">
-                Each enemy color represents a deeper layer of system corruption. You don't "beat levels"—you push deeper into infected layers of the system until you hit a system collapse (death). The deeper you go, the more dangerous the corruption becomes.
+                Survive as long as possible, keep your combo alive, and farm points to unlock
+                new kernels, heroes, and cosmetics. Weekly sectors rotate, so your ranking starts
+                fresh each cycle.
               </p>
             </div>
 
@@ -459,47 +552,52 @@ function LandingPage() {
               <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
                 THE LAYERS
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                <div className="space-y-1 text-xs">
-                  <p><span className="text-green-500">🟢 Boot Sector</span> - Broken data fragments</p>
-                  <p><span className="text-yellow-500">🟡 Firewall</span> - Recompiled attack routines</p>
-                  <p><span className="text-blue-500">🔵 Security Core</span> - Hijacked security bots</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 text-xs">
+                <div className="space-y-1">
+                  <p><span className="text-green-500">Boot Sector</span> - Broken data fragments</p>
+                  <p><span className="text-yellow-500">Firewall</span> - Recompiled attack routines</p>
+                  <p><span className="text-blue-500">Security Core</span> - Hijacked security bots</p>
                 </div>
-                <div className="space-y-1 text-xs">
-                  <p><span className="text-purple-500">🟣 Corrupted AI</span> - High-level AI cores</p>
-                  <p><span className="text-red-500">🔴 Kernel Breach</span> - System guardians taken over</p>
-                  <p><span className="text-red-600">⚫ System Collapse</span> - Final boss territory</p>
+                <div className="space-y-1">
+                  <p><span className="text-purple-500">Corrupted AI</span> - High-level AI cores</p>
+                  <p><span className="text-red-500">Kernel Breach</span> - System guardians taken over</p>
+                  <p><span className="text-red-600">System Collapse</span> - Final boss territory</p>
                 </div>
               </div>
-            </div>
-
-            <div>
-              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
-                YOUR MISSION
-              </h3>
-              <p className="opacity-90 leading-relaxed">
-                Survive as long as possible. Push deeper into the system. Score points by eliminating corrupted entities. Each layer introduces new enemy types and increasing difficulty. Build combos by staying alive. Reach the deepest layer and become a legend.
-              </p>
             </div>
           </div>
         </div>
 
         {/* Footer Navigation */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
-          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
-            letterSpacing: '0.1em'
-          }}>
+          <Link
+            to="/leaderboards"
+            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
+            style={{ letterSpacing: '0.1em' }}
+          >
             &gt; HALL OF FAME
+          </Link>
+          <button
+            type="button"
+            className="wallet-login-pill font-body text-xs text-neon-green px-4 py-2 border border-neon-green border-opacity-30 bg-black bg-opacity-50"
+            style={{ letterSpacing: '0.05em' }}
+            onClick={handleOpenWalletModal}
+          >
+            <span className="wallet-login-label">{walletLabel}</span>
           </button>
-          <div className="font-body text-xs text-neon-green opacity-60 px-4 py-2 border border-neon-green border-opacity-30 bg-black bg-opacity-50" style={{
-            letterSpacing: '0.05em'
-          }}>
-            {primaryWallet ? `CONNECTED: ${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}` : 'NOT CONNECTED'}
-          </div>
-          <button className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer" style={{
-            letterSpacing: '0.1em'
-          }} onClick={handleOpenSettings}>
+          <button
+            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
+            style={{ letterSpacing: '0.1em' }}
+            onClick={handleOpenSettings}
+          >
             &gt; SETTINGS
+          </button>
+          <button
+            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
+            style={{ letterSpacing: '0.1em' }}
+            onClick={handleOpenMarketplace}
+          >
+            &gt; MARKETPLACE
           </button>
         </div>
       </div>
@@ -651,6 +749,44 @@ function LandingPage() {
                 onClick={handleCloseSettings}
               >
                 CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showMarketplaceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 px-4">
+          <div className="retro-panel w-full max-w-xl">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              MARKETPLACE
+            </h2>
+            <div className="text-sm font-body text-neon-green space-y-2">
+              <div>Daily Coins: {getDailyCoinCount()} (auto-refresh)</div>
+              <div>Available Coins: {coins}</div>
+              <div className="opacity-70">Crypto purchases are simulated.</div>
+            </div>
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { amount: 5, label: 'Buy 5 Coins', price: '0.005 ETH' },
+                { amount: 15, label: 'Buy 15 Coins', price: '0.012 ETH' },
+              ].map((item) => (
+                <button
+                  key={item.amount}
+                  className="retro-button font-menu text-sm px-6 py-3"
+                  onClick={() => handleBuyCoins(item.amount)}
+                >
+                  {item.label} ({item.price})
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                className="retro-button font-menu text-sm px-6 py-3"
+                onClick={handleCloseMarketplace}
+              >
+                CLOSE
               </button>
             </div>
           </div>

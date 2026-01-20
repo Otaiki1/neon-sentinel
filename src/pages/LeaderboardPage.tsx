@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import logoImage from '../assets/logo.png';
 import {
   fetchWeeklyCategoryLeaderboard,
@@ -7,6 +8,8 @@ import {
   fetchWeeklyChallengeLeaderboard,
   getFeaturedWeeklyCategories,
   getCurrentISOWeek,
+  getOverallRanking,
+  getWeeklyRanking,
   type LeaderboardCategoryKey,
   type ScoreEntry,
 } from '../services/scoreService';
@@ -22,6 +25,7 @@ import './LandingPage.css';
 type CategoryBoard = { key: LeaderboardCategoryKey; entries: ScoreEntry[] };
 
 function LeaderboardPage() {
+  const { primaryWallet } = useDynamicContext();
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [featuredBoards, setFeaturedBoards] = useState<CategoryBoard[]>([]);
   const [allTimeBoards, setAllTimeBoards] = useState<CategoryBoard[]>([]);
@@ -29,6 +33,12 @@ function LeaderboardPage() {
   const [badges, setBadges] = useState<string[]>([]);
   const [cosmetics, setCosmetics] = useState<string[]>([]);
   const [selectedCosmetic, setSelectedCosmeticState] = useState<string>('none');
+  const overallRanking = primaryWallet
+    ? getOverallRanking({ walletAddress: primaryWallet.address })
+    : null;
+  const weeklyRanking = primaryWallet
+    ? getWeeklyRanking({ walletAddress: primaryWallet.address })
+    : null;
 
   useEffect(() => {
     const week = getCurrentISOWeek();
@@ -167,6 +177,36 @@ function LeaderboardPage() {
           </div>
           <div className="font-body text-xs text-neon-green opacity-70">
             Week {currentWeek}
+          </div>
+        </div>
+
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
+            MY RANKING
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-body">
+            <div>
+              <div className="text-xs text-neon-green opacity-70 mb-1">Weekly Rank</div>
+              <div className="font-score text-lg text-neon-green">
+                {weeklyRanking ? `#${weeklyRanking.rank}` : 'LOGIN TO VIEW'}
+              </div>
+              {weeklyRanking && (
+                <div className="text-xs text-neon-green opacity-60">
+                  Score: {weeklyRanking.score.toLocaleString()}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-xs text-neon-green opacity-70 mb-1">Overall Rank</div>
+              <div className="font-score text-lg text-neon-green">
+                {overallRanking ? `#${overallRanking.rank}` : 'LOGIN TO VIEW'}
+              </div>
+              {overallRanking && (
+                <div className="text-xs text-neon-green opacity-60">
+                  Score: {overallRanking.score.toLocaleString()}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -316,3 +316,54 @@ export function getCurrentWeekNumber(): number {
   return currentWeek;
 }
 
+export function getOverallRanking(input: {
+  walletAddress?: string;
+  playerName?: string;
+}): { rank: number; score: number } | null {
+  const allScores = getAllScores();
+  if (!allScores.length) return null;
+  const sorted = [...allScores].sort((a, b) => (b.finalScore ?? b.score) - (a.finalScore ?? a.score));
+
+  const matchIndex = sorted.findIndex((entry) => {
+    if (input.walletAddress) {
+      return entry.walletAddress === input.walletAddress;
+    }
+    if (input.playerName) {
+      return entry.playerName === input.playerName;
+    }
+    return false;
+  });
+
+  if (matchIndex === -1) return null;
+  const entry = sorted[matchIndex];
+  return { rank: matchIndex + 1, score: entry.finalScore ?? entry.score };
+}
+
+export function getWeeklyRanking(input: {
+  walletAddress?: string;
+  playerName?: string;
+}): { rank: number; score: number } | null {
+  if (shouldResetLeaderboard()) {
+    resetWeeklyLeaderboard();
+  }
+  const currentWeek = getCurrentISOWeek();
+  const allScores = getAllScores();
+  const weeklyScores = allScores
+    .filter((score) => score.week === currentWeek)
+    .sort((a, b) => (b.finalScore ?? b.score) - (a.finalScore ?? a.score));
+
+  if (!weeklyScores.length) return null;
+  const matchIndex = weeklyScores.findIndex((entry) => {
+    if (input.walletAddress) {
+      return entry.walletAddress === input.walletAddress;
+    }
+    if (input.playerName) {
+      return entry.playerName === input.playerName;
+    }
+    return false;
+  });
+  if (matchIndex === -1) return null;
+  const entry = weeklyScores[matchIndex];
+  return { rank: matchIndex + 1, score: entry.finalScore ?? entry.score };
+}
+

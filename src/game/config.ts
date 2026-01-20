@@ -118,7 +118,7 @@ export const LAYER_CONFIG = {
         gridColor: 0x00ff00, // Green
         healthMultiplier: 1.0, // Base health
         bossSpeedMultiplier: 0.5, // Slower bosses for early sector pacing
-        spawnRateMultiplier: 1.0, // Base spawn rate
+        spawnRateMultiplier: 3.0, // Base spawn rate
     },
     2: {
         name: "Firewall",
@@ -128,7 +128,7 @@ export const LAYER_CONFIG = {
         gridColor: 0xffff00, // Yellow
         healthMultiplier: 1.3, // 30% more health
         bossSpeedMultiplier: 0.85,
-        spawnRateMultiplier: 1.2, // 20% more enemies
+        spawnRateMultiplier: 3.2, // 20% more enemies
     },
     3: {
         name: "Security Core",
@@ -138,7 +138,7 @@ export const LAYER_CONFIG = {
         gridColor: 0x00aaff, // Blue
         healthMultiplier: 1.6, // 60% more health
         bossSpeedMultiplier: 0.95,
-        spawnRateMultiplier: 1.5, // 50% more enemies
+        spawnRateMultiplier: 3.5, // 50% more enemies
     },
     4: {
         name: "Corrupted AI",
@@ -156,7 +156,7 @@ export const LAYER_CONFIG = {
         gridColor: 0xaa00ff, // Purple
         healthMultiplier: 2.0, // 2x health
         bossSpeedMultiplier: 1.05,
-        spawnRateMultiplier: 2.0, // 2x enemies
+        spawnRateMultiplier: 4.0, // 2x enemies
     },
     5: {
         name: "Kernel Breach",
@@ -175,7 +175,7 @@ export const LAYER_CONFIG = {
         gridColor: 0xff3333, // Red
         healthMultiplier: 2.5, // 2.5x health
         bossSpeedMultiplier: 1.15,
-        spawnRateMultiplier: 2.5, // 2.5x enemies
+        spawnRateMultiplier: 4.5, // 2.5x enemies
     },
     6: {
         name: "System Collapse",
@@ -194,7 +194,7 @@ export const LAYER_CONFIG = {
         gridColor: 0xff0000, // Bright red
         healthMultiplier: 3.0, // 3x health
         bossSpeedMultiplier: 1.25,
-        spawnRateMultiplier: 3.0, // 3x enemies
+        spawnRateMultiplier: 5.0, // 3x enemies
     },
 } as const;
 
@@ -300,6 +300,22 @@ export const OVERCLOCK_CONFIG = {
         screenBurnEffect: true,
         playerGlowEffect: true,
     },
+} as const;
+
+export const SHOCK_BOMB_CONFIG = {
+    activationKey: "B",
+    fillRate: 0.5, // Percentage per second (fills in ~2 seconds of gameplay)
+    killPercentage: 0.7, // Kill 70% of enemies
+    cooldownAfterUse: 30000, // 30 seconds to refill after use
+    unlockScore: 10000, // Unlock at 10,000 lifetime score
+} as const;
+
+export const GOD_MODE_CONFIG = {
+    activationKey: "Q",
+    fillRate: 0.3, // Percentage per second (fills in ~3.3 seconds of gameplay)
+    duration: 10000, // 10 seconds invincibility
+    cooldownAfterUse: 40000, // 40 seconds to refill after use
+    unlockScore: 25000, // Unlock at 25,000 lifetime score
 } as const;
 
 export const LEADERBOARD_CATEGORIES = {
@@ -737,10 +753,10 @@ export const SPAWN_CONFIG = {
 } as const;
 
 export const POWERUP_CONFIG = {
-    spawnChance: 0.25, // Increased from 0.15 to 0.25 (more frequent)
-    livesSpawnChance: 0.35, // 35% chance for lives power-up from all enemies
-    firepowerSpawnChance: 0.08, // 8% chance for firepower power-up from all enemies (reduced from 15%)
-    invisibilitySpawnChance: 0.15, // 15% chance for invisibility power-up from all enemies
+    spawnChance: 0.15, // Reduced from 0.25 (less frequent)
+    livesSpawnChance: 0.12, // 12% chance for lives power-up from all enemies (reduced from 20%)
+    firepowerSpawnChance: 0.05, // 5% chance for firepower power-up from all enemies (reduced from 8%)
+    invisibilitySpawnChance: 0.10, // 10% chance for invisibility power-up from all enemies (reduced from 15%)
     types: {
         speed: {
             key: "power_up",

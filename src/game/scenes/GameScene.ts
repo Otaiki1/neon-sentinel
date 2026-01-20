@@ -11,8 +11,9 @@ import {
     PRESTIGE_CONFIG,
     DIFFICULTY_EVOLUTION,
     ENEMY_BEHAVIOR_CONFIG,
-    CORRUPTION_SYSTEM,
     OVERCLOCK_CONFIG,
+    SHOCK_BOMB_CONFIG,
+    GOD_MODE_CONFIG,
     MID_RUN_CHALLENGES,
     ACHIEVEMENTS,
     ROTATING_LAYER_MODIFIERS,
@@ -26,6 +27,8 @@ import {
     checkAllLeaderboardsTop10,
     getLifetimeStats,
     getSelectedCosmetic,
+    getSelectedHero,
+    getSelectedSkin,
     recordProfileRunStats,
     setAchievementProgress,
     shouldNotifyAboutToUnlock,
@@ -41,6 +44,8 @@ import {
     getSelectedKernelKey,
     recordKernelRunStats,
 } from "../../services/kernelService";
+import { consumeCoins, getAvailableCoins } from "../../services/coinService";
+import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -67,13 +72,6 @@ export class GameScene extends Phaser.Scene {
     private prestigeFlashTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeGlitchTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeResetAvailable = true;
-    private corruption = CORRUPTION_SYSTEM.currentCorruption;
-    private corruptionTimer: Phaser.Time.TimerEvent | null = null;
-    private corruptionEffectTimer: Phaser.Time.TimerEvent | null = null;
-    private lastNoHitRewardTime = 0;
-    private lastRiskyKillTime = 0;
-    private currentCorruptionTier: "low" | "medium" | "high" | "critical" =
-        "low";
     private overclockKey!: Phaser.Input.Keyboard.Key;
     private overclockActive = false;
     private overclockReadyAt = 0;
@@ -84,8 +82,23 @@ export class GameScene extends Phaser.Scene {
     private overclockFireRateMultiplier = 1;
     private overclockSpeedMultiplier = 1;
     private overclockSpawnMultiplier = 1;
+    // Shock bomb system
+    private shockBombKey!: Phaser.Input.Keyboard.Key;
+    private shockBombProgress = 0;
+    private shockBombReady = false;
+    private shockBombCooldownUntil = 0;
+    private shockBombStreaks: Phaser.GameObjects.Graphics[] = [];
+    // God mode system
+    private godModeKey!: Phaser.Input.Keyboard.Key;
+    private godModeProgress = 0;
+    private godModeReady = false;
+    private godModeActive = false;
+    private godModeEndTime = 0;
+    private godModeCooldownUntil = 0;
+    private godModeTimer: Phaser.Time.TimerEvent | null = null;
+    private godModeGlow!: Phaser.GameObjects.Graphics;
+    private originalPlayerTexture: string = "hero";
     private totalEnemiesDefeated = 0;
-    private maxCorruptionReached = 0;
     private tookDamageThisRun = false;
     private peakComboMultiplier = 1;
     private timeToReachLayer6: number | null = null;
@@ -94,6 +107,8 @@ export class GameScene extends Phaser.Scene {
     private activeChallenge:
         | (typeof MID_RUN_CHALLENGES.challenges)[number]
         | null = null;
+    private enemiesKilledThisLayer = 0;
+    private enemiesRequiredBeforeBoss = 0;
     private challengeStartTime = 0;
     private challengeWindowEnd = 0;
     private challengeKills = 0;
@@ -148,7 +163,6 @@ export class GameScene extends Phaser.Scene {
     private hitsTakenThisRun = 0;
     private enemyUidCounter = 0;
     private scanlineOverlay?: Phaser.GameObjects.Graphics;
-    private corruptionPulseOverlay?: Phaser.GameObjects.Graphics;
     private gridOpacityMultiplier = 1;
     private scanlineIntensity = 0;
     private distortionIntensity = 0;
@@ -156,7 +170,6 @@ export class GameScene extends Phaser.Scene {
     private lastMusicTempoUpdate = 0;
     private distortionCooldown = 0;
     private comboShakeCooldown = 0;
-    private corruptionCriticalTriggered = false;
     private powerUpsCollected = 0;
     private totalBulletsDodged = 0;
     private totalLivesLost = 0;
@@ -168,6 +181,7 @@ export class GameScene extends Phaser.Scene {
     private settingsReduceMotion = false;
     private settingsReduceFlash = false;
     private settingsColorBlindMode = false;
+    private reviveCount = 0;
     private runStartTime = 0;
     private currentDifficultyPhase: keyof typeof DIFFICULTY_EVOLUTION = "phase1";
     private lastMovementSampleTime = 0;
@@ -188,6 +202,7 @@ export class GameScene extends Phaser.Scene {
     private powerUps!: Phaser.Physics.Arcade.Group;
     private speedMultiplier = 1;
     private fireRateMultiplier = 1;
+    private layerFireRateMultiplier = 1; // Increases slightly with each layer
     private scoreMultiplier = 1;
     private powerUpTimers: Map<string, Phaser.Time.TimerEvent> = new Map();
     private autoShootEnabled = false;
@@ -226,10 +241,17 @@ export class GameScene extends Phaser.Scene {
         const gameHeight = this.scale.height;
         const startX = gameWidth * 0.1; // 10% from left
         const startY = gameHeight * 0.9; // 90% from top (near bottom)
-        this.player = this.physics.add.sprite(startX, startY, "hero");
+        const heroTexture = this.getSelectedHeroTextureKey();
+        this.player = this.physics.add.sprite(startX, startY, heroTexture);
         this.player.setCollideWorldBounds(true);
         this.player.setScale(0.5 * MOBILE_SCALE);
-        this.applySelectedCosmetic();
+        this.originalPlayerTexture = heroTexture; // Store original texture
+        this.applySelectedAppearance();
+        
+        // Create god mode glow effect (hidden initially)
+        this.godModeGlow = this.add.graphics();
+        this.godModeGlow.setDepth(this.player.depth - 1);
+        this.godModeGlow.setVisible(false);
 
         // Create groups
         this.bullets = this.physics.add.group({
@@ -263,6 +285,22 @@ export class GameScene extends Phaser.Scene {
         );
         this.overclockKey.on("down", () => {
             this.tryActivateOverclock();
+        });
+
+        // Shock bomb key (B)
+        this.shockBombKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes[SHOCK_BOMB_CONFIG.activationKey]
+        );
+        this.shockBombKey.on("down", () => {
+            this.tryActivateShockBomb();
+        });
+
+        // God mode key (Q)
+        this.godModeKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes[GOD_MODE_CONFIG.activationKey]
+        );
+        this.godModeKey.on("down", () => {
+            this.tryActivateGodMode();
         });
 
         // Mobile touch controls: joystick + fire button
@@ -339,7 +377,6 @@ export class GameScene extends Phaser.Scene {
             "prestigeDifficultyMultiplier",
             this.prestigeDifficultyMultiplier
         );
-        this.registry.set("corruption", this.corruption);
         this.registry.set("overclockActive", false);
         this.registry.set("overclockProgress", 0);
         this.registry.set("overclockCooldown", 0);
@@ -347,6 +384,19 @@ export class GameScene extends Phaser.Scene {
             "overclockCharges",
             OVERCLOCK_CONFIG.maxActivationsPerRun - this.overclockActivations
         );
+        // Initialize shock bomb and god mode
+        this.shockBombProgress = 0;
+        this.shockBombReady = false;
+        this.shockBombCooldownUntil = 0;
+        this.registry.set("shockBombProgress", 0);
+        this.registry.set("shockBombReady", false);
+        this.godModeProgress = 0;
+        this.godModeReady = false;
+        this.godModeActive = false;
+        this.godModeCooldownUntil = 0;
+        this.registry.set("godModeProgress", 0);
+        this.registry.set("godModeReady", false);
+        this.registry.set("godModeActive", false);
         this.registry.set("challengeActive", false);
         this.registry.set("challengeTitle", "");
         this.registry.set("challengeDescription", "");
@@ -361,10 +411,10 @@ export class GameScene extends Phaser.Scene {
             powerUpsCollected: 0,
             livesUsed: 0,
             deaths: 0,
-            maxCorruption: 0,
             bestCombo: 1,
         });
         this.registry.set("uiGlitchIntensity", 0);
+        this.registry.set("reviveCount", 0);
         this.registry.set("runStats", {
             survivalTimeMs: 0,
             enemiesDefeated: 0,
@@ -375,7 +425,6 @@ export class GameScene extends Phaser.Scene {
             powerUpsCollected: 0,
             livesUsed: 0,
             deaths: 0,
-            maxCorruption: 0,
             bestCombo: 1,
         });
         this.lastRunMetrics = null;
@@ -384,7 +433,6 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("runMetrics", null);
         this.runStartTime = this.time.now;
         this.totalEnemiesDefeated = 0;
-        this.maxCorruptionReached = this.corruption;
         this.tookDamageThisRun = false;
         this.peakComboMultiplier = this.comboMultiplier;
         this.timeToReachLayer6 = null;
@@ -400,6 +448,8 @@ export class GameScene extends Phaser.Scene {
         this.totalBulletsDodged = 0;
         this.totalLivesLost = 0;
         this.lastRunStatsUpdate = this.runStartTime;
+        this.reviveCount = 0;
+        this.reviveCount = 0;
         this.enemyUidCounter = 0;
         this.sessionScoreMultiplier = 1;
         this.sessionStreakScoreMultiplier = 1;
@@ -411,8 +461,11 @@ export class GameScene extends Phaser.Scene {
         this.lastChallengeEndTime = this.runStartTime;
         this.applySessionRewards(this.runStartTime);
         this.applySelectedKernel();
-        this.corruptionCriticalTriggered = false;
         this.distortionCooldown = 0;
+        // Initialize enemy count tracking for boss spawn
+        this.enemiesKilledThisLayer = 0;
+        // Require significantly more enemies before boss spawn: 50 base + 50 per level
+        this.enemiesRequiredBeforeBoss = 50 + (50 * this.currentLayer);
         this.comboShakeCooldown = 0;
         this.lastMusicTempoUpdate = 0;
         this.createSensoryOverlays();
@@ -435,8 +488,6 @@ export class GameScene extends Phaser.Scene {
 
         // Start prestige visual effects (idle for prestige 0)
         this.updatePrestigeEffects();
-        this.startCorruptionTimer();
-        this.updateCorruptionEffects();
     }
 
     private drawBackgroundGrid() {
@@ -484,27 +535,41 @@ export class GameScene extends Phaser.Scene {
         const progressBarWidth = width * 0.8; // 80% of screen width
         const progressBarX = width * 0.1; // 10% from left
 
-        // Calculate progress based on current layer and score
+        // Calculate progress based on score thresholds (not just current layer)
         const maxLayer = MAX_LAYER;
+        
+        // Determine what layer the player has reached based on score
+        let reachedLayer = 1;
+        for (let layer = MAX_LAYER; layer >= 1; layer--) {
+            if (
+                this.score >=
+                LAYER_CONFIG[layer as keyof typeof LAYER_CONFIG].scoreThreshold
+            ) {
+                reachedLayer = layer;
+                break;
+            }
+        }
+        
+        // Calculate progress within the reached layer
         const currentLayerConfig =
-            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
+            LAYER_CONFIG[reachedLayer as keyof typeof LAYER_CONFIG];
         const nextLayerConfig =
-            this.currentLayer < maxLayer
+            reachedLayer < maxLayer
                 ? LAYER_CONFIG[
-                      (this.currentLayer + 1) as keyof typeof LAYER_CONFIG
+                      (reachedLayer + 1) as keyof typeof LAYER_CONFIG
                   ]
                 : null;
 
         let progress = 0;
         if (nextLayerConfig) {
-            // Progress within current layer
+            // Progress within current reached layer
             const currentThreshold = currentLayerConfig.scoreThreshold || 0;
             const nextThreshold = nextLayerConfig.scoreThreshold || 0;
             const progressInLayer =
                 (this.score - currentThreshold) /
                 (nextThreshold - currentThreshold);
             progress =
-                (this.currentLayer - 1) / maxLayer + progressInLayer / maxLayer;
+                (reachedLayer - 1) / maxLayer + progressInLayer / maxLayer;
         } else {
             // Max layer reached
             progress = 1.0;
@@ -512,8 +577,8 @@ export class GameScene extends Phaser.Scene {
 
         progress = Math.max(0, Math.min(1, progress)); // Clamp between 0 and 1
 
-        // Background bar (faint)
-        this.backgroundGrid.fillStyle(0x00ff00, 0.1);
+        // Background bar (red - contrasting with green fill)
+        this.backgroundGrid.fillStyle(0xff0000, 0.3);
         this.backgroundGrid.fillRect(
             progressBarX,
             progressBarY,
@@ -521,8 +586,8 @@ export class GameScene extends Phaser.Scene {
             progressBarHeight
         );
 
-        // Progress fill (faint)
-        this.backgroundGrid.fillStyle(0x00ff00, 0.3);
+        // Progress fill (green - contrasting with red background)
+        this.backgroundGrid.fillStyle(0x00ff00, 0.8);
         this.backgroundGrid.fillRect(
             progressBarX,
             progressBarY,
@@ -530,8 +595,8 @@ export class GameScene extends Phaser.Scene {
             progressBarHeight
         );
 
-        // Layer markers (faint vertical lines)
-        this.backgroundGrid.lineStyle(1, 0x00ff00, 0.2);
+        // Layer markers (faint vertical lines - green)
+        this.backgroundGrid.lineStyle(1, 0x00ff00, 0.4);
         for (let layer = 1; layer <= maxLayer; layer++) {
             const markerX =
                 progressBarX +
@@ -561,16 +626,6 @@ export class GameScene extends Phaser.Scene {
         }
         this.scanlineOverlay.setAlpha(0);
 
-        if (this.corruptionPulseOverlay) {
-            this.corruptionPulseOverlay.destroy();
-        }
-        this.corruptionPulseOverlay = this.add.graphics();
-        this.corruptionPulseOverlay.setDepth(1100);
-        this.corruptionPulseOverlay.setScrollFactor(0);
-        this.corruptionPulseOverlay.fillStyle(0xff0000, 1);
-        this.corruptionPulseOverlay.fillRect(0, 0, width, height);
-        this.corruptionPulseOverlay.setAlpha(0);
-        this.corruptionPulseOverlay.setVisible(false);
     }
 
     private getLayerEffectIntensity(
@@ -617,7 +672,7 @@ export class GameScene extends Phaser.Scene {
         const baseGridOpacity = SENSORY_ESCALATION.screenEffects.baseGridOpacity;
         if (this.gridOpacityMultiplier !== baseGridOpacity) {
             this.gridOpacityMultiplier = baseGridOpacity;
-            this.updateCorruptionEffects();
+            // Corruption system removed
         }
 
         let glitchIntensity = 0;
@@ -645,39 +700,12 @@ export class GameScene extends Phaser.Scene {
             this.distortionCooldown = time + Phaser.Math.Between(500, 1200);
         }
 
-        const corruptionRatio = this.getCorruptionRatio();
-        if (this.corruptionPulseOverlay) {
-            if (corruptionRatio >= 0.75) {
-                const pulse =
-                    0.12 +
-                    0.08 * Math.sin(time / 180) +
-                    0.05 * Math.sin(time / 90);
-                this.corruptionPulseOverlay.setVisible(true);
-                this.corruptionPulseOverlay.setAlpha(
-                    Phaser.Math.Clamp(pulse, 0.05, 0.35)
-                );
-            } else {
-                this.corruptionPulseOverlay.setVisible(false);
-                this.corruptionPulseOverlay.setAlpha(0);
-            }
-        }
-
         if (this.comboMultiplier >= 3 && time > this.comboShakeCooldown) {
             this.applyCameraShake(
                 80,
                 Math.min(0.02, this.comboMultiplier * 0.0015)
             );
             this.comboShakeCooldown = time + 800;
-        }
-
-        if (corruptionRatio >= 0.75 && !this.corruptionCriticalTriggered) {
-            this.corruptionCriticalTriggered = true;
-            this.triggerHaptic(
-                SENSORY_ESCALATION.hapticFeedback.onCorruptionCritical
-            );
-        }
-        if (corruptionRatio < 0.75) {
-            this.corruptionCriticalTriggered = false;
         }
     }
 
@@ -701,9 +729,46 @@ export class GameScene extends Phaser.Scene {
             powerUpsCollected: this.powerUpsCollected,
             livesUsed: this.totalLivesLost,
             deaths: this.hitsTakenThisRun,
-            maxCorruption: this.maxCorruptionReached,
             bestCombo: this.peakComboMultiplier,
         });
+    }
+
+    public tryReviveWithCoin() {
+        if (!this.gameOver) {
+            return false;
+        }
+        const cost = this.reviveCount + 1;
+        if (!consumeCoins(cost)) {
+            return false;
+        }
+        this.reviveCount += 1;
+        this.gameOver = false;
+        this.registry.set("gameOver", false);
+        this.registry.set("coins", getAvailableCoins());
+        this.registry.set("reviveCount", this.reviveCount);
+        this.isPaused = false;
+        this.player.setVelocity(0, 0);
+        const reviveLives = Math.max(PLAYER_CONFIG.initialLives, 5);
+        this.lives = reviveLives;
+        this.registry.set("lives", this.lives);
+        this.lastHitTime = this.time.now;
+
+        this.enemyBullets.clear(true, true);
+        this.bullets.clear(true, true);
+
+        this.enemies.children.entries.forEach((enemy) => {
+            const e = enemy as Phaser.Physics.Arcade.Sprite;
+            const velocity = e.getData("preReviveVelocity") as
+                | { x: number; y: number }
+                | undefined;
+            if (velocity) {
+                e.setVelocity(velocity.x, velocity.y);
+            }
+        });
+
+        this.physics.resume();
+        this.updateSpawnTimer();
+        return true;
     }
 
     private applyGameplaySettings() {
@@ -857,6 +922,10 @@ export class GameScene extends Phaser.Scene {
         this.updateRotatingModifier(time);
         this.updateSensoryEscalation(time);
         this.updateRunStats(time);
+        this.updateMeters(time);
+        if (this.godModeActive) {
+            this.updateGodModeGlow();
+        }
         if (this.modifierPauseActive) {
             return;
         }
@@ -870,7 +939,8 @@ export class GameScene extends Phaser.Scene {
             this.fireRateMultiplier *
             this.overclockFireRateMultiplier *
             this.challengeFireRateMultiplier *
-            this.kernelFireRateMultiplier;
+            this.kernelFireRateMultiplier *
+            this.layerFireRateMultiplier;
 
         if (this.autoShootEnabled) {
             // Auto-shoot when power-up is active
@@ -953,33 +1023,77 @@ export class GameScene extends Phaser.Scene {
                 }
             }
 
-            // Graduation bosses should not be destroyed and should continuously move toward player
+            // Graduation bosses track player movement to maintain line of sight
             if (isGraduationBoss) {
-                // Make graduation boss continuously move toward player
-                const speed = enemy.getData("speed") || 100;
-                const target = this.getTargetPositionForEnemy(behaviors, true);
-                const angle = Phaser.Math.Angle.Between(
-                    enemy.x,
-                    enemy.y,
-                    target.x,
-                    target.y
-                );
-                const velocityX = Math.cos(angle) * speed;
-                const velocityY = Math.sin(angle) * speed;
-                enemy.setVelocity(velocityX, velocityY);
-
-                // Bounce off all walls (including right edge)
-                if (enemy.x < 0) {
-                    enemy.setVelocityX(Math.abs(enemy.body!.velocity.x));
+                // Boss tracks player's Y position to maintain line of sight
+                const bossSpeed = enemy.getData("speed") || 100;
+                const targetY = this.player.y; // Track player's Y position
+                const currentY = enemy.y;
+                const distanceY = targetY - currentY;
+                
+                // Move boss vertically to maintain line of sight with player
+                // Use smooth movement (not instant snap)
+                const moveSpeed = Math.min(Math.abs(distanceY), bossSpeed * 0.5); // Slower vertical tracking
+                if (Math.abs(distanceY) > 5) { // Only move if significant distance
+                    const directionY = distanceY > 0 ? 1 : -1;
+                    enemy.setVelocityY(moveSpeed * directionY);
+                } else {
+                    enemy.setVelocityY(0);
                 }
-                if (enemy.x > gameWidth) {
-                    enemy.setVelocityX(-Math.abs(enemy.body!.velocity.x));
+                
+                // Keep boss at fixed X position (right side)
+                const targetX = gameWidth * 0.85;
+                const currentX = enemy.x;
+                const distanceX = targetX - currentX;
+                if (Math.abs(distanceX) > 5) {
+                    enemy.setVelocityX(distanceX * 0.1); // Smooth return to position
+                } else {
+                    enemy.setVelocityX(0);
                 }
-                if (enemy.y < 0) {
-                    enemy.setVelocityY(Math.abs(enemy.body!.velocity.y));
+                
+                // Keep boss within screen bounds
+                if (enemy.y < 50) {
+                    enemy.setY(50);
+                    enemy.setVelocityY(0);
                 }
-                if (enemy.y > gameHeight) {
-                    enemy.setVelocityY(-Math.abs(enemy.body!.velocity.y));
+                if (enemy.y > gameHeight - 50) {
+                    enemy.setY(gameHeight - 50);
+                    enemy.setVelocityY(0);
+                }
+                
+                // Manage assault/rest phases
+                const assaultPhase = enemy.getData("assaultPhase") || "assault";
+                const assaultStartTime = enemy.getData("assaultStartTime") || time;
+                const assaultDuration = enemy.getData("assaultDuration") || 10000;
+                const restDuration = enemy.getData("restDuration") || 5000;
+                
+                const timeInPhase = time - assaultStartTime;
+                
+                if (assaultPhase === "assault") {
+                    // During assault phase: shoot and spawn pawns
+                    if (timeInPhase >= assaultDuration) {
+                        // Switch to rest phase
+                        enemy.setData("assaultPhase", "rest");
+                        enemy.setData("assaultStartTime", time);
+                }
+            } else {
+                    // During rest phase: no shooting, no pawns
+                    if (timeInPhase >= restDuration) {
+                        // Switch back to assault phase
+                        enemy.setData("assaultPhase", "assault");
+                        enemy.setData("assaultStartTime", time);
+                    }
+                }
+                
+                // Spawn pawn enemies during assault phase
+                if (assaultPhase === "assault") {
+                    const lastPawnSpawn = enemy.getData("lastPawnSpawn") || 0;
+                    const pawnSpawnInterval = enemy.getData("pawnSpawnInterval") || 3000;
+                    
+                    if (time - lastPawnSpawn >= pawnSpawnInterval) {
+                        this.spawnBossPawn(enemy);
+                        enemy.setData("lastPawnSpawn", time);
+                    }
                 }
             } else {
                 if (behaviors.includes("predictive_movement")) {
@@ -1030,6 +1144,21 @@ export class GameScene extends Phaser.Scene {
             const canShoot = enemy.getData("canShoot");
 
             if (canShoot && enemy.active) {
+                // Graduation bosses only shoot during assault phase
+                let canShootNow = true;
+                if (isGraduationBoss) {
+                    const assaultPhase = enemy.getData("assaultPhase") || "assault";
+                    if (assaultPhase !== "assault") {
+                        // Skip shooting during rest phase
+                        canShootNow = false;
+                    }
+                }
+                
+                if (!canShootNow) {
+                    // Continue to next enemy if boss is in rest phase
+                    return;
+                }
+                
                 const lastShot = enemy.getData("lastShot") || 0;
                 const baseShootInterval =
                     enemy.getData("baseShootInterval") ||
@@ -1040,9 +1169,10 @@ export class GameScene extends Phaser.Scene {
                 const shootInterval = baseShootInterval / shootSpeedMultiplier;
 
                 if (time - lastShot > shootInterval) {
-                    // Graduation bosses shoot more frequently and with multiple bullets
+                    // Graduation bosses shoot more frequently and with multiple bullets during assault
                     if (isGraduationBoss) {
-                        this.enemyShoot(enemy, 0); // Center bullet
+                        // Track player movement and shoot toward current position
+                        this.enemyShoot(enemy, 0); // Center bullet toward player
                         // Shoot 2 additional bullets in spread pattern
                         this.time.delayedCall(100, () => {
                             if (enemy.active) this.enemyShoot(enemy, -15); // Left angle
@@ -1327,6 +1457,24 @@ export class GameScene extends Phaser.Scene {
         const playerX = this.player.x + 30;
         const playerY = this.player.y;
 
+        // God mode: use fire blasts
+        if (this.godModeActive) {
+            const bullet = this.bullets.get(
+                playerX,
+                playerY
+            ) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(1.2 * MOBILE_SCALE); // Larger fire blast
+                bullet.setTexture("smallFire"); // Fire blast sprite
+                bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed * 1.2); // Slightly faster
+                bullet.setVelocityY(0);
+                this.shotsFiredThisRun += 1;
+            }
+            return;
+        }
+
         // Base firepower: single bullet
         if (this.firepowerLevel === 0) {
             const bullet = this.bullets.get(
@@ -1387,7 +1535,41 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    private applySelectedCosmetic() {
+    private getSelectedHeroTextureKey() {
+        const heroKey = getSelectedHero();
+        switch (heroKey) {
+            case "sentinel_vanguard":
+                return "heroVanguard";
+            case "sentinel_ghost":
+                return "heroGhost";
+            case "sentinel_drone":
+                return "heroDrone";
+            default:
+                return "hero";
+        }
+    }
+
+    private getSkinTint(skinKey: string) {
+        switch (skinKey) {
+            case "skin_crimson":
+                return 0xff3366;
+            case "skin_aurora":
+                return 0x33ffcc;
+            case "skin_void":
+                return 0x8888ff;
+            default:
+                return null;
+        }
+    }
+
+    private applySelectedAppearance() {
+        const skin = getSelectedSkin();
+        const skinTint = this.getSkinTint(skin);
+        if (skinTint !== null) {
+            this.player.setTint(skinTint);
+            return;
+        }
+
         const cosmetic = getSelectedCosmetic();
         if (cosmetic === "cosmetic_prestige_glow") {
             this.player.setTint(0x66ffff);
@@ -1462,12 +1644,17 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Check for boss spawn based on layer
+        // Check for boss spawn based on layer and enemy count requirement
         if (
             currentLayerConfig.bossChance > 0 &&
+            this.enemiesKilledThisLayer >= this.enemiesRequiredBeforeBoss &&
             Math.random() < currentLayerConfig.bossChance
         ) {
             this.spawnBoss();
+            // Reset counter after boss spawn
+            this.enemiesKilledThisLayer = 0;
+            // Require significantly more enemies before next boss: 50 base + 50 per level
+            this.enemiesRequiredBeforeBoss = 50 + (50 * this.currentLayer);
             return;
         }
 
@@ -1522,6 +1709,31 @@ export class GameScene extends Phaser.Scene {
         }
 
         return selectedType;
+    }
+
+    private spawnBossPawn(boss: Phaser.Physics.Arcade.Sprite) {
+        // Spawn a weaker enemy (pawn) near the boss to attack the player
+        // Choose pawn type based on boss layer (weaker enemies)
+        let pawnType: keyof typeof ENEMY_CONFIG = "green";
+        if (this.currentLayer >= 4) {
+            pawnType = "yellow";
+        } else if (this.currentLayer >= 3) {
+            pawnType = "blue";
+        } else if (this.currentLayer >= 2) {
+            pawnType = "yellow";
+        }
+        
+        // Spawn pawn near boss position
+        const spawnX = boss.x - 40;
+        const spawnY = boss.y + Phaser.Math.Between(-30, 30);
+        
+        this.spawnEnemyOfType(pawnType, {
+            absoluteX: spawnX,
+            y: spawnY,
+            healthMultiplier: 0.5, // Pawns have half health
+            speedMultiplier: 1.2, // Pawns are slightly faster
+            isFormation: false,
+        });
     }
 
     private getSpawnY() {
@@ -1590,7 +1802,7 @@ export class GameScene extends Phaser.Scene {
         const baseHealthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const extraHealthMultiplier = options?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
-            this.getCorruptionDifficultyMultiplier();
+            1.0; // Corruption system removed
         const baseHealth =
             options?.overrideHealth !== undefined
                 ? options.overrideHealth
@@ -1651,8 +1863,8 @@ export class GameScene extends Phaser.Scene {
             enemy.setData("fragmentHealth", config.fragmentHealth);
         }
 
-        const corruptionRatio = this.getCorruptionRatio();
-        if (corruptionRatio > 0.25) {
+        const corruptionRatio = 0; // Corruption system removed
+        if (false) { // Corruption system removed
             const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
                 Phaser.Display.Color.ValueToColor(0x00ff00),
                 Phaser.Display.Color.ValueToColor(0xff0000),
@@ -2033,8 +2245,8 @@ export class GameScene extends Phaser.Scene {
                 const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
                 if (!enemy.active) return;
                 const distance = Phaser.Math.Distance.Between(
-                    enemy.x,
-                    enemy.y,
+                enemy.x,
+                enemy.y,
                     buffEnemy.x,
                     buffEnemy.y
                 );
@@ -2159,162 +2371,6 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    private startCorruptionTimer() {
-        if (this.corruptionTimer) {
-            this.corruptionTimer.remove();
-        }
-        this.corruptionTimer = this.time.addEvent({
-            delay: 1000,
-            loop: true,
-            callback: () => {
-                this.updateCorruptionTick(this.time.now);
-            },
-        });
-    }
-
-    private updateCorruptionTick(time: number) {
-        if (this.gameOver || this.isPaused) {
-            return;
-        }
-        let delta = CORRUPTION_SYSTEM.passiveIncreaseRate;
-
-        if (this.isInCorruptedZone()) {
-            delta += CORRUPTION_SYSTEM.riskPlayBonus.enterCorruptedZone;
-        }
-
-        if (
-            time - this.lastHitTime >= 10000 &&
-            time - this.lastNoHitRewardTime >= 10000
-        ) {
-            delta += CORRUPTION_SYSTEM.riskPlayBonus.noHitStreak;
-            this.lastNoHitRewardTime = time;
-        }
-
-        if (time - this.lastRiskyKillTime > 5000) {
-            delta += CORRUPTION_SYSTEM.safePlayDecay;
-        }
-
-        this.addCorruption(delta);
-    }
-
-    private addCorruption(amount: number) {
-        if (!amount) return;
-        this.corruption = Phaser.Math.Clamp(
-            this.corruption + amount,
-            0,
-            CORRUPTION_SYSTEM.maxCorruption
-        );
-        this.registry.set("corruption", this.corruption);
-        if (this.corruption >= CORRUPTION_SYSTEM.maxCorruption) {
-            this.unlockAchievementWithAnnouncement("corruption_100");
-        }
-
-        const nextTier = this.getCorruptionTier();
-        if (nextTier !== this.currentCorruptionTier) {
-            this.currentCorruptionTier = nextTier;
-            this.updateCorruptionEffects();
-        }
-        if (this.corruption > this.maxCorruptionReached) {
-            this.maxCorruptionReached = this.corruption;
-        }
-    }
-
-    private getCorruptionRatio() {
-        return this.corruption / CORRUPTION_SYSTEM.maxCorruption;
-    }
-
-    private getCorruptionTier(): "low" | "medium" | "high" | "critical" {
-        const ratio = this.getCorruptionRatio();
-        if (ratio < 0.25) return "low";
-        if (ratio < 0.5) return "medium";
-        if (ratio < 0.75) return "high";
-        return "critical";
-    }
-
-    private getCorruptionScoreMultiplier() {
-        return CORRUPTION_SYSTEM.scoreMultiplier[this.getCorruptionTier()];
-    }
-
-    private getCorruptionDifficultyMultiplier() {
-        return (
-            CORRUPTION_SYSTEM.enemyDifficultyMultiplier[this.getCorruptionTier()] *
-            this.challengeCorruptionMultiplier
-        );
-    }
-
-    private isInCorruptedZone() {
-        const radius = 200;
-        let nearbyEnemies = 0;
-        this.enemies.children.entries.forEach((enemyObj) => {
-            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
-            if (!enemy.active) return;
-            const distance = Phaser.Math.Distance.Between(
-                enemy.x,
-                enemy.y,
-                this.player.x,
-                this.player.y
-            );
-            if (distance <= radius) {
-                nearbyEnemies += 1;
-            }
-        });
-        return nearbyEnemies >= 5;
-    }
-
-    private updateCorruptionEffects() {
-        if (this.corruptionEffectTimer) {
-            this.corruptionEffectTimer.remove();
-            this.corruptionEffectTimer = null;
-        }
-
-        if (!this.backgroundGrid) return;
-        if (this.currentCorruptionTier === "low") {
-            this.backgroundGrid.setAlpha(this.gridOpacityMultiplier);
-            if (!this.prestigeGlitchTimer) {
-                this.backgroundGrid.setPosition(0, 0);
-            }
-            return;
-        }
-
-        const delay =
-            this.currentCorruptionTier === "medium"
-                ? 600
-                : this.currentCorruptionTier === "high"
-                  ? 350
-                  : 200;
-        const maxOffset =
-            this.currentCorruptionTier === "medium"
-                ? 2
-                : this.currentCorruptionTier === "high"
-                  ? 4
-                  : 6;
-
-        this.corruptionEffectTimer = this.time.addEvent({
-            delay,
-            loop: true,
-            callback: () => {
-                if (!this.backgroundGrid) return;
-                const alpha =
-                    this.currentCorruptionTier === "medium"
-                        ? Phaser.Math.FloatBetween(0.75, 0.95)
-                        : this.currentCorruptionTier === "high"
-                          ? Phaser.Math.FloatBetween(0.6, 0.9)
-                          : Phaser.Math.FloatBetween(0.5, 0.85);
-                this.backgroundGrid.setAlpha(alpha * this.gridOpacityMultiplier);
-
-                if (!this.prestigeGlitchTimer && !this.settingsReduceMotion) {
-                    this.backgroundGrid.setPosition(
-                        Phaser.Math.FloatBetween(-maxOffset, maxOffset),
-                        Phaser.Math.FloatBetween(-maxOffset, maxOffset)
-                    );
-                }
-
-                if (this.currentCorruptionTier === "critical") {
-                    this.applyCameraFlash(80, 255, 0, 0);
-                }
-            },
-        });
-    }
 
     private triggerHaptic(effect: {
         duration: number;
@@ -2385,6 +2441,341 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    private updateMeters(time: number) {
+        const delta = time - (this.lastMeterUpdate || time);
+        this.lastMeterUpdate = time;
+
+        // Update shock bomb meter (fills over time) - only if unlocked
+        if (isShockBombUnlocked() && time >= this.shockBombCooldownUntil) {
+            if (this.shockBombProgress < 1) {
+                this.shockBombProgress = Math.min(
+                    1,
+                    this.shockBombProgress + (SHOCK_BOMB_CONFIG.fillRate * delta) / 1000
+                );
+                this.registry.set("shockBombProgress", this.shockBombProgress);
+            }
+            if (this.shockBombProgress >= 1 && !this.shockBombReady) {
+                this.shockBombReady = true;
+                this.registry.set("shockBombReady", true);
+            }
+        } else if (!isShockBombUnlocked()) {
+            // Keep meter at 0 if not unlocked
+            this.registry.set("shockBombProgress", 0);
+            this.registry.set("shockBombReady", false);
+        }
+
+        // Update god mode meter (fills over time) - only if unlocked
+        if (isGodModeUnlocked() && time >= this.godModeCooldownUntil) {
+            if (this.godModeProgress < 1) {
+                this.godModeProgress = Math.min(
+                    1,
+                    this.godModeProgress + (GOD_MODE_CONFIG.fillRate * delta) / 1000
+                );
+                this.registry.set("godModeProgress", this.godModeProgress);
+            }
+            if (this.godModeProgress >= 1 && !this.godModeReady) {
+                this.godModeReady = true;
+                this.registry.set("godModeReady", true);
+            }
+        } else if (!isGodModeUnlocked()) {
+            // Keep meter at 0 if not unlocked
+            this.registry.set("godModeProgress", 0);
+            this.registry.set("godModeReady", false);
+        }
+
+        // Check god mode timer
+        if (this.godModeActive && time >= this.godModeEndTime) {
+            this.endGodMode();
+        }
+    }
+
+    private lastMeterUpdate = 0;
+
+    public tryActivateShockBomb(): boolean {
+        if (this.gameOver || this.isPaused) return false;
+        if (!isShockBombUnlocked()) {
+            this.showAnnouncement("LOCKED", "Reach 10,000 lifetime score to unlock Shock Bomb", 0xff0000);
+            return false;
+        }
+        if (!this.shockBombReady) return false;
+        if (this.time.now < this.shockBombCooldownUntil) return false;
+
+        // Slow down time for dramatic effect
+        this.time.timeScale = 0.3; // Slow to 30% speed
+        
+        // Get all enemies on screen
+        const enemyArray = this.enemies.children.entries as Phaser.Physics.Arcade.Sprite[];
+        const activeEnemies = enemyArray.filter(e => e.active);
+        
+        // Create blue streak effects that strike all enemies
+        this.createShockBombStreaks(activeEnemies);
+
+        // After a brief delay (in slowed time), deal damage to all enemies
+        this.time.delayedCall(500, () => {
+            let totalDamage = 0;
+            activeEnemies.forEach((enemy) => {
+                if (enemy.active) {
+                    let health = enemy.getData("health") || 1;
+                    const damage = 50;
+                    health -= damage;
+                    enemy.setData("health", health);
+                    
+                    // Create vaporization effect
+                    this.createExplosion(enemy.x, enemy.y, "medium");
+                    this.createFloatingText(
+                        enemy.x,
+                        enemy.y - 20,
+                        "-50",
+                        {
+                            color: "#00aaff",
+                            fontSize: 24,
+                        }
+                    );
+                    
+                    // Award score for damage
+                    this.score += 10;
+                    totalDamage += damage;
+                    
+                    // If enemy dies, destroy it
+                    if (health <= 0) {
+                        this.totalEnemiesDefeated += 1;
+                        // Clean up enemy effects (aura, echo timer, etc.)
+                        this.cleanupEnemyEffects(enemy);
+                        this.destroyEnemyHealthBar(enemy);
+                        enemy.destroy();
+                    } else {
+                        // Update health bar for surviving enemies
+                        this.updateEnemyHealthBar(enemy);
+                    }
+                }
+            });
+
+            // Restore normal time speed
+            this.time.timeScale = 1.0;
+            
+            // Clean up streaks after animation
+            this.time.delayedCall(1000, () => {
+                this.cleanupShockBombStreaks();
+            });
+
+            // Reset meter
+            this.shockBombProgress = 0;
+            this.shockBombReady = false;
+            this.shockBombCooldownUntil = this.time.now + SHOCK_BOMB_CONFIG.cooldownAfterUse;
+            this.registry.set("shockBombProgress", 0);
+            this.registry.set("shockBombReady", false);
+
+            // Visual feedback
+            this.applyCameraFlash(300, 0, 170, 255);
+            this.showAnnouncement("SHOCKWAVE!", `${totalDamage} damage dealt!`, 0x00aaff);
+        });
+
+        return true;
+    }
+
+    private createShockBombStreaks(enemies: Phaser.Physics.Arcade.Sprite[]) {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        const playerX = this.player.x;
+        const playerY = this.player.y;
+
+        // Clear any existing streaks
+        this.cleanupShockBombStreaks();
+
+        // Create multiple blue streaks that strike enemies
+        enemies.forEach((enemy, index) => {
+            const streak = this.add.graphics();
+            streak.setDepth(1000); // Above most game objects
+            
+            const startX = playerX;
+            const startY = playerY;
+            const endX = enemy.x;
+            const endY = enemy.y;
+            
+            // Animate streak appearing
+            streak.lineStyle(4, 0x00aaff, 1);
+            streak.lineStyle(6, 0x00ffff, 0.8);
+            
+            // Draw streak with animation
+            this.tweens.add({
+                targets: {},
+                duration: 200,
+                onUpdate: (tween) => {
+                    const progress = tween.progress;
+                    const currentX = startX + (endX - startX) * progress;
+                    const currentY = startY + (endY - startY) * progress;
+                    
+                    streak.clear();
+                    streak.lineStyle(6, 0x00ffff, 0.9);
+                    streak.lineBetween(startX, startY, currentX, currentY);
+                    
+                    // Add glow effect
+                    streak.lineStyle(10, 0x00aaff, 0.4);
+                    streak.lineBetween(startX, startY, currentX, currentY);
+                },
+                onComplete: () => {
+                    // Keep streak visible briefly, then fade out
+                    this.tweens.add({
+                        targets: streak,
+                        alpha: 0,
+                        duration: 300,
+                        onComplete: () => {
+                            streak.destroy();
+                        }
+                    });
+                }
+            });
+            
+            this.shockBombStreaks.push(streak);
+        });
+
+        // Also create radial shockwave effect
+        const shockwave = this.add.graphics();
+        shockwave.setDepth(999);
+        shockwave.lineStyle(8, 0x00aaff, 0.8);
+        shockwave.strokeCircle(playerX, playerY, 0);
+        
+        this.tweens.add({
+            targets: {},
+            duration: 400,
+            onUpdate: (tween) => {
+                const radius = width * tween.progress;
+                shockwave.clear();
+                shockwave.lineStyle(8, 0x00aaff, 0.8 * (1 - tween.progress));
+                shockwave.strokeCircle(playerX, playerY, radius);
+                shockwave.lineStyle(4, 0x00ffff, 0.6 * (1 - tween.progress));
+                shockwave.strokeCircle(playerX, playerY, radius);
+            },
+            onComplete: () => {
+                shockwave.destroy();
+            }
+        });
+    }
+
+    private cleanupShockBombStreaks() {
+        this.shockBombStreaks.forEach(streak => {
+            if (streak && streak.active) {
+                streak.destroy();
+            }
+        });
+        this.shockBombStreaks = [];
+    }
+
+    public tryActivateGodMode(): boolean {
+        if (this.gameOver || this.isPaused) return false;
+        if (!this.godModeReady) return false;
+        if (this.time.now < this.godModeCooldownUntil) return false;
+        if (this.godModeActive) return false;
+
+        // Activate god mode (invincibility)
+        this.godModeActive = true;
+        this.godModeEndTime = this.time.now + GOD_MODE_CONFIG.duration;
+        this.registry.set("godModeActive", true);
+
+        // Reset meter
+        this.godModeProgress = 0;
+        this.godModeReady = false;
+        this.godModeCooldownUntil = this.time.now + GOD_MODE_CONFIG.cooldownAfterUse;
+        this.registry.set("godModeProgress", 0);
+        this.registry.set("godModeReady", false);
+
+        // Store original texture before switching
+        this.originalPlayerTexture = this.player.texture.key;
+
+        // Switch to god mode sprite
+        // Check if texture exists before switching
+        if (this.textures.exists("heroGodMode")) {
+            this.player.setTexture("heroGodMode");
+            this.player.clearTint(); // Clear any existing tint
+        } else {
+            console.warn("[God Mode] heroGodMode texture not found, using original texture with glow effect");
+            // Keep original texture but add a strong tint to indicate god mode
+            this.player.setTint(0x00aaff);
+        }
+
+        // Visual feedback
+        this.applyCameraFlash(500, 0, 170, 255);
+        this.showAnnouncement("GOD MODE!", "Invincible for 10 seconds!", 0x00aaff);
+        
+        // Create super glowing effect around player
+        this.createGodModeGlow();
+
+        // Set timer to end god mode
+        if (this.godModeTimer) {
+            this.godModeTimer.remove();
+        }
+        this.godModeTimer = this.time.addEvent({
+            delay: GOD_MODE_CONFIG.duration,
+            callback: () => {
+                this.endGodMode();
+            },
+        });
+
+        return true;
+    }
+
+    private createGodModeGlow() {
+        this.godModeGlow.setVisible(true);
+        
+        // Animated pulsing glow effect
+        this.tweens.add({
+            targets: this.godModeGlow,
+            alpha: { from: 0.6, to: 1.0 },
+            duration: 300,
+            yoyo: true,
+            repeat: -1,
+        });
+
+        // Update glow position to follow player
+        this.updateGodModeGlow();
+    }
+
+    private updateGodModeGlow() {
+        if (!this.godModeActive || !this.godModeGlow.visible) return;
+
+        const playerX = this.player.x;
+        const playerY = this.player.y;
+        const glowRadius = 50;
+        
+        this.godModeGlow.clear();
+        
+        // Outer glow (larger, more transparent)
+        this.godModeGlow.fillStyle(0x00aaff, 0.4);
+        this.godModeGlow.fillCircle(playerX, playerY, glowRadius + 20);
+        
+        // Middle glow
+        this.godModeGlow.fillStyle(0x00ccff, 0.6);
+        this.godModeGlow.fillCircle(playerX, playerY, glowRadius + 10);
+        
+        // Inner bright glow
+        this.godModeGlow.fillStyle(0x00ffff, 0.8);
+        this.godModeGlow.fillCircle(playerX, playerY, glowRadius);
+        
+        // Bright center
+        this.godModeGlow.fillStyle(0xffffff, 1.0);
+        this.godModeGlow.fillCircle(playerX, playerY, glowRadius * 0.3);
+    }
+
+    private endGodMode() {
+        this.godModeActive = false;
+        this.godModeEndTime = 0;
+        this.registry.set("godModeActive", false);
+        
+        // Restore original player sprite
+        this.player.setTexture(this.originalPlayerTexture);
+        this.applySelectedAppearance(); // Re-apply skin/cosmetic
+        
+        // Remove glow effect
+        this.godModeGlow.setVisible(false);
+        this.godModeGlow.clear();
+        this.tweens.killTweensOf(this.godModeGlow);
+        
+        if (this.godModeTimer) {
+            this.godModeTimer.remove();
+            this.godModeTimer = null;
+        }
+    }
+
     private endOverclock() {
         this.overclockActive = false;
         this.overclockEndTime = 0;
@@ -2393,7 +2784,6 @@ export class GameScene extends Phaser.Scene {
         this.overclockSpeedMultiplier = 1;
         this.overclockSpawnMultiplier = 1;
         this.totalEnemiesDefeated = 0;
-        this.maxCorruptionReached = this.corruption;
         this.tookDamageThisRun = false;
         this.peakComboMultiplier = this.comboMultiplier;
         this.timeToReachLayer6 = null;
@@ -2415,7 +2805,7 @@ export class GameScene extends Phaser.Scene {
         this.challengeRewardTimers.clear();
         this.player.clearTint();
         this.player.setAlpha(1);
-        this.applySelectedCosmetic();
+        this.applySelectedAppearance();
         this.registry.set("overclockActive", false);
         this.registry.set("overclockProgress", 0);
         this.registry.set("overclockCooldown", 1);
@@ -2511,7 +2901,7 @@ export class GameScene extends Phaser.Scene {
                 progress = Phaser.Math.Clamp(this.challengeKills / 10, 0, 1);
                 break;
             case "survive_corruption_zone": {
-                if (this.corruption >= 80) {
+                if (false) { // Corruption system removed
                     this.challengeZoneTime += this.game.loop.delta;
                 } else {
                     this.challengeZoneTime = 0;
@@ -2611,7 +3001,8 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("comboMultiplier", this.comboMultiplier);
         }
         if (reward.extraLife) {
-            this.lives += reward.extraLife;
+            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
+            this.lives = Math.min(this.lives + reward.extraLife, MAX_LIVES);
             this.registry.set("lives", this.lives);
         }
 
@@ -2769,7 +3160,6 @@ export class GameScene extends Phaser.Scene {
         const survivalTime = Math.round((this.time.now - this.runStartTime) / 1000);
         return {
             survivalTime,
-            maxCorruptionReached: this.maxCorruptionReached,
             totalEnemiesDefeated: this.totalEnemiesDefeated,
             runsWithoutDamage: this.tookDamageThisRun ? 0 : 1,
             peakComboMultiplier: Number(this.peakComboMultiplier.toFixed(2)),
@@ -3023,13 +3413,22 @@ export class GameScene extends Phaser.Scene {
         let health = 0;
         let speed = 0;
 
-        if (this.currentLayer >= 6 && Math.random() < 0.1) {
-            // Final boss (10% chance if layer 6)
+        // Final boss should only appear in prestige mode (prestigeLevel > 0)
+        // For layer 6 without prestige, use medium boss instead
+        if (this.currentLayer >= 6 && this.prestigeLevel > 0 && Math.random() < 0.1) {
+            // Final boss (only in prestige mode)
             bossKey = "finalBoss";
             bossType = "red";
             points = ENEMY_CONFIG.red.points;
             health = ENEMY_CONFIG.red.health;
             speed = ENEMY_CONFIG.red.speed;
+        } else if (this.currentLayer >= 6 && Math.random() < 0.1) {
+            // Use medium boss for layer 6 without prestige (final boss is prestige-only)
+            bossKey = "mediumFinalBoss";
+            bossType = "red";
+            points = 500;
+            health = 15;
+            speed = 100;
         } else if (this.currentLayer >= 5) {
             // Medium or mini boss
             if (Math.random() < 0.5) {
@@ -3069,7 +3468,7 @@ export class GameScene extends Phaser.Scene {
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
-            this.getCorruptionDifficultyMultiplier();
+            1.0; // Corruption system removed
         const scaledHealth = Math.ceil(
             health *
                 healthMultiplier *
@@ -3111,17 +3510,8 @@ export class GameScene extends Phaser.Scene {
 
         this.enemies.add(boss);
 
-        // Boss moves toward player
-        const angle = Phaser.Math.Angle.Between(
-            boss.x,
-            boss.y,
-            this.player.x,
-            this.player.y
-        );
-
-        const velocityX = Math.cos(angle) * scaledSpeed;
-        const velocityY = Math.sin(angle) * scaledSpeed;
-        boss.setVelocity(velocityX, velocityY);
+        // Boss movement is handled in update loop to maintain line of sight
+        boss.setVelocity(0, 0);
 
         // Show announcement card for regular boss incoming
         const layerName =
@@ -3143,42 +3533,44 @@ export class GameScene extends Phaser.Scene {
             this.spawnTimer = null;
         }
 
-        // Determine boss type based on target layer
+        // Determine boss type based on target layer (exact match, not >=)
         let bossKey = "";
         let bossType = "";
         let points = 0;
         let health = 0;
         let speed = 0;
 
-        if (targetLayer >= 6) {
-            // Final boss for layer 6
-            bossKey = "finalBoss";
+        // Final boss (layer 6) should only appear in prestige mode, not as graduation boss
+        // For layer 6, use medium boss instead
+        if (targetLayer === 6) {
+            // Use medium boss for layer 6 (final boss is prestige-only)
+            bossKey = "mediumFinalBoss";
             bossType = "red";
-            points = ENEMY_CONFIG.red.points * 2; // Double points for graduation boss
-            health = ENEMY_CONFIG.red.health;
-            speed = ENEMY_CONFIG.red.speed;
-        } else if (targetLayer >= 5) {
+            points = 500; // Higher points for graduation boss
+            health = 15; // More health
+            speed = 100;
+        } else if (targetLayer === 5) {
             // Medium boss for layer 5
             bossKey = "mediumFinalBoss";
             bossType = "red";
             points = 500; // Higher points for graduation boss
             health = 15; // More health
             speed = 100;
-        } else if (targetLayer >= 4) {
+        } else if (targetLayer === 4) {
             // Purple boss for layer 4
             bossKey = "enemyPurpleBoss";
             bossType = "purple";
             points = 250; // Higher points
             health = 12; // More health
             speed = 150;
-        } else if (targetLayer >= 3) {
+        } else if (targetLayer === 3) {
             // Blue boss for layer 3 (use blue enemy sprite)
             bossKey = "enemyBlue";
             bossType = "blue";
             points = 150;
             health = 10;
             speed = 120;
-        } else if (targetLayer >= 2) {
+        } else if (targetLayer === 2) {
             // Yellow boss for layer 2
             bossKey = "enemyYellow";
             bossType = "yellow";
@@ -3196,18 +3588,20 @@ export class GameScene extends Phaser.Scene {
 
         const gameWidth = this.scale.width;
         const gameHeight = this.scale.height;
-        const x = gameWidth + 50;
-        const y = gameHeight / 2;
+        // Position boss at fixed location (right side, center) - they will track player movement
+        const x = gameWidth * 0.85; // 85% from left (near right edge)
+        const y = gameHeight / 2; // Center vertically
 
         const boss = this.physics.add.sprite(x, y, bossKey);
         boss.setScale(0.7 * 3 * MOBILE_SCALE); // 3x larger for graduation bosses, scaled for mobile
+        boss.setImmovable(false); // Boss can move to maintain line of sight
 
         // Scale boss health and speed based on target layer
         const layerConfig =
             LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
-            this.getCorruptionDifficultyMultiplier();
+            1.0; // Corruption system removed
         const scaledHealth = Math.ceil(
             health *
                 healthMultiplier *
@@ -3235,9 +3629,19 @@ export class GameScene extends Phaser.Scene {
         boss.setData("canShoot", true); // Graduation bosses can shoot
         boss.setData("isBoss", true);
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
+        // Varying damage levels based on layer (1-6)
+        const bossDamage = Math.min(1 + (targetLayer * 0.5), 4); // 1.5, 2, 2.5, 3, 3.5, 4 damage
+        boss.setData("damage", bossDamage);
         boss.setData("lastShot", 0);
         boss.setData("baseShootInterval", 1500);
-        boss.setData("shootInterval", 1500); // Shoot every 1.5 seconds
+        boss.setData("shootInterval", 1500);
+        // Assault/rest phase system
+        boss.setData("assaultPhase", "assault"); // "assault" or "rest"
+        boss.setData("assaultStartTime", this.time.now);
+        boss.setData("assaultDuration", 15000); // 15 seconds assault (increased from 10)
+        boss.setData("restDuration", 3000); // 3 seconds rest (reduced from 5)
+        boss.setData("lastPawnSpawn", 0);
+        boss.setData("pawnSpawnInterval", 3000); // Spawn pawn every 3 seconds during assault
         boss.setData(
             "behaviors",
             this.getBehaviorsForEnemy(
@@ -3252,17 +3656,8 @@ export class GameScene extends Phaser.Scene {
 
         this.enemies.add(boss);
 
-        // Boss moves toward player
-        const angle = Phaser.Math.Angle.Between(
-            boss.x,
-            boss.y,
-            this.player.x,
-            this.player.y
-        );
-
-        const velocityX = Math.cos(angle) * scaledSpeed;
-        const velocityY = Math.sin(angle) * scaledSpeed;
-        boss.setVelocity(velocityX, velocityY);
+        // Boss movement is handled in update loop to maintain line of sight
+        boss.setVelocity(0, 0);
 
         // Visual effect - screen flash and shake
         this.applyCameraFlash(300, 255, 0, 0); // Red flash
@@ -3341,6 +3736,10 @@ export class GameScene extends Phaser.Scene {
         this.updateEnemyHealthBar(e);
 
         if (health <= 0) {
+            // Track enemy kill for boss spawn requirement
+            if (!isBoss) {
+                this.enemiesKilledThisLayer += 1;
+            }
             // Check if this was a graduation boss BEFORE adding score
             const isGraduationBoss = e.getData("isGraduationBoss") || false;
             this.totalEnemiesDefeated += 1;
@@ -3386,7 +3785,7 @@ export class GameScene extends Phaser.Scene {
                 this.lastRiskyKillTime = this.time.now;
             }
             if (isBoss || isGraduationBoss) {
-                this.addCorruption(CORRUPTION_SYSTEM.riskPlayBonus.defeatBoss);
+                // Corruption system removed
                 this.runBossesDefeated += 1;
                 this.triggerHaptic(
                     SENSORY_ESCALATION.hapticFeedback.onBossDefeat
@@ -3407,6 +3806,14 @@ export class GameScene extends Phaser.Scene {
                 this.triggerHaptic(
                     SENSORY_ESCALATION.hapticFeedback.onEnemyKill
                 );
+                
+                // Update challenge tracking for current gameplay
+                if (this.activeChallenge?.id === "clean_10_enemies") {
+                    this.challengeKills += 1;
+                }
+                if (this.activeChallenge?.id === "defeat_5_blue" && enemyType === "blue") {
+                    this.challengeBlueKills += 1;
+                }
             }
 
             // Create explosion based on enemy type and layer
@@ -3441,57 +3848,77 @@ export class GameScene extends Phaser.Scene {
                 if (this.pendingLayer >= MAX_LAYER) {
                     this.enterPrestigeMode(e.x, e.y);
                 } else {
+                    // Advance to the pending layer
                 this.currentLayer = this.pendingLayer;
+                    this.graduationBossActive = false; // Clear the flag so layer updates can continue
                 if (this.pendingLayer > this.deepestLayer) {
                     this.deepestLayer = this.pendingLayer;
                 }
-                if (this.currentLayer >= 2) {
-                    this.unlockAchievementWithAnnouncement("layer_2");
-                }
-                if (this.currentLayer >= 5) {
-                    this.unlockAchievementWithAnnouncement("layer_5");
-                }
-                if (this.currentLayer >= 3 && !this.tookDamageBeforeLayer3) {
-                    this.unlockAchievementWithAnnouncement(
-                        "clean_run_layer_3"
-                    );
-                }
-                if (
-                    this.currentLayer >= MAX_LAYER &&
-                    this.timeToReachLayer6 === null
-                ) {
-                    this.timeToReachLayer6 = Math.round(
-                        (this.time.now - this.runStartTime) / 1000
-                    );
-                }
+                    
+                    // Increase firepower slightly with each layer (5% per layer, up to 30% at layer 6)
+                    // Layer 1: 1.0, Layer 2: 1.05, Layer 3: 1.10, Layer 4: 1.15, Layer 5: 1.20, Layer 6: 1.25
+                    this.layerFireRateMultiplier = 1.0 + (this.currentLayer - 1) * 0.05;
+                    console.log(`[Firepower] Layer ${this.currentLayer} - Fire rate multiplier: ${this.layerFireRateMultiplier.toFixed(2)}`);
+                    if (this.currentLayer >= 2) {
+                        this.unlockAchievementWithAnnouncement("layer_2");
+                    }
+                    if (this.currentLayer >= 5) {
+                        this.unlockAchievementWithAnnouncement("layer_5");
+                    }
+                    if (this.currentLayer >= 3 && !this.tookDamageBeforeLayer3) {
+                        this.unlockAchievementWithAnnouncement(
+                            "clean_run_layer_3"
+                        );
+                    }
+                    if (
+                        this.currentLayer >= MAX_LAYER &&
+                        this.timeToReachLayer6 === null
+                    ) {
+                        this.timeToReachLayer6 = Math.round(
+                            (this.time.now - this.runStartTime) / 1000
+                        );
+                    }
                 this.registry.set("currentLayer", this.currentLayer);
                 this.registry.set(
                     "layerName",
-                        LAYER_CONFIG[
-                            this.currentLayer as keyof typeof LAYER_CONFIG
-                        ].name
-                );
+                            LAYER_CONFIG[
+                                this.currentLayer as keyof typeof LAYER_CONFIG
+                            ].name
+                    );
+
+                    // Reset enemy count tracking for new layer
+                    this.enemiesKilledThisLayer = 0;
+                    // Note: enemiesRequiredBeforeBoss is for regular bosses, not graduation bosses
+                    // Graduation boss requirement is calculated in updateLayer() as: 30 + (15 * nextLayer)
+                    
+                    // Resume enemy spawning for the new layer
+                    this.updateSpawnTimer();
+                    
+                    // Debug: Log layer advancement
+                    console.log(`[Layer Progression] Advanced to layer ${this.currentLayer}. Next layer will be ${this.currentLayer + 1}. Need to kill ${30 + (15 * (this.currentLayer + 1))} enemies to spawn next graduation boss.`);
+                    
+                    // Force update layer to check if we can progress further
+                    // Note: This won't spawn the next boss immediately since enemiesKilledThisLayer is 0,
+                    // but it will be called again as enemies are killed and score increases
+                    this.updateLayer();
 
                 // Update grid color when layer changes
                 this.drawBackgroundGrid();
 
                 // Visual effect for layer transition
-                this.applyCameraFlash(500, 0, 255, 0); // Green flash for success
-                this.applyCameraShake(300, 0.01);
+                    this.applyCameraFlash(500, 0, 255, 0); // Green flash for success
+                    this.applyCameraShake(300, 0.01);
 
                 // Show announcement card for boss defeated and layer advanced
                 const layerName =
-                        LAYER_CONFIG[
-                            this.currentLayer as keyof typeof LAYER_CONFIG
-                        ].name;
+                            LAYER_CONFIG[
+                                this.currentLayer as keyof typeof LAYER_CONFIG
+                            ].name;
                 this.showAnnouncement(
                     "BOSS DEFEATED!",
                     `Advanced to ${layerName}`,
                     0x00ff00 // Green color for success
                 );
-
-                // Resume normal enemy spawning
-                this.updateSpawnTimer();
 
                 // Debug log to verify layer progression
                 console.log(
@@ -3583,8 +4010,40 @@ export class GameScene extends Phaser.Scene {
     ) {
         if (this.gameOver) return;
         const enemy = _enemy as Phaser.Physics.Arcade.Sprite;
+        
+        // Graduation bosses don't cause collision damage - they only shoot
+        const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
+        if (isGraduationBoss) {
+            // Graduation bosses pass through player without causing damage
+            // They only damage via bullets
+            return;
+        }
+        
         const damageMultiplier =
             (enemy.getData("damageMultiplier") as number) || 1;
+
+        // Push player and enemy apart to prevent passing through
+        const dx = this.player.x - enemy.x;
+        const dy = this.player.y - enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0) {
+            const pushForce = 5;
+            const pushX = (dx / distance) * pushForce;
+            const pushY = (dy / distance) * pushForce;
+            
+            // Push player away from enemy
+            this.player.setVelocity(
+                this.player.body!.velocity.x + pushX,
+                this.player.body!.velocity.y + pushY
+            );
+            
+            // Push enemy away from player
+            enemy.setVelocity(
+                enemy.body!.velocity.x - pushX,
+                enemy.body!.velocity.y - pushY
+            );
+        }
 
         // Player takes damage (loses 1 life)
         // The takeDamage() method already creates an explosion at player position
@@ -3595,6 +4054,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     private takeDamage(damageMultiplier: number = 1) {
+        // God mode makes player invincible
+        if (this.godModeActive) {
+            return;
+        }
         // If player has invisibility power-up, ignore damage
         if (this.isInvisible) {
             return; // Invisible, no damage taken
@@ -3663,8 +4126,8 @@ export class GameScene extends Phaser.Scene {
         if (this.lives === 0) {
             // Game over
             this.gameOver = true;
-            this.registry.set("gameOver", true);
             this.registry.set("finalScore", this.score);
+            this.registry.set("gameOver", true);
             this.registry.set("deepestLayer", this.deepestLayer);
             this.lastRunMetrics = this.buildRunMetrics();
             this.registry.set("runMetrics", this.lastRunMetrics);
@@ -3740,6 +4203,12 @@ export class GameScene extends Phaser.Scene {
             this.player.setVelocity(0, 0);
             this.enemies.children.entries.forEach((enemy) => {
                 const e = enemy as Phaser.Physics.Arcade.Sprite;
+                if (e.body) {
+                    e.setData("preReviveVelocity", {
+                        x: e.body.velocity.x,
+                        y: e.body.velocity.y,
+                    });
+                }
                 e.setVelocity(0, 0);
             });
             this.enemyBullets.children.entries.forEach((bullet) => {
@@ -4180,9 +4649,25 @@ export class GameScene extends Phaser.Scene {
             bullet.setVisible(true);
             bullet.setScale(0.4 * MOBILE_SCALE);
 
+            // Assign different bullet sprites based on enemy type for variety
+            const enemyType = enemy.getData("type") as keyof typeof ENEMY_CONFIG;
+            const isBoss = !!enemy.getData("isBoss");
+            
+            // Use different sprites to showcase different impacts
+            if (isBoss) {
+                bullet.setTexture("yellowBullet");
+                bullet.setScale(0.6 * MOBILE_SCALE);
+            } else if (enemyType === "blue" || enemyType === "blueBuff") {
+                bullet.setTexture("blueBullet");
+            } else if (enemyType === "purple" || enemyType === "purpleFragmenter") {
+                bullet.setTexture("yellowBullet");
+            } else {
+                const bulletVariant = Math.random() < 0.5 ? "greenBullet1" : "greenBullet2";
+                bullet.setTexture(bulletVariant);
+            }
+
             const behaviors =
                 (enemy.getData("behaviors") as string[] | undefined) || [];
-            const isBoss = !!enemy.getData("isBoss");
             const target = this.getTargetPositionForEnemy(behaviors, isBoss);
             const angle =
                 Phaser.Math.Angle.Between(
@@ -4199,15 +4684,67 @@ export class GameScene extends Phaser.Scene {
             const bulletSpeed =
                 ((config as any).bulletSpeed || 200) *
                 this.prestigeDifficultyMultiplier *
-                this.getCorruptionDifficultyMultiplier();
+                1.0; // Corruption system removed
             const damageMultiplier =
                 (enemy.getData("damageMultiplier") as number) || 1;
+            // Use boss damage if set (for graduation bosses with varying damage levels)
+            const bossDamage = enemy.getData("damage") as number | undefined;
+            const finalDamage = bossDamage !== undefined ? bossDamage : damageMultiplier;
 
             const velocityX = Math.cos(angle) * bulletSpeed;
             const velocityY = Math.sin(angle) * bulletSpeed;
             bullet.setVelocity(velocityX, velocityY);
-            bullet.setData("damageMultiplier", damageMultiplier);
+            bullet.setData("damageMultiplier", finalDamage);
         }
+    }
+
+    private updateBossRhythmicMovement(boss: Phaser.Physics.Arcade.Sprite, baseSpeed: number) {
+        const currentTime = this.time.now;
+        const rhythmTime = boss.getData("rhythmTime") || currentTime;
+        const rhythmPhase = boss.getData("rhythmPhase") || 0;
+        
+        // Update phase based on time (rhythmic pattern)
+        const timeDelta = currentTime - rhythmTime;
+        const newPhase = (rhythmPhase + timeDelta * 0.001) % (Math.PI * 2);
+        boss.setData("rhythmPhase", newPhase);
+        boss.setData("rhythmTime", currentTime);
+        
+        // Calculate target position (player position)
+        const targetX = this.player.x;
+        const targetY = this.player.y;
+        
+        // Base angle toward player
+        const baseAngle = Phaser.Math.Angle.Between(
+            boss.x,
+            boss.y,
+            targetX,
+            targetY
+        );
+        
+        // Add rhythmic oscillation for more dynamic movement
+        const rhythmIntensity = Math.sin(newPhase) * 0.3;
+        const rhythmOffset = Math.cos(newPhase * 2) * 0.2;
+        
+        // Calculate rhythmic movement offset
+        const perpAngle = baseAngle + Math.PI / 2;
+        
+        // Speed variation based on rhythm (faster when closer to player)
+        const distanceToPlayer = Phaser.Math.Distance.Between(
+            boss.x, boss.y, targetX, targetY
+        );
+        const speedMultiplier = 1 + (1 - Math.min(distanceToPlayer / 400, 1)) * 0.5;
+        const effectiveSpeed = baseSpeed * (1 + rhythmIntensity * 0.3) * speedMultiplier;
+        
+        // Calculate final velocity with rhythmic pattern
+        const finalAngle = baseAngle + rhythmOffset * 0.5;
+        const velocityX = Math.cos(finalAngle) * effectiveSpeed;
+        const velocityY = Math.sin(finalAngle) * effectiveSpeed;
+        
+        // Add perpendicular component for figure-8 pattern
+        const perpVelocityX = Math.cos(perpAngle) * rhythmIntensity * baseSpeed * 0.4;
+        const perpVelocityY = Math.sin(perpAngle) * rhythmIntensity * baseSpeed * 0.4;
+        
+        boss.setVelocity(velocityX + perpVelocityX, velocityY + perpVelocityY);
     }
 
     private spawnPowerUp(x: number, y: number) {
@@ -4458,8 +4995,10 @@ export class GameScene extends Phaser.Scene {
             });
             this.powerUpTimers.set("autoShoot", timer);
         } else if (powerUpType === "lives") {
-            // Grant lives
-            this.lives += config.livesGranted;
+            // Grant lives (capped at 20 lives = 4 orbs)
+            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
+            const livesToAdd = config.livesGranted;
+            this.lives = Math.min(this.lives + livesToAdd, MAX_LIVES);
             this.registry.set("lives", this.lives);
             this.runLifeOrbs += 1;
             this.updateAchievementProgress(
@@ -4540,7 +5079,7 @@ export class GameScene extends Phaser.Scene {
         const previousScore = this.score;
         // Apply score multiplier from power-ups
         const corruptionMultiplier =
-            this.getCorruptionScoreMultiplier() * this.challengeCorruptionMultiplier;
+            1.0 * this.challengeCorruptionMultiplier; // Corruption system removed
         const velocity = this.player.body?.velocity;
         const speedRatio = velocity
             ? Math.min(2, Math.hypot(velocity.x, velocity.y) / PLAYER_CONFIG.speed)
@@ -4605,8 +5144,8 @@ export class GameScene extends Phaser.Scene {
         if (this.comboMultiplier > 2) {
             const comboBonus =
                 (this.comboMultiplier - 2) *
-                CORRUPTION_SYSTEM.riskPlayBonus.comboMultiplier;
-            this.addCorruption(comboBonus);
+                1.0; // Corruption system removed
+            // Corruption system removed
         }
 
         // Update layer based on score
@@ -4625,22 +5164,49 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        // Determine target layer based on score thresholds
-        let targetLayer = 1;
+        // Determine what layer the score qualifies for
+        let scoreBasedLayer = 1;
         for (let layer = MAX_LAYER; layer >= 1; layer--) {
             if (
                 this.score >=
                 LAYER_CONFIG[layer as keyof typeof LAYER_CONFIG].scoreThreshold
             ) {
-                targetLayer = layer;
+                scoreBasedLayer = layer;
                 break;
             }
         }
 
-        // If we've reached a new layer threshold, spawn graduation boss
-        if (targetLayer > this.currentLayer) {
-            this.pendingLayer = targetLayer;
-            this.spawnGraduationBoss(targetLayer);
+        // ENFORCE SEQUENTIAL PROGRESSION: Only allow advancing to the next layer (currentLayer + 1)
+        // Players must defeat each graduation boss before moving to the next layer
+        const nextLayer = this.currentLayer + 1;
+        
+        // Only check for graduation boss if:
+        // 1. Score qualifies for at least the next layer
+        // 2. We haven't reached max layer yet
+        if (scoreBasedLayer >= nextLayer && nextLayer <= MAX_LAYER) {
+            // Require enemies before graduation boss can spawn
+            const requiredEnemiesForGraduation = 30 + (15 * nextLayer);
+            if (this.enemiesKilledThisLayer >= requiredEnemiesForGraduation) {
+                if (nextLayer === MAX_LAYER) {
+                    console.log(`[Prestige] Spawning final graduation boss for layer ${nextLayer} - will trigger prestige when defeated`);
+                } else {
+                    console.log(`[Graduation Boss] Spawning graduation boss for layer ${nextLayer}`);
+                }
+                this.pendingLayer = nextLayer;
+                this.spawnGraduationBoss(nextLayer);
+                // Reset counter after graduation boss spawn
+                this.enemiesKilledThisLayer = 0;
+            } else {
+                // Debug: Log progress towards next graduation boss
+                const progress = Math.floor((this.enemiesKilledThisLayer / requiredEnemiesForGraduation) * 100);
+                if (this.enemiesKilledThisLayer % 5 === 0 || progress >= 90) {
+                    console.log(`[Layer Progression] Layer ${this.currentLayer} -> ${nextLayer}: ${this.enemiesKilledThisLayer}/${requiredEnemiesForGraduation} enemies (${progress}%)`);
+                }
+            }
+        } else if (nextLayer <= MAX_LAYER) {
+            // Debug: Log why next boss isn't spawning
+            const scoreThreshold = LAYER_CONFIG[nextLayer as keyof typeof LAYER_CONFIG].scoreThreshold;
+            console.log(`[Layer Progression] Need ${scoreThreshold - this.score} more score to qualify for layer ${nextLayer} (current: ${this.score}, required: ${scoreThreshold})`);
         }
     }
 
@@ -4760,14 +5326,15 @@ export class GameScene extends Phaser.Scene {
         this.nextSpawnTime = SPAWN_CONFIG.initialDelay;
         this.currentLayer = 1;
         this.deepestLayer = 1;
+        this.layerFireRateMultiplier = 1; // Reset to base for new game
         this.prestigeLevel = 0;
         this.prestigeDifficultyMultiplier = 1;
         this.prestigeScoreMultiplier = 1;
         this.prestigeResetAvailable = true;
-        this.corruption = CORRUPTION_SYSTEM.currentCorruption;
+        // Corruption system removed
         this.lastNoHitRewardTime = 0;
         this.lastRiskyKillTime = 0;
-        this.currentCorruptionTier = "low";
+        // Corruption system removed
         this.overclockActive = false;
         this.overclockReadyAt = 0;
         this.overclockActivations = 0;
@@ -4787,6 +5354,7 @@ export class GameScene extends Phaser.Scene {
         this.graduationBossActive = false;
         this.pendingLayer = 1;
         this.applyGameplaySettings();
+        this.reviveCount = 0;
 
         // Reset player to dynamic position
         const gameWidth = this.scale.width;
@@ -4828,12 +5396,14 @@ export class GameScene extends Phaser.Scene {
 
         // Reset registry
         this.registry.set("score", 0);
+        this.registry.set("finalScore", 0);
         this.registry.set("gameOver", false);
         this.registry.set("comboMultiplier", 1);
         this.registry.set("currentLayer", 1);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
         this.registry.set("lives", this.lives);
+        this.registry.set("reviveCount", 0);
         this.registry.set("prestigeChampion", false);
         this.registry.set("prestigeLevel", this.prestigeLevel);
         this.registry.set(
@@ -4844,7 +5414,6 @@ export class GameScene extends Phaser.Scene {
             "prestigeDifficultyMultiplier",
             this.prestigeDifficultyMultiplier
         );
-        this.registry.set("corruption", this.corruption);
         this.registry.set("overclockActive", false);
         this.registry.set("overclockProgress", 0);
         this.registry.set("overclockCooldown", 0);
@@ -4870,8 +5439,7 @@ export class GameScene extends Phaser.Scene {
         this.resetAdaptiveLearning();
         this.startBehaviorResetTimer();
         this.updatePrestigeEffects();
-        this.startCorruptionTimer();
-        this.updateCorruptionEffects();
+        // Corruption system removed
 
         // Reset spawn timer
         if (this.spawnTimer) {
@@ -4901,6 +5469,7 @@ export class GameScene extends Phaser.Scene {
 
         this.currentLayer = 1;
         this.pendingLayer = 1;
+        this.layerFireRateMultiplier = 1; // Reset to base for new prestige cycle
         if (this.deepestLayer < MAX_LAYER) {
             this.deepestLayer = MAX_LAYER;
         }
@@ -5024,25 +5593,26 @@ export class GameScene extends Phaser.Scene {
             },
         });
 
-        if (PRESTIGE_CONFIG.visualEffects.corruptionVFX) {
-            const glitchIntensity =
-                PRESTIGE_CONFIG.visualEffects.gridGlitchIntensity +
-                this.prestigeLevel * 0.05;
-            this.prestigeGlitchTimer = this.time.addEvent({
-                delay: 350,
-                loop: true,
-                callback: () => {
-                    if (!this.backgroundGrid) return;
-                    const offset = 6 * glitchIntensity;
-                    this.backgroundGrid.setPosition(
-                        Phaser.Math.FloatBetween(-offset, offset),
-                        Phaser.Math.FloatBetween(-offset, offset)
-                    );
-                    this.backgroundGrid.setAlpha(
-                        Phaser.Math.Clamp(0.6 + glitchIntensity, 0.6, 0.95)
-                    );
-                },
-            });
-        }
+        // Prestige glitch vibration disabled - was causing screen shake
+        // if (PRESTIGE_CONFIG.visualEffects.corruptionVFX) {
+        //     const glitchIntensity =
+        //         PRESTIGE_CONFIG.visualEffects.gridGlitchIntensity +
+        //         this.prestigeLevel * 0.05;
+        //     this.prestigeGlitchTimer = this.time.addEvent({
+        //         delay: 350,
+        //         loop: true,
+        //         callback: () => {
+        //             if (!this.backgroundGrid) return;
+        //             const offset = 6 * glitchIntensity;
+        //             this.backgroundGrid.setPosition(
+        //                 Phaser.Math.FloatBetween(-offset, offset),
+        //                 Phaser.Math.FloatBetween(-offset, offset)
+        //             );
+        //             this.backgroundGrid.setAlpha(
+        //                 Phaser.Math.Clamp(0.6 + glitchIntensity, 0.6, 0.95)
+        //             );
+        //         },
+        //     });
+        // }
     }
 }
