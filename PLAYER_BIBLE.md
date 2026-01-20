@@ -58,7 +58,8 @@ As a Neon Sentinel, your mission is to:
 #### Desktop
 - **WASD** or **Arrow Keys**: Move your Sentinel
 - **Spacebar** or **Mouse Click**: Shoot bullets
-- **Q**: Activate Overclock Mode
+- **Q**: Activate Overclock Mode or God Mode (when ready)
+- **B**: Activate Shock Bomb (when ready)
 - **ESC**: Pause/Resume game
 - **R**: Restart (when game over)
 - **M**: Return to Menu
@@ -77,7 +78,7 @@ As a Neon Sentinel, your mission is to:
 
 3. **Enemies**: Enemies spawn from the right side and move toward you. They bounce off the top, bottom, and left walls. Destroy them with your bullets to score points.
 
-4. **Lives**: You start with **1 life**. Collect **Life Orbs** (purple orbs) to gain 2 additional lives each. There's no cap on lives—collect as many as you can!
+4. **Lives**: You start with **1 life**. Collect **Life Orbs** (purple orbs) to gain 2 additional lives each. Lives are capped at **20 lives maximum** (4 orbs × 5 lives per orb).
 
 5. **Collisions**: If an enemy touches you, you lose **1 life**. The enemy does NOT die—only you take damage. You have a brief invincibility period after taking damage.
 
@@ -163,7 +164,8 @@ Each enemy type represents a different level of system corruption. Understanding
 **Graduation Bosses** are special bosses that must be defeated to advance to the next system layer. They are:
 - **3x larger** than normal bosses
 - **10x tougher** (10x health multiplier)
-- **Can shoot**: Fires a 3-bullet spread pattern
+- **Can shoot**: Fires a 3-bullet spread pattern during assault phases
+- **Assault Phases**: 15 seconds of aggressive shooting, 3 seconds rest (increased assault duration for more challenge)
 - **Unique**: Each layer has a specific graduation boss type
 - **Required**: You MUST defeat them to progress to the next layer
 
@@ -272,14 +274,14 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 
 ### 💎 Life Orb
 - **Sprite**: Purple orb with glow
-- **Spawn Chance**: 35% chance from all enemies
-- **Effect**: Grants **+2 lives** (no cap—collect as many as you can!)
+- **Spawn Chance**: 12% chance from all enemies (reduced for balance)
+- **Effect**: Grants **+2 lives** (capped at 20 lives = 4 orbs maximum)
 - **Despawn**: Disappears after 6 seconds if not collected
-- **Strategy**: **PRIORITIZE THESE!** Lives are your most valuable resource. Collect every Life Orb you see.
+- **Strategy**: **PRIORITIZE THESE!** Lives are your most valuable resource. Collect every Life Orb you see, but remember there's a cap of 20 lives total.
 
 ### 🔥 Firepower Upgrade
 - **Sprite**: Yellow power-up icon
-- **Spawn Chance**: 8% chance from all enemies
+- **Spawn Chance**: 5% chance from all enemies (reduced for balance)
 - **Duration**: 15 seconds
 - **Effect**: 
   - Increases firepower level by **0.5** per power-up
@@ -289,7 +291,7 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 
 ### 👻 Invisibility
 - **Sprite**: Green power-up icon
-- **Spawn Chance**: 15% chance from all enemies
+- **Spawn Chance**: 10% chance from all enemies (reduced for balance)
 - **Duration**: 10 seconds
 - **Effect**: Makes you **invisible** and **invincible** to all damage
 - **Visual**: Player becomes semi-transparent with pulsing effect
@@ -297,11 +299,12 @@ Power-ups are "system exploits" that grant temporary advantages. Most power-ups 
 
 ### Power-Up Mechanics
 
-- **Drop Chances**:
-  - **Life Orbs**: 35% from any enemy
-  - **Firepower**: 8% from any enemy
-  - **Invisibility**: 15% from any enemy
-  - **Other Power-Ups**: 25% from purple/red enemies or bosses
+- **Drop Chances** (reduced for better game balance):
+  - **Life Orbs**: 12% from any enemy (reduced from 35%)
+  - **Firepower**: 5% from any enemy (reduced from 8%)
+  - **Invisibility**: 10% from any enemy (reduced from 15%)
+  - **Other Power-Ups**: 15% from purple/red enemies or bosses (reduced from 25%)
+- **Lives Cap**: Maximum of 20 lives (4 orbs × 5 lives per orb). Collecting more Life Orbs won't increase lives beyond this cap.
 - **Despawn Timer**: All power-ups (including Life Orbs) disappear after **6 seconds** if not collected
 - **Fade Out**: Power-ups start fading at **5 seconds**, then disappear at **6 seconds**
 - **Floating Animation**: Power-ups float up and down to make them more visible
@@ -569,14 +572,51 @@ Tips:
 
 Overclock Mode is a manual power surge you can trigger mid-run:
 
-- **Activation**: Press `Q` (desktop)
+- **Activation**: Press `Q` (desktop) when ready
 - **Duration**: 15 seconds of boosted speed, fire rate, and score
 - **Risk**: Enemy spawns increase during Overclock
 - **Limits**: Cooldown between uses and a max number of activations per run
 
 Tips:
 - Use Overclock during dense waves or boss phases for max points
-- Don’t trigger it when you’re low on lives or boxed in
+- Don't trigger it when you're low on lives or boxed in
+- **Note**: Shares Q key with God Mode - whichever is ready activates first
+
+## 💣 Shock Bomb
+
+Shock Bomb is a powerful area-of-effect ability:
+
+- **Unlock**: Reach 10,000 lifetime score to unlock
+- **Activation**: Press `B` (desktop) when meter is full
+- **Effect**: Instantly kills 70% of all enemies on screen
+- **Meter**: Fills automatically over time (~2 seconds to fill)
+- **Cooldown**: 30 seconds after use before meter starts refilling
+- **Visual**: Meter displayed in top-right UI with glow when ready (hidden until unlocked)
+
+Tips:
+- Perfect for clearing overwhelming enemy waves
+- Use when surrounded or during boss phases with adds
+- On mobile, tap the meter to activate
+- Check your Profile page to see progress toward unlocking
+
+## 🛡️ God Mode
+
+God Mode grants temporary invincibility:
+
+- **Unlock**: Reach 25,000 lifetime score to unlock
+- **Activation**: Press `Q` (desktop) when meter is full
+- **Effect**: 10 seconds of complete invincibility
+- **Meter**: Fills automatically over time (~3.3 seconds to fill)
+- **Cooldown**: 40 seconds after use before meter starts refilling
+- **Visual**: Meter displayed in top-right UI with glow when ready (hidden until unlocked)
+- **Sprite Change**: Your Sentinel transforms into a special God Mode sprite while active
+
+Tips:
+- Use when low on lives or in dangerous situations
+- Great for passing through enemy waves safely
+- Combine with aggressive play for high-risk, high-reward runs
+- **Note**: Shares Q key with Overclock - whichever is ready activates first
+- Check your Profile page to see progress toward unlocking
 
 ---
 
@@ -684,12 +724,40 @@ Achievements unlock badges and cosmetics that persist between runs:
 
 - **Tiers**: Basic, Intermediate, Advanced, Legendary
 - **Badges**: Displayed on your Hall of Fame profile
-- **Cosmetics**: Select unlocked cosmetics in the Hall of Fame page
-- **Progress Alerts**: “About to unlock” warnings appear near 70% progress
+- **Cosmetics**: Select unlocked cosmetics in the Profile page
+- **Progress Alerts**: "About to unlock" warnings appear near 70% progress
 
 Tips:
 - Check the pause menu for your closest milestones
 - Focus on one goal per run for faster unlocks
+
+## 💰 Coin System
+
+The game features a daily coin system:
+
+- **Daily Coins**: Receive 3 coins every day (resets at midnight)
+- **Usage**: Coins can be used for special features and marketplace items
+- **Tracking**: View your available coins on the landing page
+- **Persistence**: Coins persist between sessions
+
+## 👤 Profile & Customization
+
+Access your profile from the main menu to:
+
+- **View Stats**: Lifetime score, playtime, enemies defeated, achievements
+- **Best Run**: Detailed breakdown of your best performance
+- **Heroes**: Unlock and select different Sentinel heroes at score milestones:
+  - Sentinel Standard (0 pts)
+  - Sentinel Vanguard (25,000 pts)
+  - Sentinel Ghost (75,000 pts)
+  - Sentinel Drone (150,000 pts)
+- **Skins**: Unlock and select cosmetic skins with color filters:
+  - Default (0 pts)
+  - Crimson (30,000 pts)
+  - Aurora (90,000 pts)
+  - Void (160,000 pts)
+- **Recent Records**: Track personal bests across different metrics
+- **Overall Rank**: See your position in the global leaderboard (requires wallet)
 
 ---
 
@@ -701,5 +769,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.8*
+*Last Updated: Game Version 1.8 - 2026-01-27 (Game Balance Update)*
 

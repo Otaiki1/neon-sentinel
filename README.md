@@ -21,7 +21,11 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Dynamic Difficulty Evolution**: Enemy behavior changes over time (formations, prediction, coordinated fire)
 -   **Corruption Meter**: Risk-reward system that boosts score and enemy aggression
 -   **Overclock Mode**: Manual mid-run boost with cooldown and charge limits
+-   **Shock Bomb**: Area-of-effect ability that kills 70% of on-screen enemies
+-   **God Mode**: Temporary invincibility ability with meter-based activation
+-   **Coin System**: Daily coins for special features and rewards
 -   **Achievements & Badges**: Meta-progression with unlockable cosmetics
+-   **Profile & Customization**: Unlock heroes, skins, and view detailed stats
 -   **Mid-Run Challenges**: Random micro-challenges with bonus rewards
 -   **Rotating Layer Modifiers**: Time-based layer variants with unique constraints
 -   **Almost Success Feedback**: Game over insights that nudge another run
@@ -29,7 +33,7 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Sensory Escalation**: Scanlines, glitching, and haptics ramp with danger
 -   **Run Stats HUD**: Live survival time, accuracy, and dodge tracking
 -   **Floating Combat Text**: Damage numbers, combo pings, and milestones
--   **Lives System**: Collect Life Orbs for unlimited lives
+-   **Lives System**: Collect Life Orbs (capped at 20 lives = 4 orbs)
 -   **Weekly Leaderboards**: In-game top scores with prestige level tracked
 -   **Hall of Fame**: Dedicated leaderboard page with rotating categories
 -   **Wallet Integration**: Connect wallet or play anonymously
@@ -99,6 +103,8 @@ neon-sentinel/
 
 -   **WASD** or **Arrow Keys**: Move
 -   **Spacebar** or **Mouse Click**: Shoot
+-   **Q**: Activate Overclock Mode or God Mode (when ready)
+-   **B**: Activate Shock Bomb (when ready)
 -   **ESC**: Pause/Resume
 -   **R**: Restart (when game over)
 -   **M**: Return to Menu
@@ -180,9 +186,26 @@ The game features 6 system layers, each with increasing difficulty:
 
 ### Overclock Mode
 
-- **Activation**: Press `Q` to trigger a timed power surge
+- **Activation**: Press `Q` to trigger a timed power surge (when ready)
 - **Effects**: Faster movement and firing, higher score, more enemy spawns
 - **Limits**: Cooldown between activations and a max number per run
+
+### Shock Bomb
+
+- **Unlock**: Reach 10,000 lifetime score to unlock
+- **Activation**: Press `B` to activate (when meter is full)
+- **Effect**: Instantly kills 70% of all enemies on screen
+- **Meter**: Fills over time during gameplay (~2 seconds to fill)
+- **Cooldown**: 30 seconds after use before meter starts refilling
+
+### God Mode
+
+- **Unlock**: Reach 25,000 lifetime score to unlock
+- **Activation**: Press `Q` to activate (when meter is full)
+- **Effect**: 10 seconds of complete invincibility
+- **Meter**: Fills over time during gameplay (~3.3 seconds to fill)
+- **Cooldown**: 40 seconds after use before meter starts refilling
+- **Note**: Shares Q key with Overclock - whichever is ready activates first
 
 ### Achievements & Badges
 
@@ -215,6 +238,12 @@ The game features 6 system layers, each with increasing difficulty:
 - **Sidegrades**: Speed, fire rate, piercing, and durability trade-offs
 - **Unlocks**: Progress milestones unlock additional Kernels
 
+### Coin System
+
+- **Daily Coins**: Receive 3 coins daily (resets at midnight)
+- **Usage**: Used for special features and marketplace items
+- **Tracking**: View available coins on the landing page
+
 ### Sensory Escalation
 
 - **Layer FX**: Scanlines and distortion intensify as you progress
@@ -245,9 +274,15 @@ The game features 6 system layers, each with increasing difficulty:
 -   **Fire Rate Boost**: 2x shooting speed (10s)
 -   **Score Multiplier**: 2x points (15s)
 -   **Auto-Shoot**: Continuous shooting (5s)
--   **Life Orb**: +2 lives (no cap)
+-   **Life Orb**: +2 lives (capped at 20 lives = 4 orbs)
 -   **Firepower Upgrade**: Multi-bullet shots (15s)
 -   **Invisibility**: Invincibility (10s)
+
+**Spawn Rates** (reduced for better balance):
+- **Life Orbs**: 12% chance from all enemies
+- **Firepower**: 5% chance from all enemies
+- **Invisibility**: 10% chance from all enemies
+- **Other Power-Ups**: 15% chance from purple/red enemies or bosses
 
 ---
 
@@ -302,6 +337,16 @@ The game is fully optimized for mobile devices:
 
 ---
 
+## 👤 Profile & Customization
+
+- **Profile Page**: Access via main menu to view detailed stats
+- **Heroes**: Unlock different Sentinel heroes at score milestones
+- **Skins**: Unlock cosmetic skins with color filters
+- **Lifetime Stats**: Track total score, playtime, enemies defeated
+- **Best Run Stats**: View detailed breakdown of your best performance
+- **Achievements**: See all achievements and progress
+- **Recent Records**: Track personal bests across different metrics
+
 ## 🎯 Development
 
 ### Running Locally
@@ -349,6 +394,7 @@ Currently no automated tests. Manual testing recommended for:
 -   Anonymous scores still appear as "Anonymous" on the local leaderboard
 -   No sound effects or music
 -   Limited sprite variety for some power-ups
+-   Overclock and God Mode both use Q key (whichever is ready activates)
 
 ---
 
@@ -358,12 +404,12 @@ Currently no automated tests. Manual testing recommended for:
 
 -   [ ] Backend API integration
 -   [ ] Sound effects and music
--   [ ] Achievement system
 -   [ ] Tournament mode
 -   [ ] Replay system
 -   [ ] Additional enemy types
 -   [ ] More power-up varieties
 -   [ ] Save/load progress
+-   [ ] Separate key bindings for Overclock and God Mode
 
 ---
 
@@ -395,4 +441,4 @@ For issues, questions, or contributions, please [open an issue](link-to-issues) 
 
 **Built with ❤️ by the Neon Sentinel team**
 
-_Last Updated: 2026-01_
+_Last Updated: 2026-01-27 (Game Balance Update)_

@@ -59,9 +59,12 @@ neon-sentinel/
 │   │   └── Methods.tsx
 │   ├── services/         # Business logic
 │   │   ├── scoreService.ts     # Leaderboard logic
-│   │   └── achievementService.ts # Achievement persistence + cosmetics
-│   │   └── rotatingLayerService.ts # Rotating modifier schedule helper
-│   │   └── kernelService.ts # Kernel selection + unlock tracking
+│   │   ├── achievementService.ts # Achievement persistence + cosmetics
+│   │   ├── rotatingLayerService.ts # Rotating modifier schedule helper
+│   │   ├── kernelService.ts # Kernel selection + unlock tracking
+│   │   ├── coinService.ts # Daily coin system
+│   │   ├── sessionRewardService.ts # Session tracking and rewards
+│   │   └── settingsService.ts # Gameplay settings persistence
 │   └── assets/           # Static assets
 │       └── sprites/       # SVG game sprites
 ├── public/               # Public assets
@@ -340,6 +343,54 @@ OVERCLOCK_CONFIG = {
 - Manual activation (`Q`) with cooldown + max charges per run
 - Temporary multipliers for speed, fire rate, score, and spawn rate
 - UI exposes remaining duration and cooldown
+- **Note**: Shares Q key with God Mode - whichever is ready activates first
+
+### Shock Bomb Configuration
+
+```typescript
+SHOCK_BOMB_CONFIG = {
+    activationKey: "B",
+    fillRate: 0.5, // Percentage per second (fills in ~2 seconds)
+    killPercentage: 0.7, // Kills 70% of enemies
+    cooldownAfterUse: 30000, // 30 seconds cooldown
+    unlockScore: 10000, // Unlock at 10,000 lifetime score
+}
+```
+
+**Shock Bomb Mechanics**:
+- **Unlock Requirement**: 10,000 lifetime score (checked via `abilityService.isShockBombUnlocked()`)
+- Meter-based ability that fills over time during gameplay
+- Activation (`B`) instantly kills 70% of all enemies on screen
+- Meter fills at 0.5% per second (~2 seconds to full)
+- 30-second cooldown after use before meter starts refilling
+- Visual meter displayed in UI with glow effect when ready
+- Meter UI only created if unlocked (hidden if locked)
+- Attempting to activate when locked shows "LOCKED" announcement
+
+### God Mode Configuration
+
+```typescript
+GOD_MODE_CONFIG = {
+    activationKey: "Q",
+    fillRate: 0.3, // Percentage per second (fills in ~3.3 seconds)
+    duration: 10000, // 10 seconds invincibility
+    cooldownAfterUse: 40000, // 40 seconds cooldown
+    unlockScore: 25000, // Unlock at 25,000 lifetime score
+}
+```
+
+**God Mode Mechanics**:
+- **Unlock Requirement**: 25,000 lifetime score (checked via `abilityService.isGodModeUnlocked()`)
+- Meter-based ability that fills over time during gameplay
+- Activation (`Q`) grants 10 seconds of complete invincibility
+- Meter fills at 0.3% per second (~3.3 seconds to full)
+- 40-second cooldown after use before meter starts refilling
+- Visual meter displayed in UI with glow effect when ready
+- Meter UI only created if unlocked (hidden if locked)
+- Attempting to activate when locked shows "LOCKED" announcement
+- Player sprite switches to `heroGodMode` texture while active (with fallback tint if texture missing)
+- Camera flash and announcement card on activation
+- **Note**: Shares Q key with Overclock - whichever is ready activates first
 
 ### Leaderboard Categories Configuration
 
@@ -448,8 +499,17 @@ SENSORY_ESCALATION = {
         scanlineIntensity: { layer1: 0.0, layer3: 0.1, layer5: 0.3, layer6: 0.5 },
         screenDistortion: { layer1: 0.0, layer3: 0.05, layer5: 0.15, layer6: 0.25 },
     },
-    uiGlitching: { enabledAt: "layer_4" },
-    hapticFeedback: { onEnemyKill: { duration: 50, intensity: 0.6 } },
+    uiGlitching: {
+        enabledAt: "layer_4",
+        glitchIntensity: { low: 0.1, medium: 0.3, high: 0.6 },
+    },
+    hapticFeedback: {
+        onEnemyKill: { duration: 50, intensity: 0.6 },
+        onBossDefeat: { duration: 300, intensity: 1.0 },
+        onPowerUpCollect: { duration: 100, intensity: 0.8 },
+        onDamage: { duration: 200, intensity: 0.9 },
+        onCorruptionCritical: { duration: 1000, pattern: "pulse" },
+    },
 }
 ```
 
@@ -457,6 +517,37 @@ SENSORY_ESCALATION = {
 - GameScene updates scanlines, distortion, pulses, and BPM each frame
 - UI glitch intensity is pushed via registry key `uiGlitchIntensity`
 - Haptics use `navigator.vibrate()` with optional pulse patterns
+
+### Customizable Settings Configuration
+
+```typescript
+CUSTOMIZABLE_SETTINGS = {
+    difficulty: {
+        easyMode: { enemySpeedReduction: 0.8, spawnRateReduction: 0.7 },
+        hardMode: { enemySpeedIncrease: 1.3, spawnRateIncrease: 1.5 },
+    },
+    accessibility: {
+        colorBlindMode: true,
+        highContrast: true,
+        dyslexiaFont: true,
+        reduceMotion: true,
+        reduceFlash: true,
+    },
+    visual: {
+        uiScale: [0.5, 1.0, 1.5, 2.0],
+        uiOpacity: [0.5, 1.0],
+        screenShakeIntensity: [0.0, 0.5, 1.0],
+        gridIntensity: [0.3, 0.7, 1.0],
+    },
+}
+```
+
+**Settings Mechanics**:
+- Settings persisted in localStorage via `settingsService`
+- Applied at game start via `GameScene.applyGameplaySettings()`
+- Difficulty modes affect enemy speed and spawn rates
+- Accessibility options modify visual/audio feedback
+- Visual settings adjust UI scaling and effects intensity
 
 ### Mid-Run Challenges Configuration
 
@@ -534,10 +625,10 @@ adjustedInterval = baseInterval / (spawnRateMultiplier * difficultyIncrease^spaw
 
 ```typescript
 POWERUP_CONFIG = {
-    spawnChance: 0.25,            // 25% chance from purple/red enemies
-    livesSpawnChance: 0.35,        // 35% chance for lives from all enemies
-    firepowerSpawnChance: 0.08,    // 8% chance for firepower
-    invisibilitySpawnChance: 0.15, // 15% chance for invisibility
+    spawnChance: 0.15,            // 15% chance from purple/red enemies (reduced from 25%)
+    livesSpawnChance: 0.12,        // 12% chance for lives from all enemies (reduced from 35%)
+    firepowerSpawnChance: 0.05,    // 5% chance for firepower (reduced from 8%)
+    invisibilitySpawnChance: 0.10, // 10% chance for invisibility (reduced from 15%)
     types: {
         speed: {
             key: "power_up",
@@ -667,12 +758,14 @@ function isMobileDevice(): boolean {
 // Regular Boss: Random chance based on layerConfig.bossChance
 // Graduation Boss: Spawns when score threshold reached
 // Graduation Boss: 3x size, 10x health multiplier
+// Graduation Boss Assault: 15 seconds assault phase, 3 seconds rest (increased from 10s/5s)
 ```
 
 **Enemy Behavior**:
 - **Movement**: Pursuit + predictive movement in later phases
 - **Graduation Boss Movement**: Bounces off all walls (including right edge)
 - **Shooting**: Blue enemies shoot every 1.5 seconds; coordinated fire syncs in phase 3+
+- **Graduation Boss Assault Phases**: 15 seconds of aggressive shooting (3-bullet spread), 3 seconds rest (increased assault duration)
 - **Space Denial**: Graduation bosses add spread bursts in later phases
 - **Synergy Effects**:
   - Shield drones reduce damage for nearby enemies
@@ -706,10 +799,10 @@ function isMobileDevice(): boolean {
 
 **Spawn Logic**:
 ```typescript
-// From enemies: 25% chance from purple/red enemies
-// Lives: 35% chance from all enemies
-// Firepower: 8% chance from all enemies
-// Invisibility: 15% chance from all enemies
+// From enemies: 15% chance from purple/red enemies (reduced from 25%)
+// Lives: 12% chance from all enemies (reduced from 35%)
+// Firepower: 5% chance from all enemies (reduced from 8%)
+// Invisibility: 10% chance from all enemies (reduced from 15%)
 // Other: Random from remaining types
 ```
 
@@ -718,9 +811,14 @@ function isMobileDevice(): boolean {
 - **Fire Rate**: Sets `fireRateMultiplier` to 0.5
 - **Score**: Sets `scoreMultiplier` to 2
 - **Auto-Shoot**: Sets `autoShootEnabled` to true
-- **Lives**: Adds 2 to `lives` count
+- **Lives**: Adds 2 to `lives` count (capped at MAX_LIVES = 20)
 - **Firepower**: Increases `firepowerLevel` by 0.5
 - **Invisibility**: Sets `isInvisible` to true, player alpha to 0.3
+
+**Lives Cap**:
+- Maximum lives: 20 (4 orbs × 5 lives per orb)
+- Enforced when collecting Life Orbs and challenge rewards
+- Prevents unlimited life accumulation
 
 **Timer Management**:
 ```typescript
@@ -882,6 +980,10 @@ update() {
 - `adjustSensitivity()`: Updates sensitivity and localStorage
 - `createPauseButton()`: Creates pause button
 - `createButton()`: Button creation helper
+- `createShockBombMeter()`: Creates shock bomb meter UI
+- `createGodModeMeter()`: Creates god mode meter UI
+- `renderShockBombFill()`: Updates shock bomb meter fill
+- `renderGodModeFill()`: Updates god mode meter fill
 
 ### Floating Combat Text
 
@@ -998,6 +1100,11 @@ handlePlayerPowerUpCollision(player, powerUp) {
 - `overclockProgress`: Remaining duration (0-1)
 - `overclockCooldown`: Remaining cooldown (0-1)
 - `overclockCharges`: Remaining activations
+- `shockBombProgress`: Shock bomb meter fill (0-1)
+- `shockBombReady`: Boolean for shock bomb ready state
+- `godModeProgress`: God mode meter fill (0-1)
+- `godModeReady`: Boolean for god mode ready state
+- `godModeActive`: Boolean for active god mode
 - `challengeActive`: Whether a micro-challenge is live
 - `challengeTitle`: UI banner title
 - `challengeDescription`: UI banner description
@@ -1239,6 +1346,64 @@ if (returnToMenu) returnToMenu();
 - Persist unlocked achievements and progress
 - Track lifetime totals (score/playtime)
 - Provide unlocked badges/cosmetics and selection
+- Manage hero and skin unlocks
+- Track profile stats and best runs
+
+### Coin Service
+
+**Location**: `src/services/coinService.ts`
+
+**Responsibilities**:
+- Daily coin system (3 coins per day)
+- Coin consumption for special features
+- Coin tracking and persistence
+- Daily reset at midnight
+
+**Functions**:
+- `getAvailableCoins()`: Get current coin count
+- `consumeCoins(cost)`: Spend coins (returns success/failure)
+- `addCoins(amount)`: Add coins to balance
+- `getDailyCoinCount()`: Get daily coin allocation
+
+### Ability Service
+
+**Location**: `src/services/abilityService.ts`
+
+**Responsibilities**:
+- Check unlock status for Shock Bomb and God Mode
+- Calculate unlock progress and remaining score needed
+- Uses lifetime score from achievement service
+
+**Functions**:
+- `isShockBombUnlocked()`: Check if Shock Bomb is unlocked (10,000 lifetime score)
+- `isGodModeUnlocked()`: Check if God Mode is unlocked (25,000 lifetime score)
+- `getShockBombUnlockProgress()`: Get unlock progress (0-1)
+- `getGodModeUnlockProgress()`: Get unlock progress (0-1)
+- `getShockBombRemainingScore()`: Get remaining score needed
+- `getGodModeRemainingScore()`: Get remaining score needed
+
+### Session Reward Service
+
+**Location**: `src/services/sessionRewardService.ts`
+
+**Responsibilities**:
+- Track session start/end times
+- Update lifetime playtime
+- Manage session-based rewards
+
+### Settings Service
+
+**Location**: `src/services/settingsService.ts`
+
+**Responsibilities**:
+- Persist gameplay settings (difficulty, accessibility, visual)
+- Load/save user preferences
+- Apply settings to game configuration
+
+**Settings Types**:
+- `difficulty`: Easy/Hard mode modifiers
+- `accessibility`: Color blind, high contrast, dyslexia font, reduced motion/flash
+- `visual`: UI scale, opacity, screen shake, grid intensity
 
 ---
 
@@ -1372,6 +1537,6 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.8*
+*Last Updated: Game Version 1.8 - 2026-01-27 (Game Balance Update)*
 *Maintained by: Neon Sentinel Development Team*
 
