@@ -4,9 +4,6 @@ import {
   FAILURE_FEEDBACK,
   LAYER_CONFIG,
   MOBILE_SCALE,
-  OVERCLOCK_CONFIG,
-  SHOCK_BOMB_CONFIG,
-  GOD_MODE_CONFIG,
   UI_CONFIG,
 } from '../config';
 import {
@@ -56,12 +53,13 @@ export class UIScene extends Phaser.Scene {
   private achievementTexts: Phaser.GameObjects.Text[] = [];
   private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
   private celebrationLines: Phaser.GameObjects.Text[] = [];
-  private uiTextColor = UI_CONFIG.neonGreen;
+  private uiTextColor = UI_CONFIG.neonGreen as string;
   private uiOpacityMultiplier = 1;
-  private uiMenuFont = UI_CONFIG.menuFont;
-  private uiScoreFont = UI_CONFIG.scoreFont;
-  private uiBodyFont = UI_CONFIG.bodyFont;
-  private uiLogoFont = UI_CONFIG.logoFont;
+  private uiMenuFont = UI_CONFIG.menuFont as string;
+  private uiScoreFont = UI_CONFIG.scoreFont as string;
+  private uiBodyFont = UI_CONFIG.bodyFont as string;
+  private uiLogoFont = UI_CONFIG.logoFont as string;
+  // @ts-ignore - Set in update() method
   private uiGlitchIntensity = 0;
   private uiGlitchNextTime = 0;
   private uiGlitchTargets: Phaser.GameObjects.Text[] = [];
@@ -983,6 +981,7 @@ export class UIScene extends Phaser.Scene {
   }
 
 
+  // @ts-ignore - Reserved for future use
   private createRunStatsDisplay(baseX: number, startY: number, uiScale: number) {
     const labels = [
       'TIME',
@@ -1007,6 +1006,7 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  // @ts-ignore - Reserved for future use
   private updateRunStats(
     _parent: Phaser.Data.DataManager,
     stats: {
@@ -1038,7 +1038,7 @@ export class UIScene extends Phaser.Scene {
 
   private createShockBombMeter() {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Smaller height for top placement
@@ -1093,7 +1093,7 @@ export class UIScene extends Phaser.Scene {
 
   private createGodModeMeter() {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Smaller height for top placement
@@ -1195,7 +1195,7 @@ export class UIScene extends Phaser.Scene {
 
   private updateShockBomb(_parent: Phaser.Data.DataManager, value: number) {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Match createShockBombMeter
@@ -1206,7 +1206,7 @@ export class UIScene extends Phaser.Scene {
 
   private updateShockBombReady(_parent: Phaser.Data.DataManager, ready: boolean) {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Match createShockBombMeter
@@ -1239,7 +1239,7 @@ export class UIScene extends Phaser.Scene {
 
   private updateGodMode(_parent: Phaser.Data.DataManager, value: number) {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Match createGodModeMeter
@@ -1250,7 +1250,7 @@ export class UIScene extends Phaser.Scene {
 
   private updateGodModeReady(_parent: Phaser.Data.DataManager, ready: boolean) {
     const width = this.scale.width;
-    const height = this.scale.height;
+    // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
     const barWidth = 12 * uiScale;
     const barHeight = 60 * uiScale; // Match createGodModeMeter
@@ -1441,7 +1441,7 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  private updateRunSummary(finalScore: number) {
+  private updateRunSummary(_finalScore: number) {
     const stats = (this.registry.get('runStats') as {
       survivalTimeMs?: number;
     }) || {};
@@ -1458,6 +1458,7 @@ export class UIScene extends Phaser.Scene {
     });
   }
 
+  // @ts-ignore - Reserved for future use
   private updateFailureFeedback(finalScore: number) {
     const runMetrics = this.registry.get('runMetrics') as
       | {
@@ -1517,7 +1518,7 @@ export class UIScene extends Phaser.Scene {
 
     if (runMetrics?.maxCorruptionReached !== undefined) {
       const corruption = runMetrics.maxCorruptionReached;
-      let currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.low;
+      let currentMultiplier: number = CORRUPTION_SYSTEM.scoreMultiplier.low;
       if (corruption >= 75) {
         currentMultiplier = CORRUPTION_SYSTEM.scoreMultiplier.critical;
       } else if (corruption >= 50) {

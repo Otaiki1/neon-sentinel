@@ -20,11 +20,11 @@ import {
     PLAYER_KERNELS,
     SENSORY_ESCALATION,
     CUSTOMIZABLE_SETTINGS,
+    SESSION_REWARDS,
 } from "../config";
 import {
     addLifetimePlayMs,
     addLifetimeScore,
-    checkAllLeaderboardsTop10,
     getLifetimeStats,
     getSelectedCosmetic,
     getSelectedHero,
@@ -61,7 +61,7 @@ export class GameScene extends Phaser.Scene {
     private gameOver = false;
     private score = 0;
     private comboMultiplier = 1;
-    private lives = PLAYER_CONFIG.initialLives;
+    private lives: number = PLAYER_CONFIG.initialLives;
     private lastHitTime = 0;
     private backgroundGrid!: Phaser.GameObjects.Graphics;
     private currentLayer = 1;
@@ -131,7 +131,9 @@ export class GameScene extends Phaser.Scene {
     private sessionBoostEndTime = 0;
     private sessionLastTick = 0;
     private currentModifierKey: keyof typeof ROTATING_LAYER_MODIFIERS = "standard";
+    // @ts-expect-error - Set by initRotatingModifier/updateRotatingModifier
     private nextModifierKey: keyof typeof ROTATING_LAYER_MODIFIERS = "standard";
+    // @ts-expect-error - Set by initRotatingModifier/updateRotatingModifier
     private nextModifierChangeTime = 0;
     private modifierAnnouncementShown = false;
     private modifierSpawnMultiplier = 1;
@@ -152,7 +154,7 @@ export class GameScene extends Phaser.Scene {
     private modifierPauseIntervalMs = 0;
     private modifierGlitchIntensity = 0;
     private lastRunMetrics: RunMetrics | null = null;
-    private kernelKey: keyof typeof PLAYER_KERNELS = "sentinel_standard";
+    // private kernelKey: keyof typeof PLAYER_KERNELS = "sentinel_standard"; // Unused
     private kernelSpeedMultiplier = 1;
     private kernelFireRateMultiplier = 1;
     private kernelHealthMultiplier = 1;
@@ -162,6 +164,8 @@ export class GameScene extends Phaser.Scene {
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
     private enemyUidCounter = 0;
+    // private lastRiskyKillTime = 0; // Unused
+    // private lastNoHitRewardTime = 0; // Unused
     private scanlineOverlay?: Phaser.GameObjects.Graphics;
     private gridOpacityMultiplier = 1;
     private scanlineIntensity = 0;
@@ -1659,7 +1663,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         const phaseConfig = this.getCurrentPhaseConfig();
-        const spawnPatterns = phaseConfig.spawnPatterns;
+        const spawnPatterns = [...phaseConfig.spawnPatterns] as string[];
         const allowFormations =
             spawnPatterns.includes("loose_formations") ||
             spawnPatterns.includes("formations") ||
@@ -1786,13 +1790,16 @@ export class GameScene extends Phaser.Scene {
 
         if (selectedType === "yellowShield") {
             enemy.setTint(0xffcc33);
-            this.createEnemyAura(enemy, 0xffcc33, config.shieldRadius || 200);
+            const shieldConfig = config as typeof ENEMY_CONFIG.yellowShield;
+            this.createEnemyAura(enemy, 0xffcc33, shieldConfig.shieldRadius || 200);
         } else if (selectedType === "yellowEcho") {
             enemy.setTint(0xffff66);
-            this.startEchoTrail(enemy, config.echoCount || 2, config.echoDuration || 2000);
+            const echoConfig = config as typeof ENEMY_CONFIG.yellowEcho;
+            this.startEchoTrail(enemy, echoConfig.echoCount || 2, echoConfig.echoDuration || 2000);
         } else if (selectedType === "blueBuff") {
             enemy.setTint(0x66ccff);
-            this.createEnemyAura(enemy, 0x66ccff, config.buffRadius || 250);
+            const buffConfig = config as typeof ENEMY_CONFIG.blueBuff;
+            this.createEnemyAura(enemy, 0x66ccff, buffConfig.buffRadius || 250);
         } else if (selectedType === "purpleFragmenter") {
             enemy.setTint(0xcc66ff);
         }
@@ -1848,19 +1855,23 @@ export class GameScene extends Phaser.Scene {
         enemy.setData("damageMultiplier", 1);
 
         if (selectedType === "yellowShield") {
-            enemy.setData("shieldRadius", config.shieldRadius);
-            enemy.setData("shieldDamageReduction", config.shieldDamageReduction);
+            const shieldConfig = config as typeof ENEMY_CONFIG.yellowShield;
+            enemy.setData("shieldRadius", shieldConfig.shieldRadius);
+            enemy.setData("shieldDamageReduction", shieldConfig.shieldDamageReduction);
         } else if (selectedType === "yellowEcho") {
-            enemy.setData("echoCount", config.echoCount);
-            enemy.setData("echoDuration", config.echoDuration);
+            const echoConfig = config as typeof ENEMY_CONFIG.yellowEcho;
+            enemy.setData("echoCount", echoConfig.echoCount);
+            enemy.setData("echoDuration", echoConfig.echoDuration);
         } else if (selectedType === "blueBuff") {
-            enemy.setData("buffRadius", config.buffRadius);
-            enemy.setData("buffShootingSpeed", config.buffShootingSpeed);
-            enemy.setData("buffDamage", config.buffDamage);
+            const buffConfig = config as typeof ENEMY_CONFIG.blueBuff;
+            enemy.setData("buffRadius", buffConfig.buffRadius);
+            enemy.setData("buffShootingSpeed", buffConfig.buffShootingSpeed);
+            enemy.setData("buffDamage", buffConfig.buffDamage);
         } else if (selectedType === "purpleFragmenter") {
-            enemy.setData("fragmentsOnDeath", config.fragmentsOnDeath);
-            enemy.setData("fragmentType", config.fragmentType);
-            enemy.setData("fragmentHealth", config.fragmentHealth);
+            const fragmenterConfig = config as typeof ENEMY_CONFIG.purpleFragmenter;
+            enemy.setData("fragmentsOnDeath", fragmenterConfig.fragmentsOnDeath);
+            enemy.setData("fragmentType", fragmenterConfig.fragmentType);
+            enemy.setData("fragmentHealth", fragmenterConfig.fragmentHealth);
         }
 
         const corruptionRatio = 0; // Corruption system removed
@@ -1899,9 +1910,9 @@ export class GameScene extends Phaser.Scene {
     private spawnFormationWave(patterns: readonly string[]) {
         const gameHeight = this.scale.height;
         const centerY = Phaser.Math.Clamp(this.player.y, 80, gameHeight - 80);
-        const availableEnemies = LAYER_CONFIG[
+        const availableEnemies = [...LAYER_CONFIG[
             this.currentLayer as keyof typeof LAYER_CONFIG
-        ].enemies as Array<keyof typeof ENEMY_CONFIG>;
+        ].enemies] as Array<keyof typeof ENEMY_CONFIG>;
         const hasBlue = availableEnemies.includes("blue");
         const hasPurple = availableEnemies.includes("purple");
 
@@ -1967,8 +1978,8 @@ export class GameScene extends Phaser.Scene {
         isFormation: boolean,
         isBoss: boolean
     ): string[] {
-        const phaseBehaviors = this.getCurrentPhaseConfig().enemyBehaviors;
-        const behaviors = ["basic_pursuit"];
+        const phaseBehaviors = [...this.getCurrentPhaseConfig().enemyBehaviors] as unknown as string[];
+        const behaviors: string[] = ["basic_pursuit"];
 
         if (
             phaseBehaviors.includes("predictive_movement") &&
@@ -2055,7 +2066,7 @@ export class GameScene extends Phaser.Scene {
 
     private samplePlayerMovement(time: number) {
         if (time - this.lastMovementSampleTime < 200) return;
-        const delta = time - this.lastMovementSampleTime;
+        // const delta = time - this.lastMovementSampleTime; // Unused
         this.lastMovementSampleTime = time;
 
         const velocity = this.player.body?.velocity;
@@ -2105,13 +2116,13 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    private updateAdaptiveLearning(time: number) {
+    private updateAdaptiveLearning(_time: number) {
         if (this.currentDifficultyPhase !== "phase4") return;
         if (this.adaptationKillCount < ENEMY_BEHAVIOR_CONFIG.adaptationThreshold) {
             return;
         }
 
-        const width = this.scale.width;
+        // const width = this.scale.width; // Unused
         const height = this.scale.height;
         const edgeTimes = this.edgeHoldTime;
         const maxEdgeTime = Math.max(
@@ -2575,7 +2586,7 @@ export class GameScene extends Phaser.Scene {
 
     private createShockBombStreaks(enemies: Phaser.Physics.Arcade.Sprite[]) {
         const width = this.scale.width;
-        const height = this.scale.height;
+        // const height = this.scale.height; // Unused
         const playerX = this.player.x;
         const playerY = this.player.y;
 
@@ -2583,7 +2594,7 @@ export class GameScene extends Phaser.Scene {
         this.cleanupShockBombStreaks();
 
         // Create multiple blue streaks that strike enemies
-        enemies.forEach((enemy, index) => {
+        enemies.forEach((enemy) => {
             const streak = this.add.graphics();
             streak.setDepth(1000); // Above most game objects
             
@@ -3058,7 +3069,7 @@ export class GameScene extends Phaser.Scene {
                 () => {
                     this.challengeInvincibilityBonusMs = Math.max(
                         this.challengeInvincibilityBonusMs,
-                        reward.invincibilityFrame * 1000
+                         (reward.invincibilityFrame || 0) * 1000
                     );
                 },
                 () => {
@@ -3165,17 +3176,18 @@ export class GameScene extends Phaser.Scene {
             peakComboMultiplier: Number(this.peakComboMultiplier.toFixed(2)),
             timeToReachLayer6: this.timeToReachLayer6 || undefined,
             deepestLayerWithPrestige: this.deepestLayer + this.prestigeLevel,
+            maxCorruptionReached: 0, // Corruption system removed
         };
     }
 
     private applySelectedKernel() {
         const selectedKey = getSelectedKernelKey();
         const kernel = PLAYER_KERNELS[selectedKey] ?? PLAYER_KERNELS.sentinel_standard;
-        this.kernelKey = selectedKey;
+        // this.kernelKey = selectedKey; // Unused
         this.kernelSpeedMultiplier = kernel.baseSpeed ?? 1;
         this.kernelFireRateMultiplier = kernel.fireRate ?? 1;
-        this.kernelHealthMultiplier = kernel.healthPerLife ?? 1;
-        this.kernelBulletPiercing = kernel.bulletPiercing ?? false;
+        this.kernelHealthMultiplier = ("healthPerLife" in kernel) ? (kernel as any).healthPerLife ?? 1 : 1;
+        this.kernelBulletPiercing = ("bulletPiercing" in kernel) ? (kernel as any).bulletPiercing ?? false : false;
         this.kernelDamageAccumulator = 0;
     }
 
@@ -3354,7 +3366,7 @@ export class GameScene extends Phaser.Scene {
             );
         }
 
-        const maskGraphics = this.make.graphics({ x: 0, y: 0, add: false });
+        const maskGraphics = this.make.graphics({ x: 0, y: 0 });
         maskGraphics.fillStyle(0xffffff);
         maskGraphics.fillCircle(this.player.x, this.player.y, radius);
         maskGraphics.setData("radius", radius);
@@ -3782,7 +3794,7 @@ export class GameScene extends Phaser.Scene {
             this.addScore(points * this.comboMultiplier);
             this.adaptationKillCount += 1;
             if (enemyType !== "green" || isBoss || isGraduationBoss) {
-                this.lastRiskyKillTime = this.time.now;
+                // this.lastRiskyKillTime = this.time.now; // Unused
             }
             if (isBoss || isGraduationBoss) {
                 // Corruption system removed
@@ -4698,6 +4710,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    /*
     private updateBossRhythmicMovement(boss: Phaser.Physics.Arcade.Sprite, baseSpeed: number) {
         const currentTime = this.time.now;
         const rhythmTime = boss.getData("rhythmTime") || currentTime;
@@ -4746,6 +4759,7 @@ export class GameScene extends Phaser.Scene {
         
         boss.setVelocity(velocityX + perpVelocityX, velocityY + perpVelocityY);
     }
+    */
 
     private spawnPowerUp(x: number, y: number) {
         // Random power-up type (excluding lives - lives are spawned separately)
@@ -5142,7 +5156,7 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (this.comboMultiplier > 2) {
-            const comboBonus =
+            // const comboBonus = // Unused
                 (this.comboMultiplier - 2) *
                 1.0; // Corruption system removed
             // Corruption system removed
@@ -5332,8 +5346,8 @@ export class GameScene extends Phaser.Scene {
         this.prestigeScoreMultiplier = 1;
         this.prestigeResetAvailable = true;
         // Corruption system removed
-        this.lastNoHitRewardTime = 0;
-        this.lastRiskyKillTime = 0;
+        // this.lastNoHitRewardTime = 0; // Unused
+        // this.lastRiskyKillTime = 0; // Unused
         // Corruption system removed
         this.overclockActive = false;
         this.overclockReadyAt = 0;
@@ -5552,13 +5566,14 @@ export class GameScene extends Phaser.Scene {
             return baseColor;
         }
         const base = Phaser.Display.Color.ValueToColor(baseColor);
-        const hsl = Phaser.Display.Color.RGBToHSV(base.r, base.g, base.b);
+        const baseObj = base as unknown as { r: number; g: number; b: number };
+        const hsl = Phaser.Display.Color.RGBToHSV(baseObj.r, baseObj.g, baseObj.b);
         const hueShift = (this.prestigeLevel * 25) % 360;
         const shifted = Phaser.Display.Color.HSVToRGB(
             (hsl.h * 360 + hueShift) / 360,
             Math.min(1, hsl.s + 0.1),
             Math.min(1, hsl.v + 0.1)
-        );
+        ) as { r: number; g: number; b: number };
         return Phaser.Display.Color.GetColor(shifted.r, shifted.g, shifted.b);
     }
 

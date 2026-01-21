@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { LAYER_CONFIG, PRESTIGE_CONFIG, PLAYER_KERNELS, CORRUPTION_SYSTEM, OVERCLOCK_CONFIG, MID_RUN_CHALLENGES, POWERUP_CONFIG } from "../game/config";
+import { LAYER_CONFIG, PRESTIGE_CONFIG, PLAYER_KERNELS, MID_RUN_CHALLENGES, POWERUP_CONFIG } from "../game/config";
 import "./LandingPage.css";
 
 function AboutPage() {
@@ -182,14 +182,14 @@ function AboutPage() {
                           ? `+${((1 - kernel.fireRate) * 100).toFixed(0)}% faster`
                           : `${((kernel.fireRate - 1) * 100).toFixed(0)}% slower`}</p>
                       )}
-                      {kernel.healthPerLife && (
+                      {"healthPerLife" in kernel && kernel.healthPerLife && (
                         <p>Health: +{((kernel.healthPerLife - 1) * 100).toFixed(0)}% per life</p>
                       )}
-                      {kernel.bulletPiercing && (
+                      {"bulletPiercing" in kernel && kernel.bulletPiercing && (
                         <p className="text-green-500">Special: Bullet Piercing</p>
                       )}
                     </div>
-                    {!kernel.unlocked && kernel.unlockCondition !== "default" && (
+                    {!kernel.unlocked && kernel.unlockCondition && (kernel.unlockCondition as string) !== "default" && (
                       <p className="text-xs text-red-500 mt-2 opacity-80">
                         Unlock: {kernel.unlockCondition.replace(/_/g, ' ')}
                       </p>
