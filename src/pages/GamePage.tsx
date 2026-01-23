@@ -18,12 +18,21 @@ function GamePage() {
         const updateViewportSize = () => {
             if (!gameContainerRef.current) return;
             const viewport = window.visualViewport;
-            const newWidth = viewport?.width || window.innerWidth;
-            const newHeight = viewport?.height || window.innerHeight;
+            const containerRect = gameContainerRef.current.getBoundingClientRect();
+            let newWidth = viewport?.width || containerRect.width || window.innerWidth || 800;
+            let newHeight = viewport?.height || containerRect.height || window.innerHeight || 600;
+            
+            // Ensure minimum valid dimensions (WebGL requires at least 1x1)
+            newWidth = Math.max(1, Math.floor(newWidth));
+            newHeight = Math.max(1, Math.floor(newHeight));
+            
             gameContainerRef.current.style.width = `${newWidth}px`;
             gameContainerRef.current.style.height = `${newHeight}px`;
             if (gameInstanceRef.current) {
-                gameInstanceRef.current.scale.resize(newWidth, newHeight);
+                // Only resize if dimensions are valid
+                if (newWidth > 0 && newHeight > 0) {
+                    gameInstanceRef.current.scale.resize(newWidth, newHeight);
+                }
             }
         };
 

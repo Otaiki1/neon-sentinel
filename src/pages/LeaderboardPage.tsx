@@ -109,8 +109,8 @@ function LeaderboardPage() {
         <div className="text-xs text-neon-green opacity-70 mb-3 font-body">
           Reward: <span className="text-red-500">{category.reward}</span>
         </div>
-        {"note" in category && category.note && (
-          <div className="text-xs text-neon-green opacity-60 mb-3 font-body">{category.note}</div>
+        {("note" in category && (category as any).note) && (
+          <div className="text-xs text-neon-green opacity-60 mb-3 font-body">{(category as any).note}</div>
         )}
         {entries.length ? (
           <div className="space-y-2">

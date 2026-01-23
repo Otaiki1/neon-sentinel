@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { LAYER_CONFIG, PRESTIGE_CONFIG, PLAYER_KERNELS, MID_RUN_CHALLENGES, POWERUP_CONFIG } from "../game/config";
+// CORRUPTION_SYSTEM and OVERCLOCK_CONFIG are unused but kept for reference
 import "./LandingPage.css";
 
 function AboutPage() {

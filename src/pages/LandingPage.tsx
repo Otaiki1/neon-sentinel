@@ -14,11 +14,27 @@ import iconMarketplace from '../assets/icons/icon-marketplace.svg';
 import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
+import { FirstTimeTooltip } from '../components/Tooltip';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
 const USER_MODE_KEY = 'neon-sentinel-user-mode';
 const STORY_MODAL_SEEN_KEY = 'neon-sentinel-story-modal-seen';
+const TOOLTIP_KEYS = [
+  'nav-hall',
+  'nav-profile',
+  'nav-settings',
+  'nav-marketplace',
+  'nav-login',
+  'start-game',
+  'kernel-selection',
+  'weekly-leaderboard',
+  'system-depth',
+  'champions',
+  'daily-coins',
+  'marketplace-daily-coins',
+];
+const TOOLTIP_SEEN_PREFIX = 'neon-sentinel-tooltip-seen-';
 
 export type UserMode = 'wallet' | 'anonymous';
 
@@ -49,6 +65,12 @@ function LandingPage() {
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
   const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
   const [coins, setCoins] = useState(getAvailableCoins());
+  const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(() => {
+    const unseen = TOOLTIP_KEYS.find(
+      (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
+    );
+    return unseen ?? null;
+  });
 
   useEffect(() => {
     const scores = fetchWeeklyLeaderboard();
@@ -127,6 +149,21 @@ function LandingPage() {
     setCoins(next);
   };
 
+  const advanceTooltip = () => {
+    if (currentTooltipId === null) return;
+    localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${currentTooltipId}`, 'true');
+    const currentIndex = TOOLTIP_KEYS.indexOf(currentTooltipId);
+    const next = TOOLTIP_KEYS.slice(currentIndex + 1).find(
+      (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
+    );
+    setCurrentTooltipId(next ?? null);
+  };
+
+  const skipTour = () => {
+    TOOLTIP_KEYS.forEach((id) => localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${id}`, 'true'));
+    setCurrentTooltipId(null);
+  };
+
 
   // Update user mode when wallet connects
   useEffect(() => {
@@ -203,28 +240,85 @@ function LandingPage() {
         background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%)'
       }} />
 
+      {currentTooltipId && (
+        <div className="fixed top-4 right-4 z-50 flex gap-2">
+          <button
+            type="button"
+            onClick={skipTour}
+            className="font-body text-xs px-3 py-2 border border-neon-green text-neon-green bg-black bg-opacity-70 hover:bg-neon-green hover:text-black transition-all duration-150"
+          >
+            Skip tutorial
+          </button>
+        </div>
+      )}
+
       <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
         <div className="landing-nav mb-6">
-          <Link to="/leaderboards" className="nav-icon-button" aria-label="Hall of Fame">
-            <img src={iconHall} alt="" className="nav-icon-image" />
-            <span className="nav-icon-label">HALL</span>
-          </Link>
-          <Link to="/profile" className="nav-icon-button" aria-label="Profile">
-            <img src={iconProfile} alt="" className="nav-icon-image" />
-            <span className="nav-icon-label">PROFILE</span>
-          </Link>
-          <button type="button" className="nav-icon-button" onClick={handleOpenSettings} aria-label="Settings">
-            <img src={iconSettings} alt="" className="nav-icon-image" />
-            <span className="nav-icon-label">SETTINGS</span>
-          </button>
-          <button type="button" className="nav-icon-button" onClick={handleOpenMarketplace} aria-label="Marketplace">
-            <img src={iconMarketplace} alt="" className="nav-icon-image" />
-            <span className="nav-icon-label">MARKET</span>
-          </button>
-          <button type="button" className="nav-icon-button" onClick={handleOpenWalletModal} aria-label="Login">
-            <img src={iconLogin} alt="" className="nav-icon-image" />
-            <span className="nav-icon-label">{walletLabel}</span>
-          </button>
+          <FirstTimeTooltip
+            id="nav-hall"
+            content="View the Hall of Fame - see top players across all leaderboard categories and your achievements."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <Link to="/leaderboards" className="nav-icon-button" aria-label="Hall of Fame">
+              <img src={iconHall} alt="" className="nav-icon-image" />
+              <span className="nav-icon-label">HALL</span>
+            </Link>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
+            id="nav-profile"
+            content="View your profile - see your stats, achievements, unlocked kernels, and progression."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <Link to="/profile" className="nav-icon-button" aria-label="Profile">
+              <img src={iconProfile} alt="" className="nav-icon-image" />
+              <span className="nav-icon-label">PROFILE</span>
+            </Link>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
+            id="nav-settings"
+            content="Adjust game settings - control volume, UI scale, accessibility options, and gameplay preferences."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <button type="button" className="nav-icon-button" onClick={handleOpenSettings} aria-label="Settings">
+              <img src={iconSettings} alt="" className="nav-icon-image" />
+              <span className="nav-icon-label">SETTINGS</span>
+            </button>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
+            id="nav-marketplace"
+            content="Visit the marketplace - spend coins to unlock cosmetics, heroes, and other items."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <button type="button" className="nav-icon-button" onClick={handleOpenMarketplace} aria-label="Marketplace">
+              <img src={iconMarketplace} alt="" className="nav-icon-image" />
+              <span className="nav-icon-label">MARKET</span>
+            </button>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
+            id="nav-login"
+            content="Connect your wallet or play anonymously. Wallet connection enables additional features."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <button type="button" className="nav-icon-button" onClick={handleOpenWalletModal} aria-label="Login">
+              <img src={iconLogin} alt="" className="nav-icon-image" />
+              <span className="nav-icon-label">{walletLabel}</span>
+            </button>
+          </FirstTimeTooltip>
         </div>
         {/* Logo & Sector Section */}
         <div className="text-center mb-10 md:mb-12">
@@ -251,20 +345,37 @@ function LandingPage() {
 
         {/* START GAME Button */}
         <div className="text-center mb-12 md:mb-16">
-          <Link to="/play" className="inline-block">
-            <button className="retro-button font-logo text-xl md:text-3xl px-8 md:px-16 py-4 md:py-6">
-              &gt;&gt; START GAME &lt;&lt;
-            </button>
-          </Link>
+          <FirstTimeTooltip
+            id="start-game"
+            content="Click to start playing! Use arrow keys or WASD to move, Spacebar to shoot. Destroy enemies to score points and survive as long as possible."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <Link to="/play" className="inline-block">
+              <button className="retro-button font-logo text-xl md:text-3xl px-8 md:px-16 py-4 md:py-6">
+                &gt;&gt; START GAME &lt;&lt;
+              </button>
+            </Link>
+          </FirstTimeTooltip>
         </div>
 
         {/* Kernel Selection */}
-        <div className="retro-panel mb-10 md:mb-12">
-          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-            letterSpacing: '0.1em'
-          }}>
-            SELECT KERNEL
-          </h2>
+        <FirstTimeTooltip
+          id="kernel-selection"
+          content="Choose your Kernel before each run. Each Kernel has different stats - speed, fire rate, and special abilities. Unlock new Kernels by achieving milestones."
+          position="bottom"
+          activeId={currentTooltipId}
+          onNext={advanceTooltip}
+          onSkip={skipTour}
+        >
+          <div className="retro-panel mb-10 md:mb-12">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+              letterSpacing: '0.1em'
+            }}>
+              SELECT KERNEL
+            </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(PLAYER_KERNELS).map(([key, kernel]) => {
               const kernelKey = key as keyof typeof PLAYER_KERNELS;
@@ -294,17 +405,26 @@ function LandingPage() {
               );
             })}
           </div>
-        </div>
+          </div>
+        </FirstTimeTooltip>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
           {/* Left Panel: Weekly Leaderboard */}
-          <div className="retro-panel">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              WEEKLY LEADERBOARD
-            </h2>
+          <FirstTimeTooltip
+            id="weekly-leaderboard"
+            content="Weekly Leaderboard - Top scores for the current week. Leaderboards reset every week. Compete to reach the top!"
+            position="right"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <div className="retro-panel">
+              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+                letterSpacing: '0.1em'
+              }}>
+                WEEKLY LEADERBOARD
+              </h2>
             <div className="text-xs text-neon-green opacity-70 mb-3 font-body">Week {currentWeek}</div>
             <div className="space-y-2 mb-4">
               {leaderboard.length > 0 ? (
@@ -339,15 +459,24 @@ function LandingPage() {
                 TOP: {topPlayer} - {topScore.toLocaleString()}
               </div>
             </div>
-          </div>
+            </div>
+          </FirstTimeTooltip>
 
           {/* Middle Panel: System Depth */}
-          <div className="retro-panel">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              SYSTEM DEPTH
-            </h2>
+          <FirstTimeTooltip
+            id="system-depth"
+            content="System Depth = Current Layer + (Prestige × 6). This measures how deep you've penetrated The Grid. Higher depth = more challenge and rewards!"
+            position="right"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <div className="retro-panel">
+              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+                letterSpacing: '0.1em'
+              }}>
+                SYSTEM DEPTH
+              </h2>
             <div className="text-xs text-neon-green opacity-70 mb-4 font-body">
               Current Depth: <span className="text-red-500 font-semibold">LAYER {currentLayerIndex + 1}</span>
             </div>
@@ -378,16 +507,25 @@ function LandingPage() {
               <div>Hive Code Attacks Increasing</div>
               <div className="opacity-70">Next Layer at {nextLayerThreshold.toLocaleString()} Points</div>
             </div>
-          </div>
+            </div>
+          </FirstTimeTooltip>
 
           {/* Right Panel: Champions */}
-          <div className="retro-panel">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              CHAMPIONS
-            </h2>
-            <div className="space-y-3">
+          <FirstTimeTooltip
+            id="champions"
+            content="Champions - Top players for the current sector. See who's leading the weekly competition!"
+            position="left"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <div className="retro-panel">
+              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
+                letterSpacing: '0.1em'
+              }}>
+                CHAMPIONS
+              </h2>
+              <div className="space-y-3">
               <div className="py-2 border-b border-neon-green border-opacity-30">
                 <div className="font-body text-xs text-neon-green opacity-70 mb-1">SECTOR CHAMPION</div>
                 <div className="font-score text-lg text-neon-green">
@@ -405,7 +543,8 @@ function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </FirstTimeTooltip>
         </div>
 
         {/* Hall of Fame & About Links */}
@@ -763,7 +902,16 @@ function LandingPage() {
               MARKETPLACE
             </h2>
             <div className="text-sm font-body text-neon-green space-y-2">
-              <div>Daily Coins: {getDailyCoinCount()} (auto-refresh)</div>
+              <FirstTimeTooltip
+                id="marketplace-daily-coins"
+                content="Daily Coins - You receive 3 coins every day. Use them to purchase items in the marketplace!"
+                position="bottom"
+                activeId={currentTooltipId}
+                onNext={advanceTooltip}
+                onSkip={skipTour}
+              >
+                <div>Daily Coins: {getDailyCoinCount()} (auto-refresh)</div>
+              </FirstTimeTooltip>
               <div>Available Coins: {coins}</div>
               <div className="opacity-70">Crypto purchases are simulated.</div>
             </div>

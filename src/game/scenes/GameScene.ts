@@ -154,7 +154,6 @@ export class GameScene extends Phaser.Scene {
     private modifierPauseIntervalMs = 0;
     private modifierGlitchIntensity = 0;
     private lastRunMetrics: RunMetrics | null = null;
-    // private kernelKey: keyof typeof PLAYER_KERNELS = "sentinel_standard"; // Unused
     private kernelSpeedMultiplier = 1;
     private kernelFireRateMultiplier = 1;
     private kernelHealthMultiplier = 1;
@@ -287,6 +286,28 @@ export class GameScene extends Phaser.Scene {
         this.overclockKey = this.input.keyboard!.addKey(
             Phaser.Input.Keyboard.KeyCodes[OVERCLOCK_CONFIG.activationKey]
         );
+        
+        // Hide tooltips when player starts playing
+        let tooltipsHidden = false;
+        const hideTooltips = () => {
+            if (!tooltipsHidden) {
+                const uiScene = this.scene.get('UIScene');
+                if (uiScene) {
+                    uiScene.events.emit('hide-tooltips');
+                    tooltipsHidden = true;
+                }
+            }
+        };
+        this.spaceKey.on("down", hideTooltips);
+        this.cursors.left?.on("down", hideTooltips);
+        this.cursors.right?.on("down", hideTooltips);
+        this.cursors.up?.on("down", hideTooltips);
+        this.cursors.down?.on("down", hideTooltips);
+        this.wasd.A?.on("down", hideTooltips);
+        this.wasd.D?.on("down", hideTooltips);
+        this.wasd.W?.on("down", hideTooltips);
+        this.wasd.S?.on("down", hideTooltips);
+        
         this.overclockKey.on("down", () => {
             this.tryActivateOverclock();
         });
@@ -1663,13 +1684,13 @@ export class GameScene extends Phaser.Scene {
         }
 
         const phaseConfig = this.getCurrentPhaseConfig();
-        const spawnPatterns = [...phaseConfig.spawnPatterns] as string[];
+        const spawnPatterns = phaseConfig.spawnPatterns as readonly string[];
         const allowFormations =
-            spawnPatterns.includes("loose_formations") ||
-            spawnPatterns.includes("formations") ||
-            spawnPatterns.includes("ambush_waves") ||
-            spawnPatterns.includes("complex_formations") ||
-            spawnPatterns.includes("boss_rushes");
+            (spawnPatterns as string[]).includes("loose_formations") ||
+            (spawnPatterns as string[]).includes("formations") ||
+            (spawnPatterns as string[]).includes("ambush_waves") ||
+            (spawnPatterns as string[]).includes("complex_formations") ||
+            (spawnPatterns as string[]).includes("boss_rushes");
 
         if (
             allowFormations &&
@@ -1790,15 +1811,15 @@ export class GameScene extends Phaser.Scene {
 
         if (selectedType === "yellowShield") {
             enemy.setTint(0xffcc33);
-            const shieldConfig = config as typeof ENEMY_CONFIG.yellowShield;
+            const shieldConfig = ENEMY_CONFIG.yellowShield;
             this.createEnemyAura(enemy, 0xffcc33, shieldConfig.shieldRadius || 200);
         } else if (selectedType === "yellowEcho") {
             enemy.setTint(0xffff66);
-            const echoConfig = config as typeof ENEMY_CONFIG.yellowEcho;
+            const echoConfig = ENEMY_CONFIG.yellowEcho;
             this.startEchoTrail(enemy, echoConfig.echoCount || 2, echoConfig.echoDuration || 2000);
         } else if (selectedType === "blueBuff") {
             enemy.setTint(0x66ccff);
-            const buffConfig = config as typeof ENEMY_CONFIG.blueBuff;
+            const buffConfig = ENEMY_CONFIG.blueBuff;
             this.createEnemyAura(enemy, 0x66ccff, buffConfig.buffRadius || 250);
         } else if (selectedType === "purpleFragmenter") {
             enemy.setTint(0xcc66ff);
@@ -1855,20 +1876,20 @@ export class GameScene extends Phaser.Scene {
         enemy.setData("damageMultiplier", 1);
 
         if (selectedType === "yellowShield") {
-            const shieldConfig = config as typeof ENEMY_CONFIG.yellowShield;
+            const shieldConfig = ENEMY_CONFIG.yellowShield;
             enemy.setData("shieldRadius", shieldConfig.shieldRadius);
             enemy.setData("shieldDamageReduction", shieldConfig.shieldDamageReduction);
         } else if (selectedType === "yellowEcho") {
-            const echoConfig = config as typeof ENEMY_CONFIG.yellowEcho;
+            const echoConfig = ENEMY_CONFIG.yellowEcho;
             enemy.setData("echoCount", echoConfig.echoCount);
             enemy.setData("echoDuration", echoConfig.echoDuration);
         } else if (selectedType === "blueBuff") {
-            const buffConfig = config as typeof ENEMY_CONFIG.blueBuff;
+            const buffConfig = ENEMY_CONFIG.blueBuff;
             enemy.setData("buffRadius", buffConfig.buffRadius);
             enemy.setData("buffShootingSpeed", buffConfig.buffShootingSpeed);
             enemy.setData("buffDamage", buffConfig.buffDamage);
         } else if (selectedType === "purpleFragmenter") {
-            const fragmenterConfig = config as typeof ENEMY_CONFIG.purpleFragmenter;
+            const fragmenterConfig = ENEMY_CONFIG.purpleFragmenter;
             enemy.setData("fragmentsOnDeath", fragmenterConfig.fragmentsOnDeath);
             enemy.setData("fragmentType", fragmenterConfig.fragmentType);
             enemy.setData("fragmentHealth", fragmenterConfig.fragmentHealth);
@@ -1876,14 +1897,17 @@ export class GameScene extends Phaser.Scene {
 
         const corruptionRatio = 0; // Corruption system removed
         if (false) { // Corruption system removed
+            const startColor = Phaser.Display.Color.ValueToColor(0x00ff00);
+            const endColor = Phaser.Display.Color.ValueToColor(0xff0000);
             const tint = Phaser.Display.Color.Interpolate.ColorWithColor(
-                Phaser.Display.Color.ValueToColor(0x00ff00),
-                Phaser.Display.Color.ValueToColor(0xff0000),
+                startColor,
+                endColor,
                 100,
                 Math.round(corruptionRatio * 100)
             );
+            const tintObj = tint as { r: number; g: number; b: number };
             enemy.setTint(
-                Phaser.Display.Color.GetColor(tint.r, tint.g, tint.b)
+                Phaser.Display.Color.GetColor(tintObj.r, tintObj.g, tintObj.b)
             );
         }
 
@@ -3063,13 +3087,14 @@ export class GameScene extends Phaser.Scene {
                 duration
             );
         }
-        if (reward.invincibilityFrame) {
+        if (reward.invincibilityFrame !== undefined) {
+            const invincibilityMs = reward.invincibilityFrame * 1000;
             this.applyChallengeMultiplier(
                 "invincibility",
                 () => {
                     this.challengeInvincibilityBonusMs = Math.max(
                         this.challengeInvincibilityBonusMs,
-                         (reward.invincibilityFrame || 0) * 1000
+                        invincibilityMs
                     );
                 },
                 () => {
@@ -3186,8 +3211,8 @@ export class GameScene extends Phaser.Scene {
         // this.kernelKey = selectedKey; // Unused
         this.kernelSpeedMultiplier = kernel.baseSpeed ?? 1;
         this.kernelFireRateMultiplier = kernel.fireRate ?? 1;
-        this.kernelHealthMultiplier = ("healthPerLife" in kernel) ? (kernel as any).healthPerLife ?? 1 : 1;
-        this.kernelBulletPiercing = ("bulletPiercing" in kernel) ? (kernel as any).bulletPiercing ?? false : false;
+        this.kernelHealthMultiplier = ("healthPerLife" in kernel && kernel.healthPerLife) ? kernel.healthPerLife : 1;
+        this.kernelBulletPiercing = ("bulletPiercing" in kernel && kernel.bulletPiercing) ? kernel.bulletPiercing : false;
         this.kernelDamageAccumulator = 0;
     }
 
@@ -5156,9 +5181,6 @@ export class GameScene extends Phaser.Scene {
         }
 
         if (this.comboMultiplier > 2) {
-            // const comboBonus = // Unused
-                (this.comboMultiplier - 2) *
-                1.0; // Corruption system removed
             // Corruption system removed
         }
 

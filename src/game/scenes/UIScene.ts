@@ -16,6 +16,7 @@ import {
 import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
 import { GameScene } from './GameScene';
+import { TooltipManager } from './TooltipManager';
 
 export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
@@ -82,23 +83,29 @@ export class UIScene extends Phaser.Scene {
   private revivePromptCountdownText!: Phaser.GameObjects.Text;
   private revivePromptButton!: Phaser.GameObjects.Container;
   private revivePromptTimer?: Phaser.Time.TimerEvent;
+  private tooltipManager!: TooltipManager;
 
   constructor() {
     super({ key: 'UIScene' });
   }
 
   create() {
+    // Initialize tooltip manager
+    this.tooltipManager = new TooltipManager(this);
+    // Allow GameScene to request tooltip hide
+    this.events.on('hide-tooltips', () => this.tooltipManager.skipAll());
+
     // Mobile UI scaling - reduce sizes on mobile
     const settingsScale = (this.registry.get('uiScale') as number) || 1;
     const settingsOpacity = (this.registry.get('uiOpacity') as number) || 1;
     const highContrast = !!this.registry.get('uiHighContrast');
     const dyslexiaFont = !!this.registry.get('uiDyslexiaFont');
-    this.uiTextColor = highContrast ? '#ffffff' : UI_CONFIG.neonGreen;
+    this.uiTextColor = (highContrast ? '#ffffff' : UI_CONFIG.neonGreen) as typeof UI_CONFIG.neonGreen;
     this.uiOpacityMultiplier = settingsOpacity;
-    this.uiMenuFont = dyslexiaFont ? 'Arial' : UI_CONFIG.menuFont;
-    this.uiScoreFont = dyslexiaFont ? 'Arial' : UI_CONFIG.scoreFont;
-    this.uiBodyFont = dyslexiaFont ? 'Arial' : UI_CONFIG.bodyFont;
-    this.uiLogoFont = dyslexiaFont ? 'Arial' : UI_CONFIG.logoFont;
+    this.uiMenuFont = (dyslexiaFont ? 'Arial' : UI_CONFIG.menuFont) as typeof UI_CONFIG.menuFont;
+    this.uiScoreFont = (dyslexiaFont ? 'Arial' : UI_CONFIG.scoreFont) as typeof UI_CONFIG.scoreFont;
+    this.uiBodyFont = (dyslexiaFont ? 'Arial' : UI_CONFIG.bodyFont) as typeof UI_CONFIG.bodyFont;
+    this.uiLogoFont = (dyslexiaFont ? 'Arial' : UI_CONFIG.logoFont) as typeof UI_CONFIG.logoFont;
 
     const uiScale = (MOBILE_SCALE < 1.0 ? 0.6 : 1.0) * settingsScale; // 60% size on mobile
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30; // Closer to edge on mobile
@@ -144,6 +151,19 @@ export class UIScene extends Phaser.Scene {
     }
     this.comboText.setAlpha(this.comboText.alpha * this.uiOpacityMultiplier);
 
+    // Show tooltip for combo (first time only)
+    this.tooltipManager.enqueueTooltip(
+      {
+        id: 'game-combo',
+        targetX: baseX + 100,
+        targetY: baseY + lineSpacing * 2 + 15,
+        content: 'COMBO - Multiplier that increases when you destroy enemies without taking damage. Build combos for massive scores!',
+        position: 'right',
+        width: 280,
+      },
+      2000
+    );
+
     // Layer display - Oxanium for menu/subtitle style (adjusted position)
     this.layerText = this.add.text(baseX, baseY + lineSpacing * 3, 'LAYER: Boot Sector', {
       fontFamily: this.uiMenuFont,
@@ -157,6 +177,19 @@ export class UIScene extends Phaser.Scene {
     }
     this.layerText.setAlpha(this.layerText.alpha * this.uiOpacityMultiplier);
 
+    // Show tooltip for layer (first time only)
+    this.tooltipManager.enqueueTooltip(
+      {
+        id: 'game-layer',
+        targetX: baseX + 100,
+        targetY: baseY + lineSpacing * 3 + 10,
+        content: "LAYER - Current system layer you're in. Deeper layers = tougher enemies and higher scores. Defeat graduation bosses to advance!",
+        position: 'right',
+        width: 280,
+      },
+      3000
+    );
+
     // Prestige display
     this.prestigeText = this.add.text(baseX, baseY + lineSpacing * 4, 'PRESTIGE: 0', {
       fontFamily: this.uiMenuFont,
@@ -169,6 +202,19 @@ export class UIScene extends Phaser.Scene {
       this.prestigeText.setAlpha(0.85);
     }
     this.prestigeText.setAlpha(this.prestigeText.alpha * this.uiOpacityMultiplier);
+
+    // Show tooltip for prestige (first time only)
+    this.tooltipManager.enqueueTooltip(
+      {
+        id: 'game-prestige',
+        targetX: baseX + 100,
+        targetY: baseY + lineSpacing * 4 + 10,
+        content: 'PRESTIGE - After completing Layer 6, you can prestige to loop back with increased difficulty and score multipliers!',
+        position: 'right',
+        width: 280,
+      },
+      4000
+    );
 
     this.registerUiGlitchTargets([
       this.scoreText,
@@ -184,15 +230,60 @@ export class UIScene extends Phaser.Scene {
     this.renderLivesOrbs(1, livesX, livesY, uiScale);
     this.livesOrb.setAlpha(this.uiOpacityMultiplier);
 
+    // Show tooltip for lives (first time only)
+    this.tooltipManager.enqueueTooltip(
+      {
+        id: 'game-lives',
+        targetX: livesX + 40,
+        targetY: livesY + 20,
+        content: 'LIVES - Each orb = 2 lives. Collect purple Life Orbs to gain more lives (max 20). Lose a life when enemies touch you!',
+        position: 'right',
+        width: 280,
+      },
+      5000
+    );
+
     // Removed top-left run stats panel per UX request
 
     // Create shock bomb and god mode meters
     // Only create meters if abilities are unlocked
     if (isShockBombUnlocked()) {
       this.createShockBombMeter();
+      // Show tooltip for shock bomb meter (first time only)
+      const width = this.scale.width;
+      const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+      const shockBombBarX = width - 80 * uiScale;
+      const shockBombBarY = 20 * uiScale;
+      this.tooltipManager.enqueueTooltip(
+        {
+          id: 'game-shockbomb',
+          targetX: shockBombBarX + 6,
+          targetY: shockBombBarY + 30,
+          content: 'SHOCK BOMB (B) - Meter fills over time. When ready, press B to instantly destroy 70% of enemies on screen! Unlocked at 10,000 lifetime score.',
+          position: 'left',
+          width: 280,
+        },
+        6000
+      );
     }
     if (isGodModeUnlocked()) {
       this.createGodModeMeter();
+      // Show tooltip for god mode meter (first time only)
+      const width = this.scale.width;
+      const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
+      const godModeBarX = width - 50 * uiScale;
+      const godModeBarY = 20 * uiScale;
+      this.tooltipManager.enqueueTooltip(
+        {
+          id: 'game-godmode',
+          targetX: godModeBarX + 6,
+          targetY: godModeBarY + 30,
+          content: 'GOD MODE (Q) - Meter fills over time. When ready, press Q for 10 seconds of invincibility! Unlocked at 25,000 lifetime score.',
+          position: 'left',
+          width: 280,
+        },
+        7000
+      );
     }
 
     // Pause button (top-right corner)
@@ -937,6 +1028,18 @@ export class UIScene extends Phaser.Scene {
     const bar2 = this.add.rectangle(8 * uiScale, 0, 6 * uiScale, 20 * uiScale, 0x00ff00);
 
     this.pauseButton = this.add.container(width - 40 * uiScale, 40 * uiScale, [bg, bar1, bar2]);
+    
+    // Show tooltip for pause button (first time only)
+    this.time.delayedCall(8000, () => {
+      this.tooltipManager.enqueueTooltip({
+        id: 'game-pause',
+        targetX: width - 40 * uiScale,
+        targetY: 40 * uiScale,
+        content: 'PAUSE (ESC) - Click this button or press ESC to pause the game. Access settings, leaderboard, and more from the pause menu!',
+        position: 'left',
+        width: 280,
+      });
+    });
 
     // Make interactive
     bg.setInteractive({ useHandCursor: true });
@@ -1205,6 +1308,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updateShockBombReady(_parent: Phaser.Data.DataManager, ready: boolean) {
+    if (!this.shockBombGlow) {
+      return;
+    }
     const width = this.scale.width;
     // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
@@ -1249,6 +1355,9 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updateGodModeReady(_parent: Phaser.Data.DataManager, ready: boolean) {
+    if (!this.godModeGlow) {
+      return;
+    }
     const width = this.scale.width;
     // const height = this.scale.height; // Unused
     const uiScale = MOBILE_SCALE < 1.0 ? 0.7 : 1.0;
@@ -1283,7 +1392,7 @@ export class UIScene extends Phaser.Scene {
 
   private updateGodModeActive(_parent: Phaser.Data.DataManager, active: boolean) {
     // Visual feedback when god mode is active
-    if (active && this.godModeBarBg) {
+    if (active && this.godModeBarBg && this.godModeBarFill) {
       this.tweens.add({
         targets: [this.godModeBarBg, this.godModeBarFill],
         alpha: { from: 1, to: 0.5 },
@@ -1327,6 +1436,9 @@ export class UIScene extends Phaser.Scene {
     width: number,
     height: number
   ) {
+    if (!this.shockBombBarFill || !this.shockBombBarBg) {
+      return;
+    }
     const clamped = Phaser.Math.Clamp(progress, 0, 1);
     const fillHeight = height * clamped;
     this.shockBombBarFill.clear();
@@ -1348,6 +1460,9 @@ export class UIScene extends Phaser.Scene {
     width: number,
     height: number
   ) {
+    if (!this.godModeBarFill || !this.godModeBarBg) {
+      return;
+    }
     const clamped = Phaser.Math.Clamp(progress, 0, 1);
     const fillHeight = height * clamped;
     this.godModeBarFill.clear();
@@ -1409,7 +1524,8 @@ export class UIScene extends Phaser.Scene {
     const start = Phaser.Display.Color.ValueToColor(palette[0]);
     const end = Phaser.Display.Color.ValueToColor(palette[palette.length - 1]);
     const blended = Phaser.Display.Color.Interpolate.ColorWithColor(start, end, 100, Math.round(t * 100));
-    return Phaser.Display.Color.GetColor(blended.r, blended.g, blended.b);
+    const blendedObj = blended as { r: number; g: number; b: number };
+    return Phaser.Display.Color.GetColor(blendedObj.r, blendedObj.g, blendedObj.b);
   }
 
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {
@@ -1459,7 +1575,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   // @ts-ignore - Reserved for future use
-  private updateFailureFeedback(finalScore: number) {
+  private _updateFailureFeedback(finalScore: number) {
     const runMetrics = this.registry.get('runMetrics') as
       | {
           peakComboMultiplier?: number;
@@ -1792,6 +1908,18 @@ export class UIScene extends Phaser.Scene {
     this.hideLeaderboard();
     this.registry.set('gameOver', false);
     this.registry.set('isPaused', false);
+    // Hide tooltips when restarting
+    if (this.tooltipManager) {
+      this.tooltipManager.hideAllTooltips();
+    }
+  }
+
+  // Cleanup on scene shutdown
+  shutdown() {
+    // Cleanup tooltip manager
+    if (this.tooltipManager) {
+      this.tooltipManager.destroy();
+    }
   }
 }
 
