@@ -211,6 +211,9 @@ export class GameScene extends Phaser.Scene {
     private autoShootEnabled = false;
     private firepowerLevel = 0; // 0 = normal, 1+ = increased firepower (multiple bullets)
     private isInvisible = false; // Invisibility power-up state
+    private isStunned = false; // Stunned state (cannot move or shoot)
+    private stunEndTime = 0; // When stun effect ends
+    private shockwaves!: Phaser.Physics.Arcade.Group; // Group for shockwave effects
     private spaceKey!: Phaser.Input.Keyboard.Key;
     // Mobile touch controls
     private joystickBase?: Phaser.GameObjects.Arc;
@@ -272,6 +275,9 @@ export class GameScene extends Phaser.Scene {
         this.explosions = this.add.group();
 
         this.powerUps = this.physics.add.group();
+
+        // Shockwaves group (for blue zigzag lines from bosses)
+        this.shockwaves = this.physics.add.group();
 
         // Input setup
         this.cursors = this.input.keyboard!.createCursorKeys();
@@ -375,6 +381,16 @@ export class GameScene extends Phaser.Scene {
             this.powerUps,
             this
                 .handlePlayerPowerUpCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+            undefined,
+            this
+        );
+
+        // Collision between player and shockwaves
+        this.physics.add.overlap(
+            this.player,
+            this.shockwaves,
+            this
+                .handlePlayerShockwaveCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
             undefined,
             this
         );
@@ -967,8 +983,19 @@ export class GameScene extends Phaser.Scene {
             this.kernelFireRateMultiplier *
             this.layerFireRateMultiplier;
 
-        if (this.autoShootEnabled) {
-            // Auto-shoot when power-up is active
+        // Check stun status
+        if (this.isStunned && time >= this.stunEndTime) {
+            this.isStunned = false;
+            this.createFloatingText(
+                this.player.x,
+                this.player.y - 30,
+                "STUN ENDED",
+                { color: "#00ff00", fontSize: 18 }
+            );
+        }
+
+        if (this.autoShootEnabled && !this.isStunned) {
+            // Auto-shoot when power-up is active (but not when stunned)
             if (time > this.lastFired) {
                 this.shoot();
                 this.lastFired = time + currentFireRate;
@@ -1231,6 +1258,37 @@ export class GameScene extends Phaser.Scene {
                     enemy.setData("lastSpaceDenial", time);
                 }
             }
+
+            // Fire shockwaves for graduation bosses and final bosses
+            const bossKey = enemy.getData("bossKey") as string | undefined;
+            const isFinalBoss = bossKey === "finalBoss";
+            if ((isGraduationBoss || isFinalBoss) && enemy.active) {
+                const lastShockwave = enemy.getData("lastShockwave") || 0;
+                const shockwaveInterval = 8000; // Fire shockwave every 8 seconds
+                if (time - lastShockwave >= shockwaveInterval) {
+                    this.fireShockwave(enemy);
+                    enemy.setData("lastShockwave", time);
+                }
+            }
+        });
+
+        // Clean up shockwaves that go off screen
+        this.shockwaves.children.entries.forEach((shockwaveObj) => {
+            const shockwave = shockwaveObj as Phaser.Physics.Arcade.Sprite;
+            if (!shockwave.active) return;
+            
+            const gameWidth = this.scale.width;
+            const gameHeight = this.scale.height;
+            
+            // Remove if off screen
+            if (shockwave.x < -50 || shockwave.x > gameWidth + 50 ||
+                shockwave.y < -50 || shockwave.y > gameHeight + 50) {
+                const graphics = shockwave.getData("graphics") as Phaser.GameObjects.Graphics | undefined;
+                const updateEvt = shockwave.getData("updateEvent") as Phaser.Time.TimerEvent | undefined;
+                if (graphics) graphics.destroy();
+                if (updateEvt) updateEvt.remove();
+                shockwave.destroy();
+            }
         });
 
         if (
@@ -1280,16 +1338,19 @@ export class GameScene extends Phaser.Scene {
             }
         } else {
             // Desktop: Arrow keys or WASD
-            if (this.cursors.left!.isDown || this.wasd["A"].isDown) {
-                velocityX = -currentSpeed;
-            } else if (this.cursors.right!.isDown || this.wasd["D"].isDown) {
-                velocityX = currentSpeed;
-            }
+            // Check if player is stunned
+            if (!this.isStunned) {
+                if (this.cursors.left!.isDown || this.wasd["A"].isDown) {
+                    velocityX = -currentSpeed;
+                } else if (this.cursors.right!.isDown || this.wasd["D"].isDown) {
+                    velocityX = currentSpeed;
+                }
 
-            if (this.cursors.up!.isDown || this.wasd["W"].isDown) {
-                velocityY = -currentSpeed;
-            } else if (this.cursors.down!.isDown || this.wasd["S"].isDown) {
-                velocityY = currentSpeed;
+                if (this.cursors.up!.isDown || this.wasd["W"].isDown) {
+                    velocityY = -currentSpeed;
+                } else if (this.cursors.down!.isDown || this.wasd["S"].isDown) {
+                    velocityY = currentSpeed;
+                }
             }
 
             // Normalize diagonal movement
@@ -1480,6 +1541,7 @@ export class GameScene extends Phaser.Scene {
 
     private shoot() {
         if (this.gameOver) return;
+        if (this.isStunned) return; // Cannot shoot when stunned
         if (this.activeChallenge?.id === "no_shoot_20s") {
             this.failChallenge();
         }
@@ -3635,6 +3697,7 @@ export class GameScene extends Phaser.Scene {
         boss.setData("maxHealth", scaledHealth);
         boss.setData("canShoot", false);
         boss.setData("isBoss", true);
+        boss.setData("bossKey", bossKey); // Store boss key for identification
         boss.setData(
             "behaviors",
             this.getBehaviorsForEnemy(
@@ -3768,6 +3831,8 @@ export class GameScene extends Phaser.Scene {
         boss.setData("canShoot", true); // Graduation bosses can shoot
         boss.setData("isBoss", true);
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
+        boss.setData("bossKey", bossKey); // Store boss key for identification
+        boss.setData("lastShockwave", 0); // Track last shockwave time
         // Varying damage levels based on layer (1-6)
         const bossDamage = Math.min(1 + (targetLayer * 0.5), 4); // 1.5, 2, 2.5, 3, 3.5, 4 damage
         boss.setData("damage", bossDamage);
@@ -4813,10 +4878,10 @@ export class GameScene extends Phaser.Scene {
 
             // Assign different bullet sprites based on enemy type for variety
             const enemyType = enemy.getData("type") as keyof typeof ENEMY_CONFIG;
-            const isBoss = !!enemy.getData("isBoss");
+            const enemyIsBoss = !!enemy.getData("isBoss");
             
             // Use different sprites to showcase different impacts
-            if (isBoss) {
+            if (enemyIsBoss) {
                 bullet.setTexture("yellowBullet");
                 bullet.setScale(0.6 * MOBILE_SCALE);
             } else if (enemyType === "blue" || enemyType === "blueBuff") {
@@ -4830,7 +4895,7 @@ export class GameScene extends Phaser.Scene {
 
             const behaviors =
                 (enemy.getData("behaviors") as string[] | undefined) || [];
-            const target = this.getTargetPositionForEnemy(behaviors, isBoss);
+            const target = this.getTargetPositionForEnemy(behaviors, enemyIsBoss);
             const angle =
                 Phaser.Math.Angle.Between(
                     enemy.x,
@@ -4851,13 +4916,173 @@ export class GameScene extends Phaser.Scene {
                 (enemy.getData("damageMultiplier") as number) || 1;
             // Use boss damage if set (for graduation bosses with varying damage levels)
             const bossDamage = enemy.getData("damage") as number | undefined;
-            const finalDamage = bossDamage !== undefined ? bossDamage : damageMultiplier;
+            let finalDamage = bossDamage !== undefined ? bossDamage : damageMultiplier;
+            
+            // Make boss bullets 3x more lethal and scale with progression
+            const bulletIsBoss = !!enemy.getData("isBoss");
+            const bulletIsGraduationBoss = !!enemy.getData("isGraduationBoss");
+            const bulletBossKey = enemy.getData("bossKey") as string | undefined;
+            const bulletIsFinalBoss = bulletBossKey === "finalBoss";
+            
+            if (bulletIsBoss || bulletIsGraduationBoss || bulletIsFinalBoss) {
+                // Base 3x multiplier
+                finalDamage = finalDamage * 3;
+                // Scale with layer progression (add 0.5x per layer after layer 1)
+                const layerMultiplier = 1 + ((this.currentLayer - 1) * 0.5);
+                finalDamage = finalDamage * layerMultiplier;
+                // Scale with prestige level (add 0.3x per prestige)
+                if (this.prestigeLevel > 0) {
+                    finalDamage = finalDamage * (1 + (this.prestigeLevel * 0.3));
+                }
+            }
 
             const velocityX = Math.cos(angle) * bulletSpeed;
             const velocityY = Math.sin(angle) * bulletSpeed;
             bullet.setVelocity(velocityX, velocityY);
             bullet.setData("damageMultiplier", finalDamage);
         }
+    }
+
+    private fireShockwave(enemy: Phaser.Physics.Arcade.Sprite) {
+        // Create moving zigzag blue shockwave from boss to player
+        const startX = enemy.x;
+        const startY = enemy.y;
+        const targetX = this.player.x;
+        const targetY = this.player.y;
+        
+        // Calculate angle and distance
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        
+        // Shockwave speed (fast but dodgeable)
+        const shockwaveSpeed = 400; // Fast but not instant
+        const travelTime = (distance / shockwaveSpeed) * 1000; // Time in ms
+        
+        // Create graphics object for zigzag visual
+        const graphics = this.add.graphics();
+        graphics.lineStyle(4, 0x00ffff, 0.9); // Bright cyan/blue
+        graphics.setBlendMode(Phaser.BlendModes.ADD);
+        graphics.setDepth(1000); // Render on top
+        
+        // Create physics sprite for collision (starts at boss position)
+        const shockwave = this.physics.add.sprite(startX, startY, "blueBullet");
+        shockwave.setScale(0.1); // Small invisible sprite for collision
+        shockwave.setAlpha(0); // Invisible
+        shockwave.setData("graphics", graphics);
+        shockwave.setData("targetX", targetX);
+        shockwave.setData("targetY", targetY);
+        shockwave.setData("startX", startX);
+        shockwave.setData("startY", startY);
+        shockwave.setData("startTime", this.time.now);
+        shockwave.setData("travelTime", travelTime);
+        shockwave.setData("angle", angle);
+        shockwave.setData("distance", distance);
+        this.shockwaves.add(shockwave);
+        
+        // Set velocity to move towards player
+        const velocityX = Math.cos(angle) * shockwaveSpeed;
+        const velocityY = Math.sin(angle) * shockwaveSpeed;
+        shockwave.setVelocity(velocityX, velocityY);
+        
+        // Update zigzag visual on each frame
+        const updateZigzag = () => {
+            if (!shockwave.active) {
+                graphics.destroy();
+                return;
+            }
+            
+            const currentX = shockwave.x;
+            const currentY = shockwave.y;
+            const elapsed = this.time.now - shockwave.getData("startTime");
+            const progress = Math.min(elapsed / travelTime, 1);
+            
+            // Clear previous frame
+            graphics.clear();
+            graphics.lineStyle(4, 0x00ffff, 0.9);
+            
+            // Calculate zigzag path from start to current position
+            const segments = 8;
+            const path: { x: number; y: number }[] = [];
+            path.push({ x: startX, y: startY });
+            
+            for (let i = 1; i < segments; i++) {
+                const t = i / segments;
+                const baseX = Phaser.Math.Linear(startX, currentX, t);
+                const baseY = Phaser.Math.Linear(startY, currentY, t);
+                // Add zigzag offset perpendicular to the line
+                const perpX = -Math.sin(angle);
+                const perpY = Math.cos(angle);
+                const zigzagAmount = 30 * Math.sin(i * Math.PI * 2 + progress * Math.PI * 4); // Animated zigzag
+                path.push({
+                    x: baseX + perpX * zigzagAmount,
+                    y: baseY + perpY * zigzagAmount
+                });
+            }
+            path.push({ x: currentX, y: currentY });
+            
+            // Draw the zigzag line
+            graphics.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                graphics.lineTo(path[i].x, path[i].y);
+            }
+            graphics.strokePath();
+        };
+        
+        // Update zigzag visual every frame
+        const updateEvent = this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: updateZigzag,
+            repeat: Math.ceil(travelTime / 16)
+        });
+        shockwave.setData("updateEvent", updateEvent);
+        
+        // Clean up when shockwave reaches target or goes off screen
+        this.time.delayedCall(travelTime + 500, () => {
+            if (shockwave.active) {
+                graphics.destroy();
+                const updateEvt = shockwave.getData("updateEvent");
+                if (updateEvt) updateEvt.remove();
+                shockwave.destroy();
+            }
+        });
+    }
+
+    private handlePlayerShockwaveCollision(
+        _player: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+        shockwave: Phaser.Types.Physics.Arcade.GameObjectWithBody
+    ) {
+        if (this.gameOver) return;
+        if (this.isStunned) return; // Already stunned
+        
+        const s = shockwave as Phaser.Physics.Arcade.Sprite;
+        
+        // Stun player for 3 seconds
+        this.isStunned = true;
+        this.stunEndTime = this.time.now + 3000;
+        
+        // Visual feedback
+        this.createFloatingText(
+            this.player.x,
+            this.player.y - 30,
+            "STUNNED!",
+            { color: "#00ffff", fontSize: 24 }
+        );
+        
+        // Stop player movement
+        this.player.setVelocity(0, 0);
+        
+        // Destroy shockwave
+        const graphics = s.getData("graphics") as Phaser.GameObjects.Graphics;
+        const updateEvt = s.getData("updateEvent") as Phaser.Time.TimerEvent | undefined;
+        if (graphics) {
+            graphics.destroy();
+        }
+        if (updateEvt) {
+            updateEvt.remove();
+        }
+        s.destroy();
     }
 
     /*
