@@ -3759,6 +3759,15 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        // Prevent enemies from being hit before they appear on screen
+        // Enemies spawn from the right and move left, so check if right edge is on screen
+        const gameWidth = this.scale.width;
+        const enemyHalfWidth = e.displayWidth / 2;
+        // Enemy is only hittable when its right edge has entered the screen (x + halfWidth <= gameWidth)
+        if (e.x + enemyHalfWidth > gameWidth) {
+            return; // Enemy hasn't appeared on screen yet, ignore collision
+        }
+
         if (this.kernelBulletPiercing) {
             const enemyUid = e.getData("uid");
             const lastHitEnemy = b.getData("lastHitEnemy");
@@ -4082,6 +4091,15 @@ export class GameScene extends Phaser.Scene {
     ) {
         if (this.gameOver) return;
         const enemy = _enemy as Phaser.Physics.Arcade.Sprite;
+        
+        // Prevent enemies from colliding with player before they appear on screen
+        // Enemies spawn from the right and move left, so check if right edge is on screen
+        const gameWidth = this.scale.width;
+        const enemyHalfWidth = enemy.displayWidth / 2;
+        // Enemy is only collidable when its right edge has entered the screen (x + halfWidth <= gameWidth)
+        if (enemy.x + enemyHalfWidth > gameWidth) {
+            return; // Enemy hasn't appeared on screen yet, ignore collision
+        }
         
         // Graduation bosses don't cause collision damage - they only shoot
         const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
