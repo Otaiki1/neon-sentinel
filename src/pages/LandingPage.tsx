@@ -15,6 +15,7 @@ import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
 import { FirstTimeTooltip } from '../components/Tooltip';
+import { KernelIcon } from '../components/KernelIcon';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
@@ -364,7 +365,7 @@ function LandingPage() {
         {/* Kernel Selection */}
         <FirstTimeTooltip
           id="kernel-selection"
-          content="Choose your Kernel before each run. Each Kernel has different stats - speed, fire rate, and special abilities. Unlock new Kernels by achieving milestones."
+          content="Choose your Kernel before each run. Each Kernel has different stats - speed, fire rate, and special abilities. Unlock new Kernels by achieving milestones. Hover over icons to see details."
           position="bottom"
           activeId={currentTooltipId}
           onNext={advanceTooltip}
@@ -376,32 +377,31 @@ function LandingPage() {
             }}>
               SELECT KERNEL
             </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
             {Object.entries(PLAYER_KERNELS).map(([key, kernel]) => {
               const kernelKey = key as keyof typeof PLAYER_KERNELS;
               const unlocked = kernelUnlocks[kernelKey];
               const isSelected = selectedKernel === kernelKey;
+              
+              // Map kernel keys to icon types
+              let iconType: 'standard' | 'swift' | 'artillery' | 'sniper' | 'guardian' = 'standard';
+              if (key === 'sentinel_standard') iconType = 'standard';
+              else if (key === 'sentinel_speed') iconType = 'swift';
+              else if (key === 'sentinel_firepower') iconType = 'artillery';
+              else if (key === 'sentinel_precision') iconType = 'sniper';
+              else if (key === 'sentinel_tanky') iconType = 'guardian';
+              
               return (
-                <button
+                <KernelIcon
                   key={key}
-                  type="button"
+                  type={iconType}
+                  label={kernel.name}
+                  description={kernel.description}
+                  isSelected={isSelected}
+                  isUnlocked={unlocked}
+                  unlockCondition={kernel.unlockCondition}
                   onClick={() => unlocked && handleKernelSelect(kernelKey)}
-                  className={`text-left border-2 p-3 transition-all duration-200 ${
-                    unlocked
-                      ? isSelected
-                        ? 'border-neon-green bg-black bg-opacity-80'
-                        : 'border-neon-green border-opacity-40 hover:border-opacity-100'
-                      : 'border-gray-600 border-opacity-40 cursor-not-allowed opacity-50'
-                  }`}
-                >
-                  <div className="font-menu text-sm text-neon-green">{kernel.name}</div>
-                  <div className="font-body text-xs text-neon-green opacity-70 mt-1">
-                    {kernel.description}
-                  </div>
-                  <div className="font-body text-[10px] text-neon-green opacity-50 mt-2">
-                    {unlocked ? (isSelected ? 'SELECTED' : 'UNLOCKED') : `LOCKED • ${kernel.unlockCondition}`}
-                  </div>
-                </button>
+                />
               );
             })}
           </div>
