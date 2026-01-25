@@ -214,6 +214,9 @@ export class GameScene extends Phaser.Scene {
     private isStunned = false; // Stunned state (cannot move or shoot)
     private stunEndTime = 0; // When stun effect ends
     private shockwaves!: Phaser.Physics.Arcade.Group; // Group for shockwave effects
+    private totalFirepowerUpgrades = 0; // Track total number of firepower upgrades collected
+    private enemyBulletHits = 0; // Track number of hits from enemy bullets
+    private baseFireRateMultiplier = 1; // Base fire rate multiplier from firepower upgrades (separate from other multipliers)
     private spaceKey!: Phaser.Input.Keyboard.Key;
     // Mobile touch controls
     private joystickBase?: Phaser.GameObjects.Arc;
@@ -4218,6 +4221,15 @@ export class GameScene extends Phaser.Scene {
         // Remove bullet
         b.destroy();
 
+        // Track enemy bullet hit for upgrade degradation
+        this.enemyBulletHits++;
+        
+        // Every 2 hits, reduce firepower and fire rate upgrades
+        if (this.enemyBulletHits >= 2 && (this.firepowerLevel > 0 || this.baseFireRateMultiplier < 1)) {
+            this.degradeFirepowerUpgrades();
+            this.enemyBulletHits = 0; // Reset counter
+        }
+
         // Take damage (lose a life)
         this.takeDamage(damageMultiplier);
     }
@@ -5085,6 +5097,52 @@ export class GameScene extends Phaser.Scene {
         s.destroy();
     }
 
+    private degradeFirepowerUpgrades() {
+        // Only degrade if player has upgrades
+        if (this.firepowerLevel <= 0 && this.baseFireRateMultiplier >= 1) {
+            return;
+        }
+
+        // Get the power-up config to know how much to reduce
+        const firepowerConfig = POWERUP_CONFIG.types.firepower;
+        
+        // Reduce firepower level (minimum 0)
+        if (this.firepowerLevel > 0) {
+            const reduction = firepowerConfig.firepowerLevel;
+            this.firepowerLevel = Math.max(0, this.firepowerLevel - reduction);
+        }
+        
+        // Reduce fire rate multiplier (make firing slower)
+        // fireRateMultiplier is used as: shootInterval = baseInterval / fireRateMultiplier
+        // So higher multiplier = slower firing, lower multiplier = faster firing
+        // Since firepower upgrades use fireRateMultiplier: 1.0, they don't change fire rate
+        // But we still want to reduce fire rate when hit as a penalty
+        // We'll increase the multiplier to make firing slower
+        if (this.baseFireRateMultiplier < 1) {
+            // If base is below 1 (from other upgrades like fireRate power-up), restore it
+            const previousBase = this.baseFireRateMultiplier;
+            this.baseFireRateMultiplier = Math.min(1, this.baseFireRateMultiplier / firepowerConfig.fireRateMultiplier);
+            // Recalculate fireRateMultiplier preserving other multipliers
+            const ratio = this.baseFireRateMultiplier / previousBase;
+            this.fireRateMultiplier = this.fireRateMultiplier * ratio;
+        } else {
+            // If firepower upgrades don't affect fire rate (1.0), we still reduce fire rate as penalty
+            // Increase multiplier by 10% to make firing 10% slower (multiplier closer to 1.0 or above)
+            this.fireRateMultiplier = Math.min(2.0, this.fireRateMultiplier * 1.1);
+        }
+        
+        // Reduce total upgrade count
+        this.totalFirepowerUpgrades = Math.max(0, this.totalFirepowerUpgrades - 1);
+        
+        // Visual feedback
+        this.createFloatingText(
+            this.player.x,
+            this.player.y - 50,
+            "UPGRADE DEGRADED!",
+            { color: "#ff6600", fontSize: 20 }
+        );
+    }
+
     /*
     private updateBossRhythmicMovement(boss: Phaser.Physics.Arcade.Sprite, baseSpeed: number) {
         const currentTime = this.time.now;
@@ -5408,8 +5466,12 @@ export class GameScene extends Phaser.Scene {
                 this.powerUpTimers.get("firepower")!.remove();
             }
 
+            // Track total upgrades collected
+            this.totalFirepowerUpgrades++;
+
             // Increase firepower level and fire rate
             this.firepowerLevel += config.firepowerLevel;
+            this.baseFireRateMultiplier *= config.fireRateMultiplier;
             this.fireRateMultiplier *= config.fireRateMultiplier;
 
             const timer = this.time.delayedCall(config.duration, () => {
@@ -5421,7 +5483,9 @@ export class GameScene extends Phaser.Scene {
                     ) / 10
                 );
                 // Reset fire rate multiplier (divide by the same amount)
+                this.baseFireRateMultiplier /= config.fireRateMultiplier;
                 this.fireRateMultiplier /= config.fireRateMultiplier;
+                this.totalFirepowerUpgrades = Math.max(0, this.totalFirepowerUpgrades - 1);
                 this.powerUpTimers.delete("firepower");
             });
             this.powerUpTimers.set("firepower", timer);
@@ -5779,6 +5843,9 @@ export class GameScene extends Phaser.Scene {
         this.firepowerLevel = 0;
         this.isInvisible = false;
         this.player.setAlpha(1); // Reset player alpha
+        this.totalFirepowerUpgrades = 0;
+        this.enemyBulletHits = 0;
+        this.baseFireRateMultiplier = 1;
 
         // Reset touch controls
         this.isFiringButtonDown = false;
