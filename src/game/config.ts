@@ -49,7 +49,7 @@ export const ENEMY_CONFIG = {
         health: 3,
         spawnWeight: 2,
         canShoot: false,
-        shieldRadius: 200,
+        shieldRadius: 100, // Halved from 200
         shieldDamageReduction: 0.5,
     },
     yellowEcho: {

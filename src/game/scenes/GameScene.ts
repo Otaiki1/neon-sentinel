@@ -1046,6 +1046,11 @@ export class GameScene extends Phaser.Scene {
                 if (aura) {
                     aura.setPosition(enemy.x, enemy.y);
                 }
+                
+                // Check shield proximity damage for yellowShield enemies
+                if (enemy.getData("type") === "yellowShield") {
+                    this.checkShieldProximityDamage(enemy, time);
+                }
             }
 
             // Graduation bosses track player movement to maintain line of sight
@@ -1829,7 +1834,9 @@ export class GameScene extends Phaser.Scene {
         if (selectedType === "yellowShield") {
             enemy.setTint(0xffcc33);
             const shieldConfig = ENEMY_CONFIG.yellowShield;
-            this.createEnemyAura(enemy, 0xffcc33, shieldConfig.shieldRadius || 200);
+            // Set type before creating aura so it can detect it
+            enemy.setData("type", selectedType);
+            this.createEnemyAura(enemy, 0xffcc33, shieldConfig.shieldRadius || 100);
         } else if (selectedType === "yellowEcho") {
             enemy.setTint(0xffff66);
             const echoConfig = ENEMY_CONFIG.yellowEcho;
@@ -1875,7 +1882,10 @@ export class GameScene extends Phaser.Scene {
             false
         );
 
-        enemy.setData("type", selectedType);
+        // Only set type if not already set (yellowShield sets it earlier)
+        if (!enemy.getData("type")) {
+            enemy.setData("type", selectedType);
+        }
         enemy.setData("uid", this.enemyUidCounter++);
         enemy.setData(
             "points",
@@ -2326,11 +2336,30 @@ export class GameScene extends Phaser.Scene {
         radius: number
     ) {
         const aura = this.add.graphics();
-        aura.lineStyle(1, color, 0.4);
+        // For yellowShield, make it more visible and dangerous looking (red tint)
+        const isShield = enemy.getData("type") === "yellowShield";
+        const auraColor = isShield ? 0xff0000 : color; // Red for shield (dangerous)
+        const auraOpacity = isShield ? 0.7 : 0.4; // More visible for shield
+        const lineWidth = isShield ? 2 : 1; // Thicker line for shield
+        
+        aura.lineStyle(lineWidth, auraColor, auraOpacity);
         aura.strokeCircle(0, 0, radius * MOBILE_SCALE);
         aura.setPosition(enemy.x, enemy.y);
         aura.setDepth(enemy.depth - 1);
         aura.setBlendMode(Phaser.BlendModes.ADD);
+        
+        // Add pulsing animation for shield aura to indicate danger
+        if (isShield) {
+            this.tweens.add({
+                targets: aura,
+                alpha: { from: auraOpacity * 0.6, to: auraOpacity },
+                duration: 400,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+        }
+        
         enemy.setData("aura", aura);
     }
 
@@ -2405,6 +2434,49 @@ export class GameScene extends Phaser.Scene {
             }
         });
         return maxReduction;
+    }
+
+    private checkShieldProximityDamage(enemy: Phaser.Physics.Arcade.Sprite, time: number) {
+        // Skip if god mode is active
+        if (this.godModeActive) {
+            return;
+        }
+        
+        // Skip if player is invisible
+        if (this.isInvisible) {
+            return;
+        }
+        
+        const shieldRadius = enemy.getData("shieldRadius") as number || 100;
+        const lastDamageTime = enemy.getData("lastShieldProximityDamage") as number || 0;
+        const damageInterval = 500; // Damage every 500ms to prevent spam
+        
+        // Calculate distance between player and enemy
+        const distance = Phaser.Math.Distance.Between(
+            this.player.x,
+            this.player.y,
+            enemy.x,
+            enemy.y
+        );
+        
+        // Check if player is within shield radius
+        if (distance <= shieldRadius) {
+            // Apply damage if enough time has passed
+            if (time - lastDamageTime >= damageInterval) {
+                enemy.setData("lastShieldProximityDamage", time);
+                
+                // Deal one life of damage (lethal)
+                this.takeDamage(3);
+                
+                // Visual feedback
+                this.createFloatingText(
+                    this.player.x,
+                    this.player.y - 30,
+                    "SHIELD DAMAGE!",
+                    { color: "#ff0000", fontSize: 24 }
+                );
+            }
+        }
     }
 
     private spawnFragments(
