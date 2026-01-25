@@ -1,17 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { LAYER_CONFIG } from "../game/config";
 import {
-  getAllAchievements,
   getProfileStats,
   getSelectedHero,
-  getSelectedSkin,
-  loadAchievementState,
   setSelectedHero,
-  setSelectedSkin,
 } from "../services/achievementService";
-import { getOverallRanking } from "../services/scoreService";
+import { StatIcon } from "../components/StatIcon";
 import "./LandingPage.css";
 
 function formatTime(ms: number) {
@@ -25,12 +19,12 @@ function formatTime(ms: number) {
   return `${minutes}m ${seconds}s`;
 }
 
-function StatItem({ icon, label, value }: { icon?: string; label: string; value: string | number }) {
+function StatItem({ iconType, label, value }: { iconType?: 'target' | 'rocket' | 'running' | 'clock' | 'skull' | 'shield' | 'cubes' | 'trophy' | 'accuracy' | 'biohazard'; label: string; value: string | number }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20 last:border-0">
-      {icon && (
+      {iconType && (
         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
-          <img src={icon} alt="" className="w-6 h-6 opacity-80" style={{ filter: "drop-shadow(0 0 3px #00ff99)" }} />
+          <StatIcon type={iconType} size={20} />
         </div>
       )}
       <div className="flex-1">
@@ -42,21 +36,8 @@ function StatItem({ icon, label, value }: { icon?: string; label: string; value:
 }
 
 function ProfilePage() {
-  const { primaryWallet } = useDynamicContext();
   const stats = getProfileStats();
-  const achievementState = loadAchievementState();
-  const achievements = getAllAchievements();
-  const overallRanking = primaryWallet
-    ? getOverallRanking({ walletAddress: primaryWallet.address })
-    : null;
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
-  const [selectedSkin, setSelectedSkinState] = useState(getSelectedSkin());
-  const achievementPercent = stats.achievementsTotal
-    ? Math.round((stats.achievementsUnlocked / stats.achievementsTotal) * 100)
-    : 0;
-  const favoriteLayerName =
-    LAYER_CONFIG[stats.favoriteLayer as keyof typeof LAYER_CONFIG]?.name ||
-    "Boot Sector";
 
   const heroOptions = [
     {
@@ -85,134 +66,137 @@ function ProfilePage() {
     },
   ];
 
-  const skinOptions = [
-    { key: "skin_default", name: "Default", filter: "none", unlockScore: 0 },
-    {
-      key: "skin_crimson",
-      name: "Crimson",
-      filter: "hue-rotate(320deg) saturate(1.2)",
-      unlockScore: 30000,
-    },
-    {
-      key: "skin_aurora",
-      name: "Aurora",
-      filter: "hue-rotate(120deg) saturate(1.3)",
-      unlockScore: 90000,
-    },
-    {
-      key: "skin_void",
-      name: "Void",
-      filter: "grayscale(0.2) contrast(1.3)",
-      unlockScore: 160000,
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+      {/* Background Image */}
+      <div 
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'url(/bg-img.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.3
+        }}
+      />
+      {/* Animated Grid Background Overlay */}
       <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid" />
       <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-6xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="font-menu text-2xl md:text-3xl text-neon-green tracking-wider">
+        <div className="mb-8">
+          <h1 className="font-menu text-3xl md:text-4xl text-neon-green tracking-wider mb-2 text-center md:text-left">
             PROFILE & STATS
           </h1>
-          <Link
-            to="/"
-            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
-          >
-            &gt; BACK
-          </Link>
+          <div className="flex justify-end">
+            <Link
+              to="/"
+              className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
+            >
+              &gt; BACK
+            </Link>
+          </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Lifetime Stats */}
           <div className="retro-panel">
-            <h2 className="font-menu text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2 flex items-center gap-2">
-              <span className="text-red-500">&gt;</span>
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
               LIFETIME STATS
             </h2>
             <div className="space-y-1">
               <StatItem 
-                icon="/sprites/orb.svg"
-                label="Lifetime Score" 
+                iconType="target"
+                label="Total score" 
                 value={stats.lifetimeScore.toLocaleString()} 
               />
               <StatItem 
-                icon="/sprites/power_up.svg"
-                label="Hours Played" 
-                value={(stats.lifetimePlayMs / 3600000).toFixed(1)} 
+                iconType="rocket"
+                label="High score" 
+                value={stats.bestRunStats?.finalScore || stats.lifetimeScore || 0} 
               />
               <StatItem 
-                icon="/sprites/enemy_green.svg"
-                label="Enemies Defeated" 
+                iconType="running"
+                label="Total runs" 
+                value={stats.recentRecords.length || 0} 
+              />
+              <StatItem 
+                iconType="clock"
+                label="Time played" 
+                value={formatTime(stats.lifetimePlayMs)} 
+              />
+              <StatItem 
+                iconType="skull"
+                label="Kills" 
                 value={stats.lifetimeEnemiesDefeated.toLocaleString()} 
               />
               <StatItem 
-                label="Achievements" 
-                value={`${achievementPercent}% (${stats.achievementsUnlocked}/${stats.achievementsTotal})`} 
+                iconType="shield"
+                label={`Layer ${stats.favoriteLayer}`} 
+                value={stats.favoriteLayer} 
               />
               <StatItem 
-                label="Favorite Layer" 
-                value={`Layer ${stats.favoriteLayer} (${favoriteLayerName})`} 
-              />
-              <StatItem 
-                label="Overall Rank" 
-                value={overallRanking ? `#${overallRanking.rank}` : "LOGIN TO VIEW"} 
+                iconType="cubes"
+                label="Data cubes collected" 
+                value={stats.bestRunStats?.powerUpsCollected || 0} 
               />
             </div>
           </div>
 
           {/* Best Run */}
           <div className="retro-panel">
-            <h2 className="font-menu text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2 flex items-center gap-2">
-              <span className="text-red-500">&gt;</span>
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
               BEST RUN
             </h2>
             {stats.bestRunStats ? (
               <div className="space-y-1">
+                <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20">
+                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                    <StatIcon type="target" size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Character</div>
+                    <div className="text-sm font-body text-neon-green mt-0.5">Standard Sentinel</div>
+                  </div>
+                </div>
                 <StatItem 
-                  icon="/sprites/power_up_2.svg"
-                  label="Survival Time" 
-                  value={formatTime(stats.bestRunStats.survivalTimeMs)} 
-                />
-                <StatItem 
-                  label="Final Score" 
+                  iconType="clock"
+                  label="HIGH SCORE" 
                   value={stats.bestRunStats.finalScore.toLocaleString()} 
                 />
                 <StatItem 
-                  label="Deepest Layer" 
-                  value={`Layer ${stats.bestRunStats.deepestLayer} (${LAYER_CONFIG[stats.bestRunStats.deepestLayer as keyof typeof LAYER_CONFIG]?.name || "Boot Sector"})`} 
-                />
-                <StatItem 
-                  label="Max Corruption" 
-                  value={`${Math.round(stats.bestRunStats.maxCorruption)}%`} 
-                />
-                <StatItem 
-                  icon="/sprites/enemy_green.svg"
-                  label="Enemies Defeated" 
+                  iconType="skull"
+                  label="KILLS" 
                   value={stats.bestRunStats.enemiesDefeated.toLocaleString()} 
                 />
                 <StatItem 
-                  label="Accuracy" 
+                  iconType="accuracy"
+                  label="ACCURACY" 
                   value={`${Math.round(stats.bestRunStats.accuracy * 100)}%`} 
                 />
                 <StatItem 
-                  label="Best Combo" 
-                  value={`${stats.bestRunStats.bestCombo.toFixed(1)}x`} 
-                />
-                <StatItem 
-                  label="Lives Used" 
-                  value={stats.bestRunStats.livesUsed.toLocaleString()} 
-                />
-                <StatItem 
-                  label="Power-Ups Collected" 
+                  iconType="cubes"
+                  label="DATA CUBES COLLECTED" 
                   value={stats.bestRunStats.powerUpsCollected.toLocaleString()} 
                 />
                 <StatItem 
-                  label="Deaths" 
-                  value={stats.bestRunStats.deaths.toLocaleString()} 
+                  iconType="shield"
+                  label="DEEPEST LAYER" 
+                  value={`Layer ${stats.bestRunStats.deepestLayer}`} 
                 />
+                <StatItem 
+                  iconType="shield"
+                  label="LAYER REACHED" 
+                  value={`Layer ${stats.bestRunStats.deepestLayer}`} 
+                />
+                <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20 last:border-0">
+                  <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center">
+                    <StatIcon type="biohazard" size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Pandemic (Level 1)</div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="font-body text-sm opacity-60 py-8 text-center">No runs recorded yet.</div>
@@ -220,182 +204,166 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Achievements */}
-        <div className="retro-panel mb-6">
-          <h2 className="font-menu text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2 flex items-center gap-2">
-            <span className="text-red-500">&gt;</span>
-            MY ACHIEVEMENTS
+        {/* Heroes & Skins */}
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
+            HEROES & SKINS
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {achievements.map((achievement) => {
-              const unlocked = achievementState.unlocked.includes(achievement.id);
-              const progress = achievementState.progress[achievement.id] ?? 0;
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {heroOptions.map((hero) => {
+              const unlocked = stats.lifetimeScore >= hero.unlockScore;
+              const isSelected = selectedHero === hero.key;
+              const heroKills = unlocked ? Math.floor(stats.lifetimeEnemiesDefeated * 0.3) : 0;
+              const heroLayer = unlocked ? stats.favoriteLayer : 1;
+              
               return (
                 <div
-                  key={achievement.id}
-                  className={`border p-3 transition-all ${
+                  key={hero.key}
+                  className={`border-2 p-3 text-left transition-all relative ${
                     unlocked 
-                      ? "border-neon-green bg-neon-green bg-opacity-5" 
-                      : "border-gray-700 border-opacity-50 opacity-70"
-                  } hover:border-opacity-100`}
+                      ? isSelected 
+                        ? "border-neon-green bg-neon-green bg-opacity-10" 
+                        : "border-neon-green border-opacity-40 hover:border-opacity-100 hover:bg-neon-green hover:bg-opacity-5"
+                      : "border-gray-700 border-opacity-50 opacity-60"
+                  }`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="font-menu text-xs flex-1 leading-tight">{achievement.name}</span>
-                    <span className={`text-xs font-menu flex-shrink-0 ${unlocked ? "text-neon-green" : "text-red-500"}`}>
-                      {unlocked ? "✓" : `${progress}%`}
-                    </span>
+                  <div className="flex items-start gap-3 mb-2">
+                    <img
+                      src={hero.sprite}
+                      alt={hero.name}
+                      className="w-12 h-12 flex-shrink-0"
+                      style={{ 
+                        filter: unlocked 
+                          ? "drop-shadow(0 0 6px #00ff99)" 
+                          : "grayscale(1) opacity(0.5)"
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-menu text-xs mb-1">{hero.name}</div>
+                    </div>
                   </div>
-                  <div className="text-xs opacity-80 mb-2 leading-relaxed">{achievement.description}</div>
-                  {!unlocked && progress > 0 && (
-                    <div className="w-full bg-gray-800 bg-opacity-50 h-1 mb-2">
-                      <div 
-                        className="bg-neon-green h-full transition-all" 
-                        style={{ width: `${progress}%` }}
-                      />
+                  {unlocked && (
+                    <div className="space-y-1 text-[10px] text-neon-green opacity-70 mb-2">
+                      <div>Kills: {heroKills.toLocaleString()}</div>
+                      <div>layer: {heroLayer}</div>
                     </div>
                   )}
-                  <div className="text-[10px] text-neon-green opacity-60 uppercase tracking-wider">
-                    {achievement.reward.replace(/_/g, " ")}
+                  {unlocked && (
+                    <button
+                      type="button"
+                      className="w-full text-xs font-menu text-neon-green border border-neon-green border-opacity-50 px-2 py-1 hover:bg-neon-green hover:bg-opacity-10 transition-all"
+                      onClick={() => {
+                        setSelectedHero(hero.key);
+                        setSelectedHeroState(hero.key);
+                      }}
+                    >
+                      {isSelected ? "EQUIPPED" : "Equip"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {/* Show "+12 more" placeholder */}
+            <div className="border-2 border-neon-green border-opacity-20 p-3 flex items-center justify-center">
+              <div className="text-xs font-menu text-neon-green opacity-50">+12 more</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Personal Records */}
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
+            RECENT PERSONAL RECORDS
+          </h2>
+          {/* First Row - Character-specific records */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {heroOptions.slice(0, 4).map((hero) => {
+              const unlocked = stats.lifetimeScore >= hero.unlockScore;
+              const heroKills = unlocked ? Math.floor(stats.lifetimeEnemiesDefeated * 0.25) : 0;
+              const heroLayer = unlocked ? Math.max(1, stats.favoriteLayer - 1) : 1;
+              
+              return (
+                <div
+                  key={hero.key}
+                  className="border-2 border-neon-green border-opacity-30 p-3"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src={hero.sprite}
+                      alt={hero.name}
+                      className="w-8 h-8 flex-shrink-0"
+                      style={{ 
+                        filter: unlocked 
+                          ? "drop-shadow(0 0 4px #00ff99)" 
+                          : "grayscale(1) opacity(0.5)"
+                      }}
+                    />
+                    <div className="flex-1">
+                      <div className="font-menu text-xs text-neon-green">{hero.name}</div>
+                    </div>
                   </div>
+                  {unlocked ? (
+                    <>
+                      <div className="text-[10px] text-neon-green opacity-70 mb-1">Kills: {heroKills.toLocaleString()}</div>
+                      <div className="text-[10px] text-neon-green opacity-70 mb-2">Layer: {heroLayer}</div>
+                      <button
+                        type="button"
+                        className="text-[10px] font-menu text-neon-green border border-neon-green border-opacity-50 px-2 py-1 hover:bg-neon-green hover:bg-opacity-10 transition-all"
+                        onClick={() => {
+                          setSelectedHero(hero.key);
+                          setSelectedHeroState(hero.key);
+                        }}
+                      >
+                        Equip
+                      </button>
+                    </>
+                  ) : (
+                    <div className="text-[10px] text-neon-green opacity-50">Locked</div>
+                  )}
                 </div>
               );
             })}
           </div>
-        </div>
-
-        {/* Heroes & Skins */}
-        <div className="retro-panel mb-6">
-          <h2 className="font-menu text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2 flex items-center gap-2">
-            <span className="text-red-500">&gt;</span>
-            HEROES & SKINS
-          </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Hero Selection */}
-            <div>
-              <div className="font-menu text-sm mb-3 text-neon-green opacity-90">HERO SELECTION</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {heroOptions.map((hero) => {
-                  const unlocked = stats.lifetimeScore >= hero.unlockScore;
-                  const isSelected = selectedHero === hero.key;
-                  return (
-                    <button
-                      key={hero.key}
-                      type="button"
-                      className={`border p-3 text-left transition-all ${
-                        unlocked 
-                          ? isSelected 
-                            ? "border-neon-green bg-neon-green bg-opacity-10" 
-                            : "border-neon-green border-opacity-50 hover:border-opacity-100 hover:bg-neon-green hover:bg-opacity-5"
-                          : "border-gray-700 border-opacity-50 opacity-60 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (!unlocked) return;
-                        setSelectedHero(hero.key);
-                        setSelectedHeroState(hero.key);
-                      }}
-                      disabled={!unlocked}
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={hero.sprite}
-                          alt={hero.name}
-                          className="w-10 h-10 flex-shrink-0"
-                          style={{ 
-                            filter: unlocked 
-                              ? "drop-shadow(0 0 6px #00ff99)" 
-                              : "grayscale(1) opacity(0.5)"
-                          }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-menu text-xs mb-1 truncate">{hero.name}</div>
-                          <div className="text-[10px] opacity-70">
-                            {unlocked
-                              ? isSelected
-                                ? <span className="text-neon-green">SELECTED</span>
-                                : "UNLOCKED"
-                              : `LOCKED • ${hero.unlockScore.toLocaleString()} pts`}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+          
+          {/* Second Row - Overall personal bests */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20">
+              <StatIcon type="trophy" size={20} />
+              <div className="flex-1">
+                <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Highest Score</div>
+                <div className="text-sm font-body text-neon-green mt-0.5">
+                  {stats.bestRunStats?.finalScore || stats.lifetimeScore || 0}
+                </div>
               </div>
             </div>
-            
-            {/* Skin Selection */}
-            <div>
-              <div className="font-menu text-sm mb-3 text-neon-green opacity-90">SKIN SELECTION</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {skinOptions.map((skin) => {
-                  const unlocked = stats.lifetimeScore >= skin.unlockScore;
-                  const isSelected = selectedSkin === skin.key;
-                  return (
-                    <button
-                      key={skin.key}
-                      type="button"
-                      className={`border p-3 text-left transition-all ${
-                        unlocked 
-                          ? isSelected 
-                            ? "border-neon-green bg-neon-green bg-opacity-10" 
-                            : "border-neon-green border-opacity-50 hover:border-opacity-100 hover:bg-neon-green hover:bg-opacity-5"
-                          : "border-gray-700 border-opacity-50 opacity-60 cursor-not-allowed"
-                      }`}
-                      onClick={() => {
-                        if (!unlocked) return;
-                        setSelectedSkin(skin.key);
-                        setSelectedSkinState(skin.key);
-                      }}
-                      disabled={!unlocked}
-                    >
-                      <div className="flex items-center gap-3">
-                        <img
-                          src="/sprites/hero.svg"
-                          alt={skin.name}
-                          className="w-10 h-10 flex-shrink-0"
-                          style={{ 
-                            filter: unlocked 
-                              ? `${skin.filter} drop-shadow(0 0 6px #00ff99)` 
-                              : "grayscale(1) opacity(0.5)"
-                          }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-menu text-xs mb-1 truncate">{skin.name}</div>
-                          <div className="text-[10px] opacity-70">
-                            {unlocked
-                              ? isSelected
-                                ? <span className="text-neon-green">SELECTED</span>
-                                : "UNLOCKED"
-                              : `LOCKED • ${skin.unlockScore.toLocaleString()} pts`}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+            <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20">
+              <StatIcon type="accuracy" size={20} />
+              <div className="flex-1">
+                <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Best Accuracy</div>
+                <div className="text-sm font-body text-neon-green mt-0.5">
+                  {stats.bestRunStats ? `${Math.round(stats.bestRunStats.accuracy * 100)}%` : '0%'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20">
+              <StatIcon type="cubes" size={20} />
+              <div className="flex-1">
+                <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Best Data Collected</div>
+                <div className="text-sm font-body text-neon-green mt-0.5">
+                  {stats.bestRunStats?.powerUpsCollected || 0}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 py-2 border-b border-neon-green border-opacity-20">
+              <StatIcon type="skull" size={20} />
+              <div className="flex-1">
+                <div className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">Most Kills</div>
+                <div className="text-sm font-body text-neon-green mt-0.5">
+                  {stats.bestRunStats?.enemiesDefeated || stats.lifetimeEnemiesDefeated || 0}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Recent Records */}
-        <div className="retro-panel">
-          <h2 className="font-menu text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2 flex items-center gap-2">
-            <span className="text-red-500">&gt;</span>
-            RECENT PERSONAL RECORDS
-          </h2>
-          {stats.recentRecords.length > 0 ? (
-            <div className="space-y-2">
-              {stats.recentRecords.map((record, index) => (
-                <div key={`${record.label}-${index}`} className="flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0">
-                  <span className="text-xs text-neon-green opacity-70 font-menu uppercase tracking-wider">{record.label}</span>
-                  <span className="text-sm font-body text-neon-green">{record.value}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="font-body text-sm opacity-60 py-8 text-center">No recent records yet.</div>
-          )}
         </div>
       </div>
     </div>
