@@ -1654,10 +1654,21 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Get max enemies based on current layer
+        // Safety check: ensure currentLayer is valid
+        if (this.currentLayer < 1 || this.currentLayer > MAX_LAYER) {
+            console.warn(`[Spawn] Invalid currentLayer: ${this.currentLayer}, resetting to 1`);
+            this.currentLayer = 1;
+        }
+        
         const currentLayerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
+        if (!currentLayerConfig) {
+            console.error(`[Spawn] No layer config found for layer ${this.currentLayer}`);
+            return;
+        }
+        
         const maxEnemiesMultiplier =
-            currentLayerConfig?.spawnRateMultiplier || 1.0;
+            currentLayerConfig.spawnRateMultiplier || 1.0;
         const currentMaxEnemies = Math.floor(
             SPAWN_CONFIG.baseMaxEnemies *
                 maxEnemiesMultiplier *
@@ -1697,6 +1708,12 @@ export class GameScene extends Phaser.Scene {
             Math.random() < ENEMY_BEHAVIOR_CONFIG.formationSpawnChance
         ) {
             this.spawnFormationWave(spawnPatterns);
+            return;
+        }
+
+        // Safety check: ensure currentLayerConfig exists and has enemies
+        if (!currentLayerConfig || !currentLayerConfig.enemies) {
+            console.warn(`[Spawn] Invalid layer config for layer ${this.currentLayer}, cannot spawn enemies`);
             return;
         }
 
@@ -3402,9 +3419,22 @@ export class GameScene extends Phaser.Scene {
     }
 
     private updateSpawnTimer() {
+        // Safety check: ensure currentLayer is valid
+        if (this.currentLayer < 1 || this.currentLayer > MAX_LAYER) {
+            console.warn(`[Spawn Timer] Invalid currentLayer: ${this.currentLayer}, resetting to 1`);
+            this.currentLayer = 1;
+        }
+        
         // Get spawn rate multiplier based on current layer
-        const layerConfig =
+        let layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
+        if (!layerConfig) {
+            console.error(`[Spawn Timer] No layer config found for layer ${this.currentLayer}, using layer 1 config`);
+            layerConfig = LAYER_CONFIG[1];
+            if (!layerConfig) {
+                console.error(`[Spawn Timer] Layer 1 config also not found, using default multiplier`);
+            }
+        }
         const spawnRateMultiplier = layerConfig?.spawnRateMultiplier || 1.0;
         const prestigeSpawnMultiplier = Math.max(
             1,
@@ -3886,7 +3916,12 @@ export class GameScene extends Phaser.Scene {
                     this.enterPrestigeMode(e.x, e.y);
                 } else {
                     // Advance to the pending layer
-                this.currentLayer = this.pendingLayer;
+                    // Safety check: ensure pendingLayer is valid
+                    if (this.pendingLayer < 1 || this.pendingLayer > MAX_LAYER) {
+                        console.error(`[Layer Progression] Invalid pendingLayer: ${this.pendingLayer}, resetting to currentLayer`);
+                        this.pendingLayer = this.currentLayer;
+                    }
+                    this.currentLayer = this.pendingLayer;
                     this.graduationBossActive = false; // Clear the flag so layer updates can continue
                 if (this.pendingLayer > this.deepestLayer) {
                     this.deepestLayer = this.pendingLayer;
@@ -5241,8 +5276,21 @@ export class GameScene extends Phaser.Scene {
             }
         } else if (nextLayer <= MAX_LAYER) {
             // Debug: Log why next boss isn't spawning
-            const scoreThreshold = LAYER_CONFIG[nextLayer as keyof typeof LAYER_CONFIG].scoreThreshold;
-            console.log(`[Layer Progression] Need ${scoreThreshold - this.score} more score to qualify for layer ${nextLayer} (current: ${this.score}, required: ${scoreThreshold})`);
+            const nextLayerConfig = LAYER_CONFIG[nextLayer as keyof typeof LAYER_CONFIG];
+            if (nextLayerConfig) {
+                const scoreThreshold = nextLayerConfig.scoreThreshold;
+                console.log(`[Layer Progression] Need ${scoreThreshold - this.score} more score to qualify for layer ${nextLayer} (current: ${this.score}, required: ${scoreThreshold})`);
+            }
+        } else {
+            // nextLayer > MAX_LAYER - we've reached the maximum layer
+            // This should only happen if currentLayer is already MAX_LAYER
+            // In this case, we should still allow enemies to spawn for the current layer
+            if (this.currentLayer === MAX_LAYER) {
+                // At max layer, enemies should continue spawning normally
+                // No need to log anything, this is expected behavior
+            } else {
+                console.warn(`[Layer Progression] Invalid state: currentLayer=${this.currentLayer}, nextLayer=${nextLayer}, MAX_LAYER=${MAX_LAYER}`);
+            }
         }
     }
 
