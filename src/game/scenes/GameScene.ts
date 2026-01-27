@@ -97,6 +97,11 @@ import {
     hasViewedDialogue,
     isFirstRun,
 } from "../../services/dialogueService";
+import {
+    getCurrentBulletTier,
+    getBulletStats,
+    type BulletTier,
+} from "../../services/bulletUpgradeService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -1279,11 +1284,17 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Remove bullets that are off screen (right edge)
+        // Also cleanup trail timers for bullets
         const gameWidth = this.scale.width;
         const gameHeight = this.scale.height;
         this.bullets.children.entries.forEach((bullet) => {
             const b = bullet as Phaser.Physics.Arcade.Sprite;
             if (b.x > gameWidth + 50 || b.x < -50) {
+                // Cleanup trail timer if exists
+                const trailTimer = b.getData('trailTimer') as Phaser.Time.TimerEvent | undefined;
+                if (trailTimer) {
+                    trailTimer.remove();
+                }
                 b.destroy();
             }
         });
@@ -1841,6 +1852,13 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        // Get current bullet tier based on prestige
+        const bulletTier = getCurrentBulletTier(this.prestigeLevel);
+        const bulletStats = getBulletStats(bulletTier.tier);
+        if (!bulletStats) {
+            return; // Fallback to default if stats not found
+        }
+
         // Base firepower: single bullet
         if (this.firepowerLevel === 0) {
             const bullet = this.bullets.get(
@@ -1850,10 +1868,27 @@ export class GameScene extends Phaser.Scene {
             if (bullet) {
                 bullet.setActive(true);
                 bullet.setVisible(true);
-                bullet.setScale(0.5 * MOBILE_SCALE);
-                bullet.setTexture("greenBullet1"); // Normal green bullet
-                bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed);
+                
+                // Apply bullet tier sprite and scale
+                const baseScale = 0.5 * MOBILE_SCALE;
+                const tierScale = baseScale * (0.8 + (bulletTier.tier - 1) * 0.1); // Slightly larger per tier
+                bullet.setScale(tierScale);
+                bullet.setTexture(bulletStats.spriteKey);
+                
+                // Apply bullet tier speed multiplier
+                const bulletSpeed = PLAYER_CONFIG.bulletSpeed * bulletStats.speedMultiplier;
+                bullet.setVelocityX(bulletSpeed);
                 bullet.setVelocityY(0);
+                
+                // Store bullet tier data for collision handling
+                bullet.setData('bulletTier', bulletTier.tier);
+                bullet.setData('damageMultiplier', bulletStats.damageMultiplier);
+                bullet.setData('piercing', bulletStats.effects.piercing);
+                bullet.setData('pierceCount', 0); // Track how many enemies pierced
+                
+                // Add visual effects
+                this.addBulletVisualEffects(bullet, bulletTier);
+                
                 this.shotsFiredThisRun += 1;
             }
         } else {
@@ -1871,17 +1906,12 @@ export class GameScene extends Phaser.Scene {
                 if (bullet) {
                     bullet.setActive(true);
                     bullet.setVisible(true);
-                    bullet.setScale(0.6 * MOBILE_SCALE); // Slightly larger for visual impact
-
-                    // Use different bullet sprites based on firepower level
-                    if (firepowerLevelInt === 1) {
-                        bullet.setTexture("greenBullet2"); // Upgraded green bullet
-                    } else if (firepowerLevelInt >= 2) {
-                        bullet.setTexture("yellowBullet"); // Yellow bullet for high firepower
-                        bullet.setScale(0.7 * MOBILE_SCALE); // Even larger
-                    } else {
-                        bullet.setTexture("greenBullet1");
-                    }
+                    
+                    // Apply bullet tier sprite and scale
+                    const baseScale = 0.6 * MOBILE_SCALE;
+                    const tierScale = baseScale * (0.9 + (bulletTier.tier - 1) * 0.1); // Slightly larger per tier
+                    bullet.setScale(tierScale);
+                    bullet.setTexture(bulletStats.spriteKey);
 
                     // Calculate spread angle
                     const angleOffset =
@@ -1889,15 +1919,66 @@ export class GameScene extends Phaser.Scene {
                         (spreadAngle / (bulletCount - 1 || 1));
                     const angle = Phaser.Math.DegToRad(angleOffset);
 
-                    // Set velocity with spread
-                    const velocityX =
-                        Math.cos(angle) * PLAYER_CONFIG.bulletSpeed;
-                    const velocityY =
-                        Math.sin(angle) * PLAYER_CONFIG.bulletSpeed;
+                    // Apply bullet tier speed multiplier
+                    const bulletSpeed = PLAYER_CONFIG.bulletSpeed * bulletStats.speedMultiplier;
+                    const velocityX = Math.cos(angle) * bulletSpeed;
+                    const velocityY = Math.sin(angle) * bulletSpeed;
                     bullet.setVelocity(velocityX, velocityY);
+                    
+                    // Store bullet tier data for collision handling
+                    bullet.setData('bulletTier', bulletTier.tier);
+                    bullet.setData('damageMultiplier', bulletStats.damageMultiplier);
+                    bullet.setData('piercing', bulletStats.effects.piercing);
+                    bullet.setData('pierceCount', 0); // Track how many enemies pierced
+                    
+                    // Add visual effects
+                    this.addBulletVisualEffects(bullet, bulletTier);
+                    
                     this.shotsFiredThisRun += 1;
                 }
             }
+        }
+    }
+    
+    /**
+     * Add visual effects to bullet based on tier
+     */
+    private addBulletVisualEffects(bullet: Phaser.Physics.Arcade.Sprite, tier: BulletTier): void {
+        // Add glow effect for tiers 2+
+        if (tier.effects.glow) {
+            bullet.setTint(0xffffff);
+            this.tweens.add({
+                targets: bullet,
+                alpha: { from: 1, to: 0.7 },
+                duration: 200,
+                yoyo: true,
+                repeat: -1,
+            });
+        }
+        
+        // Add trail effect for tiers 2+
+        if (tier.effects.trail) {
+            // Create a trail particle effect
+            const trailColor = tier.tier >= 5 ? 0x00ffff : tier.tier >= 4 ? 0x0088ff : 0x00ff00;
+            const trailTimer = this.time.addEvent({
+                delay: 50,
+                callback: () => {
+                    if (!bullet.active) {
+                        trailTimer.remove();
+                        return;
+                    }
+                    const trail = this.add.circle(bullet.x, bullet.y, 3, trailColor, 0.5);
+                    this.tweens.add({
+                        targets: trail,
+                        alpha: 0,
+                        scale: 0,
+                        duration: 200,
+                        onComplete: () => trail.destroy(),
+                    });
+                },
+                loop: true,
+            });
+            bullet.setData('trailTimer', trailTimer);
         }
     }
 
@@ -4357,18 +4438,46 @@ export class GameScene extends Phaser.Scene {
             return; // Enemy hasn't appeared on screen yet, ignore collision
         }
 
-        if (this.kernelBulletPiercing || this.heroGradeBulletPiercing) {
+        // Check piercing mechanics (bullet tier or kernel/hero grade)
+        const bulletPiercing = b.getData('piercing') as number || 0;
+        const pierceCount = b.getData('pierceCount') as number || 0;
+        const hasTierPiercing = bulletPiercing !== 0;
+        const hasOtherPiercing = this.kernelBulletPiercing || this.heroGradeBulletPiercing;
+        
+        // Handle piercing logic
+        if (hasTierPiercing || hasOtherPiercing) {
             const enemyUid = e.getData("uid");
             const lastHitEnemy = b.getData("lastHitEnemy");
             const lastHitTime = (b.getData("lastHitTime") as number) || 0;
+            
+            // Prevent hitting same enemy multiple times quickly
             if (enemyUid === lastHitEnemy && this.time.now - lastHitTime < 80) {
                 return;
             }
             b.setData("lastHitEnemy", enemyUid);
             b.setData("lastHitTime", this.time.now);
+            
+            // Check if bullet should continue piercing (tier-based)
+            if (hasTierPiercing) {
+                if (bulletPiercing === -1) {
+                    // Infinite piercing (Tier 5) - bullet never stops
+                    // Don't destroy bullet
+                } else if (bulletPiercing > 0) {
+                    // Limited piercing (Tier 4) - pierce through N enemies
+                    const newPierceCount = pierceCount + 1;
+                    b.setData('pierceCount', newPierceCount);
+                    
+                    if (newPierceCount >= bulletPiercing) {
+                        // Reached pierce limit, destroy bullet
+                        b.destroy();
+                    }
+                    // Otherwise, bullet continues
+                }
+            }
+            // If only other piercing (kernel/hero grade), keep existing behavior
         } else {
-        // Remove bullet
-        b.destroy();
+            // No piercing - remove bullet
+            b.destroy();
         }
 
         // Get enemy data
@@ -4380,7 +4489,10 @@ export class GameScene extends Phaser.Scene {
         // Deal damage (apply shield drone reduction if applicable)
         this.shotsHitThisRun += 1;
         const shieldReduction = this.getShieldDamageReduction(e);
-        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier;
+        
+        // Get bullet tier damage multiplier
+        const bulletDamageMultiplier = b.getData('damageMultiplier') as number || 1.0;
+        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier * bulletDamageMultiplier;
         const isCriticalHit = isBoss || this.comboMultiplier >= 3;
         const damageText = Number.isInteger(damage)
             ? `${damage}`

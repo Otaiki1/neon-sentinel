@@ -145,10 +145,17 @@ export class BootScene extends Phaser.Scene {
     this.load.image('finalBoss', '/sprites/final_boss.svg');
     
     // Bullet sprites
+    this.load.image('bullet', '/sprites/green_bullet_1.svg'); // Default bullet (Tier 1)
     this.load.image('greenBullet1', '/sprites/green_bullet_1.svg');
     this.load.image('greenBullet2', '/sprites/green_bullet_2.svg');
     this.load.image('yellowBullet', '/sprites/yellow_bullet.svg');
     this.load.image('blueBullet', '/sprites/blue_bullet.svg');
+    
+    // Bullet tier sprites (use existing sprites as placeholders, can be replaced later)
+    this.load.image('bulletTier2', '/sprites/green_bullet_2.svg'); // Enhanced (slightly larger, faint glow)
+    this.load.image('bulletTier3', '/sprites/yellow_bullet.svg'); // Accelerated (bright, trailing)
+    this.load.image('bulletTier4', '/sprites/blue_bullet.svg'); // Plasma (large, pulsing)
+    this.load.image('bulletTier5', '/sprites/yellow_bullet.svg'); // Transcendent (massive beam) - using yellow as placeholder
     
     // Explosion sprites
     this.load.image('smallFire', '/sprites/small_fire.svg');

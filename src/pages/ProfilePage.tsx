@@ -7,6 +7,7 @@ import {
 } from "../services/achievementService";
 import { StatIcon } from "../components/StatIcon";
 import { getRankHistory, getCurrentRankFromStorage, getRankTierName } from "../services/rankService";
+import { getCurrentBulletTier, getTierProgress, BULLET_TIERS } from "../services/bulletUpgradeService";
 import "./LandingPage.css";
 
 function formatTime(ms: number) {
@@ -41,6 +42,11 @@ function ProfilePage() {
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
   const rankHistory = getRankHistory();
   const currentRank = getCurrentRankFromStorage();
+  
+  // Get bullet tier info (use prestige from current rank or 0)
+  const currentPrestige = currentRank?.prestige || 0;
+  const currentBulletTier = getCurrentBulletTier(currentPrestige);
+  const tierProgress = getTierProgress(currentPrestige);
 
   const heroOptions = [
     {
@@ -119,6 +125,82 @@ function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* Bullet Tier Display */}
+        <div className="retro-panel mb-8">
+          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
+            BULLET TIER
+          </h2>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
+              <div className="text-2xl font-menu text-neon-green">{currentBulletTier.tier}</div>
+            </div>
+            <div>
+              <div className="font-menu text-lg text-neon-green">{currentBulletTier.name}</div>
+              <div className="font-body text-sm text-neon-green opacity-70">
+                Tier {currentBulletTier.tier}/{BULLET_TIERS.length} • {currentBulletTier.damageMultiplier}x Damage • {currentBulletTier.speedMultiplier}x Speed
+              </div>
+            </div>
+          </div>
+          
+          {/* Tier Progress */}
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-neon-green opacity-70 mb-2">
+              <span>Progress</span>
+              <span>{tierProgress.currentTier}/{tierProgress.maxTier}</span>
+            </div>
+            <div className="w-full bg-black border-2 border-neon-green border-opacity-30 h-4">
+              <div 
+                className="h-full bg-neon-green transition-all duration-300"
+                style={{ width: `${tierProgress.progress * 100}%` }}
+              />
+            </div>
+          </div>
+          
+          {/* Next Tier Unlock */}
+          {tierProgress.nextTier && (
+            <div className="text-xs text-neon-green opacity-70">
+              Next: <span className="font-menu">{tierProgress.nextTier.name}</span> at Prestige {tierProgress.nextTier.unlockPrestige}
+            </div>
+          )}
+          
+          {/* All Tiers List */}
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
+            {BULLET_TIERS.map((tier) => {
+              const isUnlocked = currentPrestige >= tier.unlockPrestige;
+              const isCurrent = tier.tier === currentBulletTier.tier;
+              
+              return (
+                <div
+                  key={tier.tier}
+                  className={`border-2 p-2 text-center ${
+                    isCurrent
+                      ? 'border-neon-green bg-neon-green bg-opacity-10'
+                      : isUnlocked
+                      ? 'border-neon-green border-opacity-40'
+                      : 'border-gray-700 border-opacity-50 opacity-60'
+                  }`}
+                >
+                  <div className="text-xs font-menu text-neon-green mb-1">
+                    Tier {tier.tier}
+                  </div>
+                  <div className="text-[10px] text-neon-green opacity-70 mb-1">
+                    {tier.name}
+                  </div>
+                  {isUnlocked ? (
+                    <div className="text-[10px] text-neon-green opacity-60">
+                      {tier.damageMultiplier}x DMG
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-neon-green opacity-50">
+                      P{tier.unlockPrestige}+
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

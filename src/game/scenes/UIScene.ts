@@ -15,6 +15,7 @@ import {
 } from '../../services/achievementService';
 import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
+import { getTierProgress } from '../../services/bulletUpgradeService';
 import { GameScene } from './GameScene';
 import { TooltipManager } from './TooltipManager';
 import { DialogueManager } from '../dialogue/DialogueManager';
@@ -28,6 +29,7 @@ export class UIScene extends Phaser.Scene {
   private livesOrb!: Phaser.GameObjects.Graphics;
   private healthBarLabel!: Phaser.GameObjects.Text;
   private miniMeCountText!: Phaser.GameObjects.Text;
+  private bulletTierText!: Phaser.GameObjects.Text;
   // Shock bomb meter (red/orange)
   private shockBombBarBg!: Phaser.GameObjects.Graphics;
   private shockBombBarFill!: Phaser.GameObjects.Graphics;
@@ -290,6 +292,25 @@ export class UIScene extends Phaser.Scene {
     }
     this.miniMeCountText.setAlpha(this.miniMeCountText.alpha * this.uiOpacityMultiplier);
     
+    // Bullet tier display
+    const bulletTierX = baseX + 10 * uiScale;
+    const bulletTierY = baseY + lineSpacing * 7 + 60 * uiScale;
+    this.bulletTierText = this.add.text(bulletTierX, bulletTierY, 'BULLET TIER: 1/5', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    if (MOBILE_SCALE < 1.0) {
+      this.bulletTierText.setAlpha(0.85);
+    }
+    this.bulletTierText.setAlpha(this.bulletTierText.alpha * this.uiOpacityMultiplier);
+    
+    // Subscribe to prestige level changes to update bullet tier
+    this.registry.events.on('changedata-prestigeLevel', this.updateBulletTier, this);
+    this.updateBulletTier(this.registry, this.registry.get('prestigeLevel') as number);
+    
     this.registerUiGlitchTargets([
       this.scoreText,
       this.comboText,
@@ -297,6 +318,7 @@ export class UIScene extends Phaser.Scene {
       this.prestigeText,
       this.rankText,
       this.miniMeCountText,
+      this.bulletTierText,
     ]);
 
     // Removed top-left run stats panel per UX request
@@ -1193,6 +1215,18 @@ export class UIScene extends Phaser.Scene {
 
   private updatePrestige(_parent: Phaser.Data.DataManager, value: number) {
     this.prestigeText.setText(`PRESTIGE: ${value}`);
+    this.updateBulletTier(_parent, value);
+  }
+  
+  private updateBulletTier(_parent: Phaser.Data.DataManager, prestige: number) {
+    const tierProgress = getTierProgress(prestige);
+    
+    let tierText = `BULLET TIER: ${tierProgress.currentTier}/${tierProgress.maxTier}`;
+    if (tierProgress.nextTier) {
+      tierText += ` (Next: P${tierProgress.nextTier.unlockPrestige})`;
+    }
+    
+    this.bulletTierText.setText(tierText);
   }
 
   private updateRank(_parent: Phaser.Data.DataManager, rankName: string) {
