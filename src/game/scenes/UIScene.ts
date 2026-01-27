@@ -1605,18 +1605,23 @@ export class UIScene extends Phaser.Scene {
       
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
-      const coins = (this.registry.get('coins') as number) || 0;
-      const reviveCount = (this.registry.get('reviveCount') as number) || 0;
-      const reviveCost = reviveCount + 1;
-      this.updateRunSummary(finalScore);
-      this.updateProgressStatement(finalScore);
-      this.runSummaryTexts.forEach((line) => line.setVisible(true));
-      this.gameOverContainer.setVisible(true);
-      this.pauseContainer.setVisible(false);
-      this.pauseButton.setVisible(false); // Hide pause button when game over
-      this.settingsContainer.setVisible(false);
-      this.settingsVisible = false;
-      this.showRevivePrompt(coins, reviveCost);
+      
+      // Import coin service and calculate revive cost
+      import('../../services/coinService').then(({ getAvailableCoins, getReviveCost }) => {
+        const coins = getAvailableCoins();
+        const reviveCount = (this.registry.get('reviveCount') as number) || 0;
+        const reviveCost = getReviveCost(reviveCount);
+        this.registry.set('coinBalance', coins);
+        this.updateRunSummary(finalScore);
+        this.updateProgressStatement(finalScore);
+        this.runSummaryTexts.forEach((line) => line.setVisible(true));
+        this.gameOverContainer.setVisible(true);
+        this.pauseContainer.setVisible(false);
+        this.pauseButton.setVisible(false); // Hide pause button when game over
+        this.settingsContainer.setVisible(false);
+        this.settingsVisible = false;
+        this.showRevivePrompt(coins, reviveCost);
+      });
     } else {
       this.gameOverContainer.setVisible(false);
       this.prestigeBadgeText.setVisible(false);

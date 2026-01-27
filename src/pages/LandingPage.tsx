@@ -4,7 +4,7 @@ import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreServ
 import { CUSTOMIZABLE_SETTINGS, PLAYER_KERNELS } from '../game/config';
 import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
 import { getGameplaySettings, saveGameplaySettings, type GameplaySettings } from '../services/settingsService';
-import { addCoins, getAvailableCoins, getDailyCoinCount } from '../services/coinService';
+import { addCoins, getAvailableCoins, getDailyCoins } from '../services/coinService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
 import iconProfile from '../assets/icons/icon-profile.svg';
@@ -994,7 +994,7 @@ function LandingPage() {
                 onNext={advanceTooltip}
                 onSkip={skipTour}
               >
-                <div>Daily Coins: {getDailyCoinCount()} (auto-refresh)</div>
+                <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
               </FirstTimeTooltip>
               <div>Available Coins: {coins}</div>
               <div className="opacity-70">Crypto purchases are simulated.</div>

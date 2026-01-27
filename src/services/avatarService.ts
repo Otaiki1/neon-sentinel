@@ -4,7 +4,7 @@
  * Handles prestige-based avatar progression and stat bonuses
  */
 
-import { consumeCoins, getAvailableCoins } from './coinService';
+import { getAvailableCoins, spendCoins } from './coinService';
 import { AVATAR_CONFIG } from '../game/config';
 
 export type AvatarId = keyof typeof AVATAR_CONFIG;
@@ -75,7 +75,7 @@ export function purchaseAvatar(avatarId: AvatarId): boolean {
     }
     
     // Deduct coins
-    const success = consumeCoins(avatar.unlockCostCoins);
+    const success = spendCoins(avatar.unlockCostCoins, 'avatar');
     if (!success) {
         return false;
     }

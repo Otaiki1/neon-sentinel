@@ -50,7 +50,14 @@ import {
     getHeroGradeConfig,
     checkAndUnlockHeroGrades,
 } from "../../services/heroGradeService";
-import { consumeCoins, getAvailableCoins, addCoins } from "../../services/coinService";
+import {
+    getAvailableCoins,
+    addCoins,
+    spendCoins,
+    grantPrestigeReward,
+    getReviveCost,
+    checkAndGrantPrimeSentinelBonus,
+} from "../../services/coinService";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 import {
     getMilestoneForProgress,
@@ -298,6 +305,20 @@ export class GameScene extends Phaser.Scene {
         // Initialize rank display
         const initialRankName = getRankName(this.prestigeLevel, this.currentLayer);
         this.registry.set("currentRank", initialRankName);
+        
+        // Initialize coin balance in registry
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Check and grant Prime Sentinel bonus if eligible
+        if (checkAndGrantPrimeSentinelBonus(this.prestigeLevel)) {
+            this.time.delayedCall(2000, () => {
+                this.showAnnouncement(
+                    "PRIME SENTINEL BONUS",
+                    "Prime Sentinel has sent you 3 coins!",
+                    0x00ffff
+                );
+            });
+        }
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -475,6 +496,9 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("isPrimeSentinel", false);
         
         // Initialize rank (already set in create method)
+        
+        // Initialize coin balance
+        this.registry.set("coinBalance", getAvailableCoins());
         
         this.registry.set(
             "prestigeScoreMultiplier",
@@ -950,14 +974,14 @@ export class GameScene extends Phaser.Scene {
         if (!this.gameOver) {
             return false;
         }
-        const cost = this.reviveCount + 1;
-        if (!consumeCoins(cost)) {
+        const cost = getReviveCost(this.reviveCount);
+        if (!spendCoins(cost, 'revive')) {
             return false;
         }
         this.reviveCount += 1;
         this.gameOver = false;
         this.registry.set("gameOver", false);
-        this.registry.set("coins", getAvailableCoins());
+        this.registry.set("coinBalance", getAvailableCoins());
         this.registry.set("reviveCount", this.reviveCount);
         this.isPaused = false;
         this.player.setVelocity(0, 0);
@@ -6326,7 +6350,8 @@ export class GameScene extends Phaser.Scene {
         // Award coins for completing previous prestige
         if (previousPrestige >= 0) {
             const coinReward = getPrestigeCoinReward(previousPrestige);
-            addCoins(coinReward);
+            grantPrestigeReward(this.prestigeLevel);
+            this.registry.set("coinBalance", getAvailableCoins());
             this.showAnnouncement(
                 "PRESTIGE COMPLETE!",
                 `Earned ${coinReward} coins`,
