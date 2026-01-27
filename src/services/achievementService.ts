@@ -90,7 +90,12 @@ export function getAllAchievements(): AchievementDefinition[] {
     ...ACHIEVEMENTS.tier2_intermediate,
     ...ACHIEVEMENTS.tier3_advanced,
     ...ACHIEVEMENTS.tier4_legendary,
-  ];
+  ] as AchievementDefinition[];
+}
+
+export function isAchievementUnlocked(id: string): boolean {
+  const state = loadAchievementState();
+  return state.unlocked.includes(id);
 }
 
 export function loadAchievementState(): AchievementState {

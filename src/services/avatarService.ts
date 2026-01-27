@@ -13,12 +13,48 @@ const PURCHASED_AVATARS_KEY = 'neonSentinel_purchasedAvatars';
 const ACTIVE_AVATAR_KEY = 'neonSentinel_activeAvatarId';
 
 /**
+ * Check if final boss has been defeated
+ */
+function isFinalBossDefeated(): boolean {
+    try {
+        const stored = localStorage.getItem('neonSentinel_finalBossDefeated');
+        return stored === 'true';
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Mark final boss as defeated
+ */
+export function markFinalBossDefeated(): void {
+    try {
+        localStorage.setItem('neonSentinel_finalBossDefeated', 'true');
+    } catch (error) {
+        console.error('Error marking final boss as defeated:', error);
+    }
+}
+
+/**
  * Get all available avatars for a given prestige level
  */
 export function getAvailableAvatars(prestigeLevel: number): AvatarId[] {
+    const finalBossDefeated = isFinalBossDefeated();
+    
     return Object.keys(AVATAR_CONFIG).filter((avatarId) => {
         const avatar = AVATAR_CONFIG[avatarId as AvatarId];
-        return avatar.unlockPrestige <= prestigeLevel;
+        
+        // Check prestige requirement
+        if (avatar.unlockPrestige > prestigeLevel) {
+            return false;
+        }
+        
+        // Check final boss requirement for transcendent_form
+        if ((avatar as any).requiresFinalBoss && !finalBossDefeated) {
+            return false;
+        }
+        
+        return true;
     }) as AvatarId[];
 }
 
@@ -45,11 +81,21 @@ export function getPurchasedAvatars(): AvatarId[] {
 }
 
 /**
- * Check if an avatar is unlocked (purchased)
+ * Check if an avatar is unlocked (purchased and requirements met)
  */
 export function isAvatarUnlocked(avatarId: AvatarId): boolean {
     const purchased = getPurchasedAvatars();
-    return purchased.includes(avatarId);
+    if (!purchased.includes(avatarId)) {
+        return false;
+    }
+    
+    // Check final boss requirement
+    const avatar = AVATAR_CONFIG[avatarId];
+    if ((avatar as any)?.requiresFinalBoss && !isFinalBossDefeated()) {
+        return false;
+    }
+    
+    return true;
 }
 
 /**
@@ -226,22 +272,27 @@ export function getAllAvatarsWithStatus(prestigeLevel: number): Array<{
     isUnlocked: boolean;
     isPurchased: boolean;
     canAfford: boolean;
+    requirementsMet: boolean;
 }> {
     const purchased = getPurchasedAvatars();
     const availableCoins = getAvailableCoins();
+    const finalBossDefeated = isFinalBossDefeated();
     
     return Object.entries(AVATAR_CONFIG).map(([id, config]) => {
         const avatarId = id as AvatarId;
         const isPurchased = purchased.includes(avatarId);
         const canUnlock = config.unlockPrestige <= prestigeLevel;
-        const canAfford = availableCoins >= config.unlockCostCoins;
+        const finalBossRequirementMet = !(config as any).requiresFinalBoss || finalBossDefeated;
+        const requirementsMet = canUnlock && finalBossRequirementMet;
+        const canAfford = requirementsMet && availableCoins >= config.unlockCostCoins && !isPurchased;
         
         return {
             id: avatarId,
             config,
-            isUnlocked: isPurchased,
+            isUnlocked: isPurchased && requirementsMet,
             isPurchased,
-            canAfford: canUnlock && canAfford && !isPurchased,
+            canAfford,
+            requirementsMet,
         };
     });
 }

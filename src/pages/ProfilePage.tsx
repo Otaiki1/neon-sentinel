@@ -8,6 +8,7 @@ import {
 import { StatIcon } from "../components/StatIcon";
 import { getRankHistory, getCurrentRankFromStorage, getRankTierName } from "../services/rankService";
 import { getCurrentBulletTier, getTierProgress, BULLET_TIERS } from "../services/bulletUpgradeService";
+import { isAchievementUnlocked } from "../services/achievementService";
 import "./LandingPage.css";
 
 function formatTime(ms: number) {
@@ -42,6 +43,7 @@ function ProfilePage() {
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
   const rankHistory = getRankHistory();
   const currentRank = getCurrentRankFromStorage();
+  const isPrimeSentinel = isAchievementUnlocked("prime_sentinel");
   
   // Get bullet tier info (use prestige from current rank or 0)
   const currentPrestige = currentRank?.prestige || 0;
@@ -116,8 +118,15 @@ function ProfilePage() {
               <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
                 <div className="text-2xl font-menu text-neon-green">#{currentRank.number}</div>
               </div>
-              <div>
-                <div className="font-menu text-lg text-neon-green">{currentRank.name}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-menu text-lg text-neon-green">{currentRank.name}</div>
+                  {isPrimeSentinel && (
+                    <div className="text-xs font-menu text-cyan-400 border border-cyan-400 px-2 py-1">
+                      PRIME SENTINEL
+                    </div>
+                  )}
+                </div>
                 <div className="font-body text-sm text-neon-green opacity-70">
                   {getRankTierName(currentRank.tier)} • Prestige {currentRank.prestige}, Layer {currentRank.layer}
                 </div>

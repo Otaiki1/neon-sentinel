@@ -797,6 +797,13 @@ export const ACHIEVEMENTS = {
     ],
     tier4_legendary: [
         {
+            id: "prime_sentinel",
+            name: "Prime Sentinel",
+            description: "Defeat Zrechostikal and achieve Prime Sentinel rank",
+            requirement: "Defeat the final boss at Prestige 8, Layer 6",
+            points: 10000,
+        },
+        {
             id: "prestige_10",
             name: "Sentinel Prime",
             description: "Reach Prestige Level 10",

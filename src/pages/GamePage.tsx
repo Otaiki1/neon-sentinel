@@ -6,6 +6,7 @@ import { getGameplaySettings } from "../services/settingsService";
 import { getAvailableCoins } from "../services/coinService";
 import { InventoryModal } from "../components/InventoryModal";
 import { DialogueCard } from "../components/DialogueCard";
+import { VictoryScreen } from "../components/VictoryScreen";
 import type { MiniMeType } from "../services/inventoryService";
 import "./GamePage.css";
 
@@ -21,6 +22,7 @@ function GamePage() {
         text: string;
         speakerColor: string;
     } | null>(null);
+    const [showVictoryScreen, setShowVictoryScreen] = useState(false);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -77,6 +79,11 @@ function GamePage() {
                 speakerColor: string;
             }) => {
                 setCurrentDialogue(data);
+            });
+            
+            // Listen for final boss victory
+            uiScene.events.on('final-boss-victory', () => {
+                setShowVictoryScreen(true);
             });
         }
 
@@ -142,6 +149,10 @@ function GamePage() {
                     typewriterSpeed={100}
                 />
             )}
+            <VictoryScreen
+                isVisible={showVictoryScreen}
+                onClose={() => setShowVictoryScreen(false)}
+            />
         </div>
     );
 }

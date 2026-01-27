@@ -52,7 +52,6 @@ import {
 } from "../../services/heroGradeService";
 import {
     getAvailableCoins,
-    addCoins,
     spendCoins,
     grantPrestigeReward,
     getReviveCost,
@@ -88,6 +87,7 @@ import {
     updateCurrentRank,
     calculateRankMilestone,
 } from "../../services/rankService";
+import { markFinalBossDefeated } from "../../services/avatarService";
 import {
     getDialogueForTrigger,
     type DialogueState,
@@ -102,6 +102,15 @@ import {
     getBulletStats,
     type BulletTier,
 } from "../../services/bulletUpgradeService";
+import {
+    getFinalBossHealthP8,
+    getCurrentPhase,
+    shouldSpawnFinalBoss,
+    getFinalBossDialogue,
+    getFinalDefeatDialogue,
+    shouldUnlockPrimeSentinel,
+    type FinalBossPhase,
+} from "../../services/finalBossService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -269,6 +278,11 @@ export class GameScene extends Phaser.Scene {
     private enemyBullets!: Phaser.Physics.Arcade.Group;
     private isPaused = false;
     private graduationBossActive = false; // Track if graduation boss is active
+    private finalBossActive = false; // Track if final boss (Zrechostikal) is active
+    private finalBossPhase: FinalBossPhase | null = null; // Current final boss phase
+    private finalBossPhaseStartTime = 0; // When current phase started
+    private finalBossAssaultActive = false; // Whether in assault or rest phase
+    private finalBossLastEnemySpawn = 0; // Last time enemies were spawned during final boss
     private pendingLayer = 1; // Layer waiting to be unlocked after boss defeat
     private powerUps!: Phaser.Physics.Arcade.Group;
     private miniMes!: Phaser.Physics.Arcade.Group;
@@ -1300,8 +1314,32 @@ export class GameScene extends Phaser.Scene {
         });
 
         // Remove enemy bullets that are off screen
+        // Also update homing bullets
         this.enemyBullets.children.entries.forEach((bullet) => {
             const b = bullet as Phaser.Physics.Arcade.Sprite;
+            
+            // Update homing bullets (final boss)
+            const isHoming = b.getData("isHoming") as boolean || false;
+            if (isHoming && b.active) {
+                const targetX = b.getData("targetX") as number || this.player.x;
+                const targetY = b.getData("targetY") as number || this.player.y;
+                
+                // Update target periodically
+                if (this.time.now % 200 < 16) { // Every ~200ms
+                    b.setData("targetX", this.player.x);
+                    b.setData("targetY", this.player.y);
+                }
+                
+                // Adjust velocity toward target
+                const angle = Phaser.Math.Angle.Between(b.x, b.y, targetX, targetY);
+                if (b.body) {
+                    const speed = Math.sqrt(b.body.velocity.x ** 2 + b.body.velocity.y ** 2);
+                    const newVelX = Math.cos(angle) * speed;
+                    const newVelY = Math.sin(angle) * speed;
+                    b.setVelocity(newVelX, newVelY);
+                }
+            }
+            
             if (
                 b.x < -50 ||
                 b.x > gameWidth + 50 ||
@@ -1363,6 +1401,13 @@ export class GameScene extends Phaser.Scene {
                 }
             }
 
+            // Final boss has special update logic
+            const isFinalBoss = enemy.getData("isFinalBoss") || false;
+            if (isFinalBoss) {
+                this.updateFinalBoss(enemy, time);
+                return; // Skip normal graduation boss logic
+            }
+            
             // Graduation bosses track player movement to maintain line of sight
             if (isGraduationBoss) {
                 // Boss tracks player's Y position to maintain line of sight
@@ -1544,8 +1589,8 @@ export class GameScene extends Phaser.Scene {
 
             // Fire shockwaves for graduation bosses and final bosses
             const bossKey = enemy.getData("bossKey") as string | undefined;
-            const isFinalBoss = bossKey === "finalBoss";
-            if ((isGraduationBoss || isFinalBoss) && enemy.active) {
+            const isFinalBossByKey = bossKey === "finalBoss";
+            if ((isGraduationBoss || isFinalBossByKey) && enemy.active) {
                 const lastShockwave = enemy.getData("lastShockwave") || 0;
                 const shockwaveInterval = 8000; // Fire shockwave every 8 seconds
                 if (time - lastShockwave >= shockwaveInterval) {
@@ -4242,6 +4287,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     private spawnGraduationBoss(targetLayer: number) {
+        // Check if this is the final boss (Prestige 8, Layer 6)
+        const isFinalBoss = shouldSpawnFinalBoss(this.prestigeLevel, targetLayer);
+        
+        if (isFinalBoss) {
+            this.spawnFinalBoss();
+            return;
+        }
+        
         // Mark that a graduation boss is active
         this.graduationBossActive = true;
 
@@ -4415,6 +4468,473 @@ export class GameScene extends Phaser.Scene {
                 LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name
             }`
         );
+    }
+    
+    /**
+     * Spawn final boss (Zrechostikal) at Prestige 8, Layer 6
+     */
+    private spawnFinalBoss(): void {
+        // Mark that final boss is active
+        this.finalBossActive = true;
+        this.graduationBossActive = true; // Also mark as graduation boss for compatibility
+        
+        // Stop normal enemy spawning
+        if (this.spawnTimer) {
+            this.spawnTimer.remove();
+            this.spawnTimer = null;
+        }
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const x = gameWidth * 0.85;
+        const y = gameHeight / 2;
+        
+        // Create final boss sprite (3x normal boss size)
+        const boss = this.physics.add.sprite(x, y, 'zrechostikal');
+        boss.setScale(0.7 * 3.0 * MOBILE_SCALE); // 3x larger than normal boss
+        boss.setImmovable(false);
+        
+        // Calculate final boss health (5000 at P8)
+        const maxHealth = getFinalBossHealthP8();
+        const health = maxHealth;
+        
+        // Initialize phase 1
+        this.finalBossPhase = getCurrentPhase(health, maxHealth);
+        this.finalBossPhaseStartTime = this.time.now;
+        this.finalBossAssaultActive = true;
+        this.finalBossLastEnemySpawn = 0;
+        
+        // Set boss data
+        boss.setData("type", "zrechostikal");
+        boss.setData("uid", this.enemyUidCounter++);
+        boss.setData("points", 10000); // Massive points reward
+        boss.setData("speed", 80); // Slower but more dangerous
+        boss.setData("health", health);
+        boss.setData("maxHealth", maxHealth);
+        boss.setData("canShoot", true);
+        boss.setData("isBoss", true);
+        boss.setData("isGraduationBoss", true);
+        boss.setData("isFinalBoss", true); // Mark as final boss
+        boss.setData("bossKey", "zrechostikal");
+        boss.setData("displayName", "Zrechostikal - The Swarm Overlord");
+        boss.setData("damage", 2.5); // High damage
+        boss.setData("lastShot", 0);
+        boss.setData("baseShootInterval", 2000);
+        boss.setData("shootInterval", 2000);
+        boss.setData("lastShockwave", 0);
+        boss.setData("lastStunShockwave", 0);
+        boss.setData("phase", 1);
+        
+        // Create health bar for final boss
+        this.createEnemyHealthBar(boss);
+        
+        // Add corruption aura visual effect
+        this.createFinalBossAura(boss);
+        
+        this.enemies.add(boss);
+        boss.setVelocity(0, 0);
+        
+        // Epic visual effects
+        this.applyCameraFlash(500, 255, 0, 255); // Purple flash
+        this.applyCameraShake(1000, 0.05);
+        
+        // Show announcement
+        this.showAnnouncement(
+            "ZRECHOSTIKAL EMERGES!",
+            "The Swarm Overlord has manifested",
+            0xff00ff // Magenta color
+        );
+        
+        // Trigger final boss encounter dialogue
+        this.triggerDialogue('final_boss_encounter');
+        
+        // Show phase 1 dialogue
+        if (this.finalBossPhase) {
+            const dialogue = getFinalBossDialogue(this.finalBossPhase.phase);
+            if (dialogue) {
+                this.time.delayedCall(2000, () => {
+                    this.showAnnouncement(
+                        "ZRECHOSTIKAL",
+                        dialogue,
+                        0xff00ff
+                    );
+                });
+            }
+        }
+    }
+    
+    /**
+     * Create corruption aura for final boss
+     */
+    private createFinalBossAura(boss: Phaser.Physics.Arcade.Sprite): void {
+        const aura = this.add.graphics();
+        aura.setDepth(99); // Just below boss
+        
+        const updateAura = () => {
+            if (!boss.active) {
+                aura.destroy();
+                return;
+            }
+            
+            aura.clear();
+            const phase = boss.getData("phase") as number || 1;
+            const intensity = 0.3 + (phase - 1) * 0.2; // More intense in later phases
+            
+            // Draw pulsing corruption aura
+            aura.lineStyle(3, 0xff00ff, intensity);
+            aura.strokeCircle(boss.x, boss.y, 80 + Math.sin(this.time.now * 0.005) * 20);
+            aura.lineStyle(2, 0x00ffff, intensity * 0.5);
+            aura.strokeCircle(boss.x, boss.y, 100 + Math.sin(this.time.now * 0.003) * 30);
+        };
+        
+        // Update aura every frame
+        this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: updateAura,
+            loop: true,
+        });
+        
+        boss.setData("corruptionAura", aura);
+    }
+    
+    /**
+     * Update final boss phase and attacks
+     */
+    private updateFinalBoss(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        if (!this.finalBossActive || !boss.active) {
+            return;
+        }
+        
+        const currentHealth = boss.getData("health") as number;
+        const maxHealth = boss.getData("maxHealth") as number;
+        
+        // Update current phase based on health
+        const newPhase = getCurrentPhase(currentHealth, maxHealth);
+        if (newPhase && newPhase.phase !== (this.finalBossPhase?.phase || 1)) {
+            // Phase transition
+            this.finalBossPhase = newPhase;
+            this.finalBossPhaseStartTime = time;
+            boss.setData("phase", newPhase.phase);
+            
+            // Show phase transition dialogue
+            const dialogue = getFinalBossDialogue(newPhase.phase);
+            if (dialogue) {
+                this.showAnnouncement(
+                    `PHASE ${newPhase.phase}: ${newPhase.name.toUpperCase()}`,
+                    dialogue,
+                    0xff00ff
+                );
+            }
+            
+            // Visual effect on phase change
+            this.applyCameraFlash(300, 255, 0, 255);
+            this.applyCameraShake(500, 0.03);
+        }
+        
+        if (!this.finalBossPhase) {
+            return;
+        }
+        
+        // Manage assault/rest phases
+        const phaseElapsed = time - this.finalBossPhaseStartTime;
+        const cycleTime = this.finalBossPhase.assaultDuration + this.finalBossPhase.restDuration;
+        const cyclePosition = phaseElapsed % cycleTime;
+        
+        if (cyclePosition < this.finalBossPhase.assaultDuration) {
+            // Assault phase
+            if (!this.finalBossAssaultActive) {
+                this.finalBossAssaultActive = true;
+                boss.setData("assaultPhase", "assault");
+            }
+            
+            // Execute attacks based on phase
+            this.executeFinalBossAttacks(boss, time);
+            
+            // Spawn enemies if phase requires it
+            if (this.finalBossPhase.spawnEnemies && this.finalBossPhase.enemySpawnRate) {
+                const timeSinceLastSpawn = time - this.finalBossLastEnemySpawn;
+                const spawnInterval = 1000 / this.finalBossPhase.enemySpawnRate; // Convert rate to interval
+                if (timeSinceLastSpawn >= spawnInterval && Math.random() < this.finalBossPhase.enemySpawnRate) {
+                    this.spawnFinalBossReinforcements(boss);
+                    this.finalBossLastEnemySpawn = time;
+                }
+            }
+        } else {
+            // Rest phase
+            if (this.finalBossAssaultActive) {
+                this.finalBossAssaultActive = false;
+                boss.setData("assaultPhase", "rest");
+            }
+        }
+        
+        // Track player movement (same as graduation boss)
+        const bossSpeed = boss.getData("speed") || 80;
+        const targetY = this.player.y;
+        const currentY = boss.y;
+        const distanceY = targetY - currentY;
+        const moveSpeed = Math.min(Math.abs(distanceY), bossSpeed * 0.5);
+        if (Math.abs(distanceY) > 5) {
+            const directionY = distanceY > 0 ? 1 : -1;
+            boss.setVelocityY(moveSpeed * directionY);
+        } else {
+            boss.setVelocityY(0);
+        }
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const targetX = gameWidth * 0.85;
+        const currentX = boss.x;
+        const distanceX = targetX - currentX;
+        if (Math.abs(distanceX) > 5) {
+            boss.setVelocityX(distanceX * 0.1);
+        } else {
+            boss.setVelocityX(0);
+        }
+        
+        // Keep boss within bounds
+        if (boss.y < 50) {
+            boss.setY(50);
+            boss.setVelocityY(0);
+        }
+        if (boss.y > gameHeight - 50) {
+            boss.setY(gameHeight - 50);
+            boss.setVelocityY(0);
+        }
+    }
+    
+    /**
+     * Execute final boss attacks based on current phase
+     */
+    private executeFinalBossAttacks(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        if (!this.finalBossPhase) {
+            return;
+        }
+        
+        const lastShot = boss.getData("lastShot") as number || 0;
+        const shootInterval = boss.getData("shootInterval") as number || 2000;
+        const phase = this.finalBossPhase.phase;
+        
+        // Adjust shoot interval based on phase (faster in later phases)
+        const phaseSpeedMultiplier = 1.0 - ((phase - 1) * 0.15); // 1.0, 0.85, 0.70, 0.55
+        const adjustedInterval = shootInterval * phaseSpeedMultiplier;
+        
+        if (time - lastShot >= adjustedInterval) {
+            // Execute attacks based on phase
+            if (this.finalBossPhase.attacks.includes('projectile_spread')) {
+                this.finalBossProjectileSpread(boss);
+            }
+            if (this.finalBossPhase.attacks.includes('homing_projectiles') && phase >= 2) {
+                this.finalBossHomingProjectiles(boss);
+            }
+            if (this.finalBossPhase.attacks.includes('stun_shockwave') && phase >= 3) {
+                this.finalBossStunShockwave(boss, time);
+            }
+            if (this.finalBossPhase.attacks.includes('enhanced_attacks') && phase >= 4) {
+                // Enhanced versions of all attacks
+                this.finalBossProjectileSpread(boss, true);
+                if (Math.random() < 0.5) {
+                    this.finalBossHomingProjectiles(boss, true);
+                }
+            }
+            
+            boss.setData("lastShot", time);
+        }
+    }
+    
+    /**
+     * Final boss projectile spread attack
+     */
+    private finalBossProjectileSpread(boss: Phaser.Physics.Arcade.Sprite, enhanced: boolean = false): void {
+        const bulletCount = enhanced ? 7 : 5;
+        const spreadAngle = enhanced ? 60 : 45;
+        const bulletSpeed = enhanced ? 300 : 250;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const angleOffset = (i - (bulletCount - 1) / 2) * (spreadAngle / (bulletCount - 1 || 1));
+            const angle = Phaser.Math.DegToRad(angleOffset - 90); // Shoot left (toward player)
+            
+            const bullet = this.enemyBullets.get(boss.x, boss.y) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(0.8 * MOBILE_SCALE);
+                bullet.setTexture("blueBullet"); // Use blue bullet for final boss
+                bullet.setTint(0xff00ff); // Magenta tint
+                
+                const velocityX = Math.cos(angle) * bulletSpeed;
+                const velocityY = Math.sin(angle) * bulletSpeed;
+                bullet.setVelocity(velocityX, velocityY);
+                bullet.setData("damage", boss.getData("damage") as number || 2.5);
+            }
+        }
+    }
+    
+    /**
+     * Final boss homing projectiles attack
+     */
+    private finalBossHomingProjectiles(boss: Phaser.Physics.Arcade.Sprite, enhanced: boolean = false): void {
+        const bulletCount = enhanced ? 3 : 2;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const bullet = this.enemyBullets.get(boss.x, boss.y + (i - 1) * 30) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(0.6 * MOBILE_SCALE);
+                bullet.setTexture("blueBullet");
+                bullet.setTint(0x00ffff); // Cyan tint for homing
+                
+                // Calculate angle toward player
+                const angle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+                const bulletSpeed = enhanced ? 200 : 180;
+                const velocityX = Math.cos(angle) * bulletSpeed;
+                const velocityY = Math.sin(angle) * bulletSpeed;
+                bullet.setVelocity(velocityX, velocityY);
+                bullet.setData("damage", boss.getData("damage") as number || 2.5);
+                bullet.setData("isHoming", true); // Mark as homing for update loop
+                bullet.setData("targetX", this.player.x);
+                bullet.setData("targetY", this.player.y);
+            }
+        }
+    }
+    
+    /**
+     * Final boss stun shockwave attack
+     */
+    private finalBossStunShockwave(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        const lastStunShockwave = boss.getData("lastStunShockwave") as number || 0;
+        if (time - lastStunShockwave < 5000) { // 5 second cooldown
+            return;
+        }
+        
+        boss.setData("lastStunShockwave", time);
+        
+        // Create shockwave visual
+        const shockwave = this.add.circle(boss.x, boss.y, 0, 0xff00ff, 0.5);
+        shockwave.setDepth(98);
+        
+        this.tweens.add({
+            targets: shockwave,
+            radius: 400,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => {
+                shockwave.destroy();
+            },
+        });
+        
+        // Stun player if within range
+        const distance = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+        if (distance <= 400) {
+            this.isStunned = true;
+            this.stunEndTime = time + 2000; // 2 second stun
+            this.createFloatingText(
+                this.player.x,
+                this.player.y - 30,
+                "STUNNED BY ZRECHOSTIKAL!",
+                { color: "#ff00ff", fontSize: 24 }
+            );
+        }
+        
+        // Visual effect
+        this.applyCameraFlash(200, 255, 0, 255);
+        this.applyCameraShake(300, 0.02);
+    }
+    
+    /**
+     * Spawn reinforcements during final boss fight
+     */
+    private spawnFinalBossReinforcements(_boss: Phaser.Physics.Arcade.Sprite): void {
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const phase = this.finalBossPhase?.phase || 1;
+        
+        // Spawn enemies based on phase
+        const enemyTypes: Array<keyof typeof ENEMY_CONFIG> = phase >= 3 
+            ? ['purple', 'blue', 'yellow'] 
+            : phase >= 2 
+            ? ['blue', 'yellow'] 
+            : ['green', 'yellow'];
+        
+        const spawnCount = phase >= 4 ? 2 : 1;
+        
+        for (let i = 0; i < spawnCount; i++) {
+            const enemyType = enemyTypes[Phaser.Math.Between(0, enemyTypes.length - 1)];
+            const spawnX = gameWidth + 50;
+            const spawnY = Phaser.Math.Between(50, gameHeight - 50);
+            
+            this.spawnEnemyOfType(enemyType, {
+                absoluteX: spawnX,
+                y: spawnY,
+                healthMultiplier: 0.7, // Weaker than normal
+                speedMultiplier: 1.2, // Faster
+            });
+        }
+    }
+    
+    /**
+     * Handle final boss defeat and Prime Sentinel promotion
+     */
+    private handleFinalBossDefeat(): void {
+        this.finalBossActive = false;
+        this.graduationBossActive = false;
+        
+        // Show final defeat dialogue
+        const defeatDialogue = getFinalDefeatDialogue();
+        this.showAnnouncement(
+            "ZRECHOSTIKAL DEFEATED",
+            defeatDialogue,
+            0x00ffff
+        );
+        
+        // Trigger final boss defeat dialogue
+        this.triggerDialogue('final_boss_defeat');
+        
+        // Unlock Prime Sentinel achievement
+        if (shouldUnlockPrimeSentinel(this.prestigeLevel, this.currentLayer, true)) {
+            unlockAchievement("prime_sentinel");
+            this.showAnnouncement(
+                "ACHIEVEMENT UNLOCKED",
+                "Prime Sentinel",
+                0x00ffff
+            );
+        }
+        
+        // Mark final boss as defeated (unlocks Transcendent Form avatar)
+        markFinalBossDefeated();
+        
+        // Update rank to Prime Sentinel (Rank 18)
+        updateCurrentRank(8, 6);
+        this.registry.set("currentRank", "Prime Sentinel");
+        this.registry.set("isPrimeSentinel", true);
+        
+        // Grant prestige reward (512 coins at P8)
+        grantPrestigeReward(this.prestigeLevel);
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Mark prestige 8 as completed
+        const prestigeCompleted = this.registry.get("prestigeCompleted") as boolean[];
+        if (prestigeCompleted) {
+            prestigeCompleted[8] = true;
+            this.registry.set("prestigeCompleted", prestigeCompleted);
+        }
+        
+        // Emit victory event to show victory screen
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+            uiScene.events.emit('final-boss-victory');
+        }
+        
+        // Screen fade to white
+        this.cameras.main.fadeOut(2000, 255, 255, 255);
+        
+        // After fade, trigger victory sequence
+        this.time.delayedCall(2000, () => {
+            // Game complete - can show victory screen via React component
+            this.gameOver = true;
+            this.registry.set("gameOver", true);
+            this.registry.set("finalBossVictory", true);
+        });
     }
 
     private handleBulletEnemyCollision(
@@ -4630,10 +5150,22 @@ export class GameScene extends Phaser.Scene {
                     this.triggerStoryDialogue('boss_defeat');
                 }
                 
-                // Check if we should advance to next prestige or if we're at final boss
-                if (this.prestigeLevel === PRESTIGE_CONFIG.maxPrestige && this.currentLayer === MAX_LAYER) {
+                // Check if this was the final boss
+                const isFinalBossDefeated = this.finalBossActive && this.prestigeLevel === 8 && this.currentLayer === 6;
+                if (isFinalBossDefeated) {
                     // Final boss defeated - game complete!
                     this.handleFinalBossDefeat();
+                    return; // Don't continue with normal boss defeat logic
+                }
+                
+                // Check if we should advance to next prestige or if we're at final boss
+                if (this.prestigeLevel === PRESTIGE_CONFIG.maxPrestige && this.currentLayer === MAX_LAYER) {
+                    // At max prestige and max layer - shouldn't happen if final boss is handled above
+                    this.showAnnouncement(
+                        "MAX PRESTIGE REACHED!",
+                        "You have reached the final prestige level",
+                        0xffff00
+                    );
                 } else if (this.pendingLayer >= MAX_LAYER) {
                     // Advance to next prestige (if not at max)
                     if (this.prestigeLevel < PRESTIGE_CONFIG.maxPrestige) {
@@ -6904,34 +7436,8 @@ export class GameScene extends Phaser.Scene {
 
     // getPrestigeTier removed - use getPrestigeTierConfig from config.ts instead
 
-    /**
-     * Handle final boss defeat (Prestige 8, Layer 6)
-     */
-    private handleFinalBossDefeat(): void {
-        // Award final boss coins
-        const coinReward = getPrestigeCoinReward(PRESTIGE_CONFIG.maxPrestige);
-        addCoins(coinReward);
-        
-        // Mark final prestige as completed
-        const completed = this.registry.get("prestigeCompleted") as boolean[] || new Array(9).fill(false);
-        completed[PRESTIGE_CONFIG.maxPrestige] = true;
-        this.registry.set("prestigeCompleted", completed);
-        
-        // Set Prime Sentinel status
-        this.registry.set("isPrimeSentinel", true);
-        
-        // Show victory announcement
-        this.showAnnouncement(
-            "PRIME SENTINEL ACHIEVED!",
-            `Zrechostikal Defeated! Earned ${coinReward} coins`,
-            0x00ffff
-        );
-        
-        // Trigger victory dialogue
-        this.time.delayedCall(2000, () => {
-            this.triggerStoryDialogue('final_boss');
-        });
-    }
+    // Note: handleFinalBossDefeat is defined earlier in the file (line 4877)
+    // This duplicate was removed to fix compilation error
 
     private getPrestigeGridColor(baseColor: number) {
         if (this.prestigeLevel <= 0) {

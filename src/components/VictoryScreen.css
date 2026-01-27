@@ -1,0 +1,309 @@
+/**
+ * VictoryScreen CSS - Styling for Prime Sentinel victory screen
+ */
+
+.victory-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.victory-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.3) 0%, rgba(0, 0, 0, 0.95) 100%);
+    animation: victoryPulse 3s ease-in-out infinite;
+}
+
+@keyframes victoryPulse {
+    0%, 100% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+.victory-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    color: #00ffff;
+    max-width: 800px;
+    padding: 40px;
+}
+
+.victory-fade-in {
+    animation: fadeIn 1s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.victory-title {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 64px;
+    font-weight: 700;
+    color: #00ffff;
+    text-shadow: 
+        0 0 20px #00ffff,
+        0 0 40px #00ffff,
+        0 0 60px #00ffff;
+    animation: titleGlow 2s ease-in-out infinite;
+}
+
+@keyframes titleGlow {
+    0%, 100% {
+        text-shadow: 
+            0 0 20px #00ffff,
+            0 0 40px #00ffff,
+            0 0 60px #00ffff;
+    }
+    50% {
+        text-shadow: 
+            0 0 30px #00ffff,
+            0 0 60px #00ffff,
+            0 0 90px #00ffff;
+    }
+}
+
+.victory-dialogue {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dialogue-card {
+    background: rgba(0, 0, 0, 0.95);
+    border: 3px solid #00ffff;
+    border-radius: 8px;
+    padding: 30px;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+.dialogue-speaker {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #00ffff;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+.dialogue-text {
+    font-family: 'VT323', monospace;
+    font-size: 28px;
+    line-height: 1.6;
+    color: #00ffff;
+    text-shadow: 0 0 8px #00ffff;
+}
+
+.victory-transformation {
+    animation: transformGlow 3s ease-in-out;
+}
+
+@keyframes transformGlow {
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.8;
+    }
+}
+
+.transformation-text {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 48px;
+    font-weight: 700;
+    color: #00ffff;
+    text-shadow: 
+        0 0 20px #00ffff,
+        0 0 40px #00ffff;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.transformation-glow {
+    width: 200px;
+    height: 200px;
+    margin: 40px auto;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 255, 255, 0.8) 0%, transparent 70%);
+    animation: glowExpand 3s ease-in-out;
+}
+
+@keyframes glowExpand {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.victory-complete {
+    animation: fadeIn 1s ease-in;
+}
+
+.victory-title-large {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 72px;
+    font-weight: 700;
+    color: #00ffff;
+    margin-bottom: 20px;
+    text-shadow: 
+        0 0 30px #00ffff,
+        0 0 60px #00ffff,
+        0 0 90px #00ffff;
+    animation: titleGlow 2s ease-in-out infinite;
+}
+
+.victory-subtitle {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 24px;
+    color: #00ffff;
+    margin-bottom: 40px;
+    text-shadow: 0 0 10px #00ffff;
+}
+
+.victory-message {
+    font-family: 'VT323', monospace;
+    font-size: 32px;
+    color: #00ffff;
+    margin-bottom: 40px;
+    text-shadow: 0 0 8px #00ffff;
+}
+
+.victory-rewards {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #00ffff;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 40px;
+    text-align: left;
+}
+
+.reward-item {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 18px;
+    color: #00ffff;
+    margin-bottom: 15px;
+    text-shadow: 0 0 5px #00ffff;
+    animation: rewardAppear 0.5s ease-out;
+    animation-fill-mode: both;
+}
+
+.reward-item:nth-child(1) { animation-delay: 0.1s; }
+.reward-item:nth-child(2) { animation-delay: 0.2s; }
+.reward-item:nth-child(3) { animation-delay: 0.3s; }
+.reward-item:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes rewardAppear {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.victory-actions {
+    margin-top: 40px;
+}
+
+.victory-button {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #000000;
+    background: #00ffff;
+    border: 3px solid #00ffff;
+    padding: 15px 40px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+.victory-button:hover {
+    background: #00cccc;
+    border-color: #00cccc;
+    box-shadow: 
+        0 0 30px rgba(0, 255, 255, 0.8),
+        inset 0 0 30px rgba(0, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.victory-button:active {
+    transform: scale(0.95);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .victory-title {
+        font-size: 48px;
+    }
+    
+    .victory-title-large {
+        font-size: 56px;
+    }
+    
+    .dialogue-text {
+        font-size: 24px;
+    }
+    
+    .victory-message {
+        font-size: 28px;
+    }
+}
