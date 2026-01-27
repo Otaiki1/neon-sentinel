@@ -14,8 +14,10 @@ import iconMarketplace from '../assets/icons/icon-marketplace.svg';
 import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
+import AvatarSelectionModal from '../components/AvatarSelectionModal';
 import { FirstTimeTooltip } from '../components/Tooltip';
 import { KernelIcon } from '../components/KernelIcon';
+import { getActiveAvatar, getAvatarConfig } from '../services/avatarService';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
@@ -62,6 +64,8 @@ function LandingPage() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
   const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
   const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
@@ -148,6 +152,20 @@ function LandingPage() {
   const handleBuyCoins = (amount: number) => {
     const next = addCoins(amount);
     setCoins(next);
+  };
+
+  const handleOpenAvatarModal = () => {
+    setCoins(getAvailableCoins());
+    setShowAvatarModal(true);
+  };
+
+  const handleCloseAvatarModal = () => {
+    setShowAvatarModal(false);
+  };
+
+  const handleAvatarChange = () => {
+    setActiveAvatar(getActiveAvatar());
+    setCoins(getAvailableCoins());
   };
 
   const advanceTooltip = () => {
@@ -352,6 +370,39 @@ function LandingPage() {
             <p className="text-sm md:text-base font-body text-neon-green opacity-70 mt-2" style={{ letterSpacing: '0.1em' }}>
               Week {currentWeek} • Grid Status: ACTIVE
             </p>
+          </div>
+        </div>
+
+        {/* Avatar Selector */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <div className="flex items-center gap-4 justify-center">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 md:w-20 md:h-20 border-2 border-neon-green bg-black mb-2 flex items-center justify-center">
+                  <img 
+                    src={`/sprites/${getAvatarConfig(activeAvatar).spriteKey}.svg`}
+                    alt={getAvatarConfig(activeAvatar).displayName}
+                    className="max-w-full max-h-full object-contain"
+                    style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/sprites/hero.svg';
+                    }}
+                  />
+                </div>
+                <p className="font-menu text-xs text-neon-green">
+                  {getAvatarConfig(activeAvatar).displayName}
+                </p>
+              </div>
+              <button
+                className="retro-button font-menu text-sm px-4 py-2"
+                onClick={handleOpenAvatarModal}
+              >
+                CHANGE AVATAR
+              </button>
+            </div>
+            <div className="mt-2 text-xs font-body text-neon-green opacity-70">
+              Coins: {coins}
+            </div>
           </div>
         </div>
 
@@ -955,6 +1006,11 @@ function LandingPage() {
         isOpen={showStoryModal}
         onClose={handleCloseStoryModal}
         storyText={storyText}
+      />
+      <AvatarSelectionModal
+        isOpen={showAvatarModal}
+        onClose={handleCloseAvatarModal}
+        onAvatarChange={handleAvatarChange}
       />
     </div>
   );

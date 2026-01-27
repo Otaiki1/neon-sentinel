@@ -64,7 +64,14 @@ neon-sentinel/
 │   │   ├── kernelService.ts # Kernel selection + unlock tracking
 │   │   ├── coinService.ts # Daily coin system
 │   │   ├── sessionRewardService.ts # Session tracking and rewards
-│   │   └── settingsService.ts # Gameplay settings persistence
+│   │   ├── settingsService.ts # Gameplay settings persistence
+│   │   └── storyService.ts # Story milestone tracking
+│   ├── game/
+│   │   ├── lore/        # Story content
+│   │   │   ├── storyArcs.ts # Story progression data
+│   │   │   └── characters.ts # Character definitions and dialogue
+│   │   └── dialogue/    # Dialogue system
+│   │       └── DialogueManager.ts # Dialogue display manager
 │   └── assets/           # Static assets
 │       └── sprites/       # SVG game sprites
 ├── public/               # Public assets
@@ -842,6 +849,144 @@ function isMobileDevice(): boolean {
 ```
 
 ---
+
+## 📖 Story & Narrative System
+
+### Overview
+
+The story system provides narrative context and character interactions throughout the game. It tracks story milestones, displays dialogue, and guides players through the narrative arc from basic Sentinel to Prime Sentinel.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│         Story Service                   │
+│  - Milestone tracking                   │
+│  - State management                     │
+│  - Progression logic                    │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│         Story Content                    │
+│  - storyArcs.ts (narrative structure)   │
+│  - characters.ts (dialogue & characters)│
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│         Dialogue Manager                 │
+│  - Display dialogue boxes                │
+│  - Handle user interaction               │
+│  - Priority management                   │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│         GameScene Integration            │
+│  - Story triggers at key events          │
+│  - Milestone completion                  │
+└─────────────────────────────────────────┘
+```
+
+### Story Service (`src/services/storyService.ts`)
+
+**Purpose**: Tracks story progression, milestones, and state.
+
+**Key Functions**:
+- `getStoryMilestones()`: Returns all story milestones
+- `getMilestoneForProgress()`: Gets milestone for current prestige/layer
+- `shouldTriggerMilestone()`: Checks if milestone should trigger
+- `completeMilestone()`: Marks milestone as completed
+- `updateStoryState()`: Updates current prestige/layer state
+- `getStoryArcName()`: Gets story arc name for prestige level
+
+**Storage**: Milestones and state are persisted in localStorage.
+
+### Story Content
+
+**Story Arcs** (`src/game/lore/storyArcs.ts`):
+- Defines 5 story arcs: The Entry, The Awakening, The Revelation, The Confrontation, Prime Sentinel
+- Maps prestige ranges to story arcs
+- Tracks avatar unlocks per arc
+
+**Characters** (`src/game/lore/characters.ts`):
+- Defines 4 characters: White Sentinel, Prime Sentinel, Player Sentinel, Zrechostikal
+- Contains all dialogue lines with IDs
+- Character metadata (role, voice, color)
+
+### Dialogue Manager (`src/game/dialogue/DialogueManager.ts`)
+
+**Purpose**: Manages dialogue display and interaction.
+
+**Features**:
+- Dialogue box UI with character name and text
+- Auto-advance based on dialogue length
+- Click-to-skip functionality
+- Priority system (low, medium, high, critical)
+- Pauses game for critical dialogues
+- Character-specific color coding
+
+**Usage**:
+```typescript
+dialogueManager.showDialogue('white_sentinel_mission_brief', {
+    skipOnClick: true,
+    priority: 'high',
+    onComplete: () => {
+        // Handle completion
+    },
+});
+```
+
+### GameScene Integration
+
+**Story Triggers**:
+1. **Game Start**: Triggers `white_sentinel_mission_brief` on scene create
+2. **Layer Completion**: Triggers layer complete dialogue after boss defeat
+3. **Prestige Milestone**: Triggers prestige dialogue in `enterPrestigeMode()`
+4. **Boss Defeat**: Triggers boss defeat dialogue when graduation boss is killed
+5. **Final Boss**: Special trigger for Prestige 8, Layer 6
+
+**Implementation**:
+```typescript
+// In GameScene.ts
+private triggerStoryDialogue(type: 'game_start' | 'layer_complete' | ...): void {
+    const milestone = getMilestoneForProgress(this.prestigeLevel, this.currentLayer, type);
+    if (milestone && shouldTriggerMilestone(this.prestigeLevel, this.currentLayer, type)) {
+        const dialogueManager = uiScene.dialogueManager;
+        dialogueManager.showDialogue(milestone.dialogueId, {
+            onComplete: () => completeMilestone(milestone.id),
+        });
+    }
+}
+```
+
+### Story Milestones
+
+Milestones are defined with:
+- `id`: Unique identifier
+- `prestige`: Prestige level (0-8)
+- `layer`: Layer number (1-6)
+- `type`: Milestone type (game_start, layer_complete, prestige_milestone, boss_defeat, final_boss)
+- `character`: Character who speaks
+- `dialogueId`: Dialogue to display
+- `completed`: Completion status
+
+### Story Progression Flow
+
+1. **Game Start** → White Sentinel mission brief
+2. **Layer 1 Complete** → White Sentinel encouragement
+3. **Prestige 1** → White Sentinel progression dialogue
+4. **Prestige 2** → White Sentinel awakening dialogue
+5. **Prestige 3** → Prime Sentinel first contact
+6. **Prestige 4-5** → Prime Sentinel revelation dialogues
+7. **Prestige 6-7** → Prime Sentinel confrontation dialogues
+8. **Prestige 8** → Prime Sentinel final briefing
+9. **Final Boss** → Zrechostikal taunt → Prime Sentinel victory
+
+### UIScene Integration
+
+DialogueManager is initialized in UIScene's `create()` method and destroyed in `shutdown()`. GameScene accesses it via scene reference to trigger dialogues.
 
 ## 🎮 Game Systems
 
@@ -1853,4 +1998,3 @@ console.log(registry.getAll());
 - **Visual Variety**: Each layer (2-6) has its own background image
 - **Dark Overlay**: 70% black overlay for better contrast
 - **Prestige Display**: Brief prestige layer image on prestige entry
-

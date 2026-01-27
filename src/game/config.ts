@@ -201,19 +201,119 @@ export const LAYER_CONFIG = {
 export const MAX_LAYER = 6;
 
 export const PRESTIGE_CONFIG = {
-    prestigeLevels: [
-        { level: 1, difficultyMultiplier: 1.5, scoreMultiplier: 1.0 },
-        { level: 2, difficultyMultiplier: 2.0, scoreMultiplier: 1.5 },
-        { level: 3, difficultyMultiplier: 2.5, scoreMultiplier: 2.0 },
-        { level: 4, difficultyMultiplier: 3.0, scoreMultiplier: 2.5 },
+    maxPrestige: 8,
+    prestigeTiers: [
+        {
+            level: 0,
+            name: "The Entry",
+            storyArc: "the_entry",
+            overlordId: "green_boss",
+            avatarUnlock: "default_sentinel",
+            difficultyMultiplier: 1.0,
+            scoreMultiplier: 1.0,
+            coinReward: 2, // 2 * (2^0)
+        },
+        {
+            level: 1,
+            name: "The Entry",
+            storyArc: "the_entry",
+            overlordId: "yellow_boss",
+            avatarUnlock: "swift_interceptor",
+            difficultyMultiplier: 1.5,
+            scoreMultiplier: 1.3,
+            coinReward: 4, // 2 * (2^1)
+        },
+        {
+            level: 2,
+            name: "The Awakening",
+            storyArc: "the_awakening",
+            overlordId: "blue_boss",
+            avatarUnlock: "guardian_core",
+            difficultyMultiplier: 2.0,
+            scoreMultiplier: 1.6,
+            coinReward: 8, // 2 * (2^2)
+        },
+        {
+            level: 3,
+            name: "The Awakening",
+            storyArc: "the_awakening",
+            overlordId: "blue_boss",
+            avatarUnlock: "assault_nexus",
+            difficultyMultiplier: 2.5,
+            scoreMultiplier: 2.0,
+            coinReward: 16, // 2 * (2^3)
+        },
+        {
+            level: 4,
+            name: "The Revelation",
+            storyArc: "the_revelation",
+            overlordId: "purple_boss",
+            avatarUnlock: "neon_guardian",
+            difficultyMultiplier: 3.0,
+            scoreMultiplier: 2.5,
+            coinReward: 32, // 2 * (2^4)
+        },
+        {
+            level: 5,
+            name: "The Revelation",
+            storyArc: "the_revelation",
+            overlordId: "purple_boss",
+            avatarUnlock: "plasma_core",
+            difficultyMultiplier: 3.5,
+            scoreMultiplier: 3.0,
+            coinReward: 64, // 2 * (2^5)
+        },
+        {
+            level: 6,
+            name: "The Confrontation",
+            storyArc: "the_confrontation",
+            overlordId: "purple_boss",
+            avatarUnlock: "prime_sentinel",
+            difficultyMultiplier: 4.0,
+            scoreMultiplier: 4.0,
+            coinReward: 128, // 2 * (2^6)
+        },
+        {
+            level: 7,
+            name: "The Confrontation",
+            storyArc: "the_confrontation",
+            overlordId: "purple_boss",
+            avatarUnlock: null, // No new avatar, preparing for final
+            difficultyMultiplier: 4.5,
+            scoreMultiplier: 5.0,
+            coinReward: 256, // 2 * (2^7)
+        },
+        {
+            level: 8,
+            name: "Prime Sentinel",
+            storyArc: "prime_sentinel",
+            overlordId: "zrechostikal",
+            avatarUnlock: "transcendent_form",
+            difficultyMultiplier: 5.0,
+            scoreMultiplier: 7.0,
+            coinReward: 512, // 2 * (2^8) - Final boss reward
+        },
     ],
-    prestigeResetThreshold: 100000,
     visualEffects: {
         gridGlitchIntensity: 0.3,
         screenFlashFrequency: 1.2,
         corruptionVFX: true,
     },
 } as const;
+
+/**
+ * Get prestige tier configuration for a given prestige level
+ */
+export function getPrestigeTierConfig(prestigeLevel: number) {
+    return PRESTIGE_CONFIG.prestigeTiers.find(tier => tier.level === prestigeLevel) || PRESTIGE_CONFIG.prestigeTiers[0];
+}
+
+/**
+ * Calculate coin reward for completing a prestige level
+ */
+export function getPrestigeCoinReward(prestigeLevel: number): number {
+    return 2 * Math.pow(2, prestigeLevel);
+}
 
 export const DIFFICULTY_EVOLUTION = {
     phase1: {
@@ -687,6 +787,197 @@ export const PLAYER_KERNELS = {
         unlocked: false,
         unlockCondition: "achieve_90%_accuracy",
         spriteVariant: "white", // Maps to heroGrade5White
+    },
+} as const;
+
+export const AVATAR_CONFIG = {
+    // Tier 1: Entry Sentinels (Prestige 0-1)
+    default_sentinel: {
+        id: "default_sentinel",
+        name: "Default Sentinel",
+        displayName: "Azure Core",
+        description: "Balanced stats - your starting avatar",
+        tier: 1,
+        unlockPrestige: 0,
+        unlockCostCoins: 0, // Always owned
+        spriteKey: "heroGrade1Blue",
+        stats: {
+            speedMult: 1.0,
+            fireRateMult: 1.0,
+            healthMult: 1.0,
+            damageMult: 1.0,
+        },
+    },
+    swift_interceptor: {
+        id: "swift_interceptor",
+        name: "Swift Interceptor",
+        displayName: "Violet Prototype",
+        description: "+20% speed, -10% fire rate, standard health",
+        tier: 1,
+        unlockPrestige: 1,
+        unlockCostCoins: 500,
+        spriteKey: "heroGrade2Purple",
+        stats: {
+            speedMult: 1.2,
+            fireRateMult: 0.9, // Slower fire rate
+            healthMult: 1.0,
+            damageMult: 1.0,
+        },
+    },
+    artillery_unit: {
+        id: "artillery_unit",
+        name: "Artillery Unit",
+        displayName: "Crimson Prototype",
+        description: "-15% speed, +25% fire rate, standard health",
+        tier: 1,
+        unlockPrestige: 1,
+        unlockCostCoins: 500,
+        spriteKey: "heroGrade3Red",
+        stats: {
+            speedMult: 0.85,
+            fireRateMult: 1.25, // Faster fire rate
+            healthMult: 1.0,
+            damageMult: 1.0,
+        },
+    },
+    // Tier 2: Veteran Sentinels (Prestige 2-3)
+    guardian_core: {
+        id: "guardian_core",
+        name: "Guardian Core",
+        displayName: "Amber Veteran",
+        description: "+15% speed, +15% fire rate, +30% health",
+        tier: 2,
+        unlockPrestige: 2,
+        unlockCostCoins: 1500,
+        spriteKey: "heroGrade4Orange",
+        stats: {
+            speedMult: 1.15,
+            fireRateMult: 1.15,
+            healthMult: 1.3,
+            damageMult: 1.0,
+        },
+    },
+    sniper_kernel: {
+        id: "sniper_kernel",
+        name: "Sniper Kernel",
+        displayName: "Alabaster Veteran",
+        description: "Standard speed, -10% fire rate, piercing bullets",
+        tier: 2,
+        unlockPrestige: 2,
+        unlockCostCoins: 1500,
+        spriteKey: "heroGrade5White",
+        stats: {
+            speedMult: 1.0,
+            fireRateMult: 0.9,
+            healthMult: 1.0,
+            damageMult: 1.0,
+        },
+        special: "piercing", // Special ability
+    },
+    assault_nexus: {
+        id: "assault_nexus",
+        name: "Assault Nexus",
+        displayName: "Orange Veteran",
+        description: "+25% speed, +20% fire rate, +20% health, burst fire",
+        tier: 2,
+        unlockPrestige: 3,
+        unlockCostCoins: 2000,
+        spriteKey: "heroGrade4Orange",
+        stats: {
+            speedMult: 1.25,
+            fireRateMult: 1.2,
+            healthMult: 1.2,
+            damageMult: 1.0,
+        },
+        special: "burst_fire", // Special ability
+    },
+    // Tier 3: Elite Sentinels (Prestige 4-5)
+    neon_guardian: {
+        id: "neon_guardian",
+        name: "Neon Guardian",
+        displayName: "Cyan Elite",
+        description: "+30% all stats, special aura effect",
+        tier: 3,
+        unlockPrestige: 4,
+        unlockCostCoins: 3000,
+        spriteKey: "heroGrade5White", // Placeholder - use cyan variant if available
+        stats: {
+            speedMult: 1.3,
+            fireRateMult: 1.3,
+            healthMult: 1.3,
+            damageMult: 1.0,
+        },
+        special: "aura_effect",
+    },
+    void_sentinel: {
+        id: "void_sentinel",
+        name: "Void Sentinel",
+        displayName: "Black Elite",
+        description: "+40% speed, enhanced invisibility, shadow effect",
+        tier: 3,
+        unlockPrestige: 4,
+        unlockCostCoins: 3500,
+        spriteKey: "heroGrade5White", // Placeholder
+        stats: {
+            speedMult: 1.4,
+            fireRateMult: 1.0,
+            healthMult: 1.0,
+            damageMult: 1.0,
+        },
+        special: "enhanced_invisibility",
+    },
+    plasma_core: {
+        id: "plasma_core",
+        name: "Plasma Core",
+        displayName: "White Elite",
+        description: "+35% fire rate, +25% damage, energy effect",
+        tier: 3,
+        unlockPrestige: 5,
+        unlockCostCoins: 4000,
+        spriteKey: "heroGrade5White",
+        stats: {
+            speedMult: 1.0,
+            fireRateMult: 1.35,
+            healthMult: 1.0,
+            damageMult: 1.25,
+        },
+        special: "energy_effect",
+    },
+    // Tier 4: Prime Sentinels (Prestige 6-8)
+    prime_sentinel: {
+        id: "prime_sentinel",
+        name: "Prime Sentinel",
+        displayName: "Gold Ascended",
+        description: "+50% all stats, maximum power",
+        tier: 4,
+        unlockPrestige: 6,
+        unlockCostCoins: 5000,
+        spriteKey: "heroGrade5White", // Placeholder - use gold variant if available
+        stats: {
+            speedMult: 1.5,
+            fireRateMult: 1.5,
+            healthMult: 1.5,
+            damageMult: 1.5,
+        },
+        special: "maximum_power",
+    },
+    transcendent_form: {
+        id: "transcendent_form",
+        name: "Transcendent Form",
+        displayName: "Platinum Ascended",
+        description: "+60% all stats, legendary effects, special sprite. Unlock after defeating Zrechostikal.",
+        tier: 4,
+        unlockPrestige: 8,
+        unlockCostCoins: 7500,
+        requiresFinalBoss: true, // Special requirement
+        spriteKey: "heroGrade5White", // Placeholder - use platinum variant if available
+        stats: {
+            speedMult: 1.6,
+            fireRateMult: 1.6,
+            healthMult: 1.6,
+            damageMult: 1.6,
+        },
+        special: "legendary_effects",
     },
 } as const;
 

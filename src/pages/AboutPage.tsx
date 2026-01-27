@@ -127,23 +127,23 @@ function AboutPage() {
               <li><strong>Cycle:</strong> Return to Layer 1 with higher difficulty and score multipliers</li>
               <li><strong>Scaling:</strong> Multipliers increase each cycle; there's no cap</li>
               <li><strong>Visuals:</strong> Grid hue shifts, glitch jitter, and screen flashes intensify with prestige</li>
-              <li><strong>Badge:</strong> "Prestige Champion" appears when you reach Prestige 10</li>
+              <li><strong>Badge:</strong> "Prestige Champion" appears when you reach Prestige {PRESTIGE_CONFIG.maxPrestige}</li>
             </ul>
           </div>
           <div className="border border-neon-green border-opacity-30 p-3 mt-4">
-            <h3 className="font-menu text-sm mb-2 text-neon-green">Prestige Levels:</h3>
+            <h3 className="font-menu text-sm mb-2 text-neon-green">Prestige Tiers:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {PRESTIGE_CONFIG.prestigeLevels.map((level) => (
-                <div key={level.level} className="flex justify-between items-center">
-                  <span className="text-neon-green opacity-80">Prestige {level.level}:</span>
+              {PRESTIGE_CONFIG.prestigeTiers.map((tier) => (
+                <div key={tier.level} className="flex justify-between items-center">
+                  <span className="text-neon-green opacity-80">Prestige {tier.level} ({tier.name}):</span>
                   <span className="text-neon-green">
-                    {level.difficultyMultiplier}x difficulty, {level.scoreMultiplier}x score
+                    {tier.difficultyMultiplier}x difficulty, {tier.scoreMultiplier}x score
                   </span>
                 </div>
               ))}
             </div>
             <p className="text-xs text-neon-green opacity-60 mt-2">
-              Multipliers continue scaling beyond these tiers indefinitely.
+              Complete all 6 layers of each prestige to advance. Max prestige: {PRESTIGE_CONFIG.maxPrestige}.
             </p>
           </div>
         </div>

@@ -9,6 +9,8 @@ import {
     UI_CONFIG,
     MAX_LAYER,
     PRESTIGE_CONFIG,
+    getPrestigeTierConfig,
+    getPrestigeCoinReward,
     DIFFICULTY_EVOLUTION,
     ENEMY_BEHAVIOR_CONFIG,
     OVERCLOCK_CONFIG,
@@ -48,7 +50,7 @@ import {
     getHeroGradeConfig,
     checkAndUnlockHeroGrades,
 } from "../../services/heroGradeService";
-import { consumeCoins, getAvailableCoins } from "../../services/coinService";
+import { consumeCoins, getAvailableCoins, addCoins } from "../../services/coinService";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 import {
     getMilestoneForProgress,
@@ -56,6 +58,11 @@ import {
     completeMilestone,
     updateStoryState,
 } from "../../services/storyService";
+import {
+    getActiveAvatar,
+    getActiveAvatarStats,
+    getAvatarConfig,
+} from "../../services/avatarService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -83,6 +90,7 @@ export class GameScene extends Phaser.Scene {
     private prestigeScoreMultiplier = 1;
     private prestigeFlashTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeGlitchTimer: Phaser.Time.TimerEvent | null = null;
+    // @ts-ignore - Used in enterPrestigeMode but TypeScript doesn't detect it
     private prestigeResetAvailable = true;
     private overclockKey!: Phaser.Input.Keyboard.Key;
     private overclockActive = false;
@@ -176,6 +184,10 @@ export class GameScene extends Phaser.Scene {
     private heroGradeHealthMultiplier = 1;
     private heroGradeDamageMultiplier = 1;
     private heroGradeBulletPiercing = false;
+    private avatarSpeedMultiplier = 1;
+    private avatarFireRateMultiplier = 1;
+    private avatarHealthMultiplier = 1;
+    private avatarDamageMultiplier = 1;
     private shotsFiredThisRun = 0;
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
@@ -274,6 +286,9 @@ export class GameScene extends Phaser.Scene {
         
         // Update story state
         updateStoryState(this.prestigeLevel, this.currentLayer);
+        
+        // Apply avatar stats
+        this.applyAvatarStats();
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -445,6 +460,9 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("isPaused", false);
         this.registry.set("prestigeChampion", false);
         this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set("currentPrestige", this.prestigeLevel);
+        this.registry.set("previousPrestige", -1);
+        this.registry.set("prestigeCompleted", new Array(9).fill(false));
         this.registry.set(
             "prestigeScoreMultiplier",
             this.prestigeScoreMultiplier
@@ -1129,6 +1147,7 @@ export class GameScene extends Phaser.Scene {
         // Shooting - manual or auto-shoot power-up
         const currentFireRate =
             PLAYER_CONFIG.fireRate *
+            this.avatarFireRateMultiplier *
             this.fireRateMultiplier *
             this.overclockFireRateMultiplier *
             this.challengeFireRateMultiplier *
@@ -1467,9 +1486,10 @@ export class GameScene extends Phaser.Scene {
         let velocityX = 0;
         let velocityY = 0;
 
-        // Calculate speed with power-up multiplier
+        // Calculate speed with power-up multiplier (avatar stats applied first)
         const currentSpeed =
             PLAYER_CONFIG.speed *
+            this.avatarSpeedMultiplier *
             this.speedMultiplier *
             this.overclockSpeedMultiplier *
             this.kernelSpeedMultiplier *
@@ -1782,10 +1802,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     private getSelectedHeroTextureKey() {
-        // New system:
-        // - Hero Grade (1-5) determines base sprite (unlockable skill levels)
-        // - Kernel selection determines colored variant
+        // Avatar system takes priority:
+        // - Avatar selection determines sprite and stats
+        // - Falls back to kernel/grade system if no avatar selected
         
+        const activeAvatar = getActiveAvatar();
+        const avatarConfig = getAvatarConfig(activeAvatar);
+        
+        if (avatarConfig && avatarConfig.spriteKey) {
+            return avatarConfig.spriteKey;
+        }
+        
+        // Fallback to kernel/grade system
         const kernelKey = getSelectedKernelKey();
         const currentGrade = getCurrentHeroGrade();
         
@@ -1830,6 +1858,24 @@ export class GameScene extends Phaser.Scene {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Apply avatar stats to player
+     */
+    private applyAvatarStats(): void {
+        const avatarStats = getActiveAvatarStats();
+        this.avatarSpeedMultiplier = avatarStats.speedMultiplier;
+        this.avatarFireRateMultiplier = avatarStats.fireRateMultiplier;
+        this.avatarHealthMultiplier = avatarStats.healthMultiplier;
+        this.avatarDamageMultiplier = avatarStats.damageMultiplier;
+        
+        // Store in registry for UI access
+        this.registry.set("avatarSpeedMultiplier", this.avatarSpeedMultiplier);
+        this.registry.set("avatarFireRateMultiplier", this.avatarFireRateMultiplier);
+        this.registry.set("avatarHealthMultiplier", this.avatarHealthMultiplier);
+        this.registry.set("avatarDamageMultiplier", this.avatarDamageMultiplier);
+        this.registry.set("activeAvatarId", getActiveAvatar());
     }
 
     private applySelectedAppearance() {
@@ -4325,8 +4371,22 @@ export class GameScene extends Phaser.Scene {
                     this.triggerStoryDialogue('boss_defeat');
                 }
                 
-                if (this.pendingLayer >= MAX_LAYER) {
-                    this.enterPrestigeMode(e.x, e.y);
+                // Check if we should advance to next prestige or if we're at final boss
+                if (this.prestigeLevel === PRESTIGE_CONFIG.maxPrestige && this.currentLayer === MAX_LAYER) {
+                    // Final boss defeated - game complete!
+                    this.handleFinalBossDefeat();
+                } else if (this.pendingLayer >= MAX_LAYER) {
+                    // Advance to next prestige (if not at max)
+                    if (this.prestigeLevel < PRESTIGE_CONFIG.maxPrestige) {
+                        this.enterPrestigeMode(e.x, e.y);
+                    } else {
+                        // At max prestige, cannot advance further
+                        this.showAnnouncement(
+                            "MAX PRESTIGE REACHED!",
+                            "You have reached the final prestige level",
+                            0xffff00
+                        );
+                    }
                 } else {
                     // Advance to the pending layer
                     // Safety check: ensure pendingLayer is valid
@@ -6080,6 +6140,12 @@ export class GameScene extends Phaser.Scene {
         this.prestigeDifficultyMultiplier = 1;
         this.prestigeScoreMultiplier = 1;
         this.prestigeResetAvailable = true;
+        
+        // Initialize prestige state in registry
+        this.registry.set("currentPrestige", 0);
+        this.registry.set("previousPrestige", -1);
+        this.registry.set("prestigeCompleted", new Array(9).fill(false));
+        this.registry.set("isPrimeSentinel", false);
         // Corruption system removed
         // this.lastNoHitRewardTime = 0; // Unused
         // this.lastRiskyKillTime = 0; // Unused
@@ -6210,19 +6276,40 @@ export class GameScene extends Phaser.Scene {
     }
 
     private enterPrestigeMode(originX: number, originY: number) {
+        const previousPrestige = this.prestigeLevel;
+        
+        // Cap prestige at 8 (final prestige)
+        if (this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige) {
+            // Already at max prestige, cannot advance further
+            return;
+        }
+        
         this.prestigeLevel += 1;
         this.applyPrestigeLevel(this.prestigeLevel);
 
-        if (
-            this.prestigeResetAvailable &&
-            this.score >= PRESTIGE_CONFIG.prestigeResetThreshold
-        ) {
-            this.score = 0;
-            this.comboMultiplier = 1;
-            this.registry.set("score", this.score);
-            this.registry.set("comboMultiplier", this.comboMultiplier);
-            this.prestigeResetAvailable = false;
+        // Award coins for completing previous prestige
+        if (previousPrestige >= 0) {
+            const coinReward = getPrestigeCoinReward(previousPrestige);
+            addCoins(coinReward);
+            this.showAnnouncement(
+                "PRESTIGE COMPLETE!",
+                `Earned ${coinReward} coins`,
+                0x00ff00
+            );
+            
+            // Mark prestige as completed
+            const completed = this.registry.get("prestigeCompleted") as boolean[] || new Array(9).fill(false);
+            if (previousPrestige < completed.length) {
+                completed[previousPrestige] = true;
+                this.registry.set("prestigeCompleted", completed);
+            }
         }
+
+        // Reset score and combo for new prestige (optional - can be removed if you want to keep score)
+        this.score = 0;
+        this.comboMultiplier = 1;
+        this.registry.set("score", this.score);
+        this.registry.set("comboMultiplier", this.comboMultiplier);
 
         this.currentLayer = 1;
         this.pendingLayer = 1;
@@ -6232,11 +6319,13 @@ export class GameScene extends Phaser.Scene {
         }
         this.registry.set("currentLayer", this.currentLayer);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
+        this.registry.set("currentPrestige", this.prestigeLevel);
+        this.registry.set("previousPrestige", previousPrestige);
 
-        const prestigeTier = this.getPrestigeTier(this.prestigeLevel);
+        const prestigeTier = getPrestigeTierConfig(this.prestigeLevel);
         this.showAnnouncement(
             "PRESTIGE UNLOCKED!",
-            `Cycle ${this.prestigeLevel} · ${prestigeTier.label}`,
+            `Prestige ${this.prestigeLevel} · ${prestigeTier.name}`,
             0xff00ff
         );
 
@@ -6302,12 +6391,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     private applyPrestigeLevel(level: number) {
-        const prestigeTier = this.getPrestigeTier(level);
+        const prestigeTier = getPrestigeTierConfig(level);
         this.prestigeDifficultyMultiplier = prestigeTier.difficultyMultiplier;
         this.prestigeScoreMultiplier = prestigeTier.scoreMultiplier;
         this.prestigeResetAvailable = true;
 
         this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set("currentPrestige", this.prestigeLevel);
         this.registry.set(
             "prestigeScoreMultiplier",
             this.prestigeScoreMultiplier
@@ -6317,7 +6407,8 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
 
-        const prestigeChampion = this.prestigeLevel >= 10;
+        // Prestige champion achievement (for reaching prestige 8)
+        const prestigeChampion = this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige;
         this.registry.set("prestigeChampion", prestigeChampion);
         if (this.prestigeLevel >= 1) {
             this.unlockAchievementWithAnnouncement("prestige_1");
@@ -6325,27 +6416,40 @@ export class GameScene extends Phaser.Scene {
         if (this.prestigeLevel >= 5) {
             this.unlockAchievementWithAnnouncement("prestige_5");
         }
-        if (this.prestigeLevel >= 10) {
-            this.unlockAchievementWithAnnouncement("prestige_10");
+        if (this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige) {
+            this.unlockAchievementWithAnnouncement("prestige_8");
         }
     }
 
-    private getPrestigeTier(level: number) {
-        const tier = PRESTIGE_CONFIG.prestigeLevels.find(
-            (entry) => entry.level === level
-        );
-        if (tier) {
-            return { ...tier, label: `Tier ${tier.level}` };
-        }
+    // getPrestigeTier removed - use getPrestigeTierConfig from config.ts instead
 
-        const difficultyMultiplier = 1.5 + (level - 1) * 0.5;
-        const scoreMultiplier = 1.0 + (level - 1) * 0.5;
-        return {
-            level,
-            difficultyMultiplier,
-            scoreMultiplier,
-            label: `Tier ${level}`,
-        };
+    /**
+     * Handle final boss defeat (Prestige 8, Layer 6)
+     */
+    private handleFinalBossDefeat(): void {
+        // Award final boss coins
+        const coinReward = getPrestigeCoinReward(PRESTIGE_CONFIG.maxPrestige);
+        addCoins(coinReward);
+        
+        // Mark final prestige as completed
+        const completed = this.registry.get("prestigeCompleted") as boolean[] || new Array(9).fill(false);
+        completed[PRESTIGE_CONFIG.maxPrestige] = true;
+        this.registry.set("prestigeCompleted", completed);
+        
+        // Set Prime Sentinel status
+        this.registry.set("isPrimeSentinel", true);
+        
+        // Show victory announcement
+        this.showAnnouncement(
+            "PRIME SENTINEL ACHIEVED!",
+            `Zrechostikal Defeated! Earned ${coinReward} coins`,
+            0x00ffff
+        );
+        
+        // Trigger victory dialogue
+        this.time.delayedCall(2000, () => {
+            this.triggerStoryDialogue('final_boss');
+        });
     }
 
     private getPrestigeGridColor(baseColor: number) {
