@@ -1,0 +1,148 @@
+/**
+ * DialogueCard CSS - Styling for dialogue card component
+ */
+
+.dialogue-card {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 800px;
+    z-index: 10000;
+    cursor: pointer;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.dialogue-card.complete {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.9;
+    }
+}
+
+.dialogue-card-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    border: 3px solid var(--speaker-color, #00ff00);
+    border-radius: 8px;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 0, 0.5),
+        inset 0 0 20px rgba(0, 255, 0, 0.1);
+}
+
+.dialogue-card-content {
+    position: relative;
+    padding: 20px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dialogue-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.dialogue-card-icon {
+    font-size: 24px;
+    color: var(--speaker-color, #00ff00);
+    filter: drop-shadow(0 0 4px var(--speaker-color, #00ff00));
+}
+
+.dialogue-card-speaker {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--speaker-color, #00ff00);
+    text-shadow: 
+        0 0 10px var(--speaker-color, #00ff00),
+        2px 2px 4px rgba(0, 0, 0, 0.8);
+    letter-spacing: 2px;
+}
+
+.dialogue-card-text {
+    font-family: 'VT323', monospace;
+    font-size: 24px;
+    line-height: 1.6;
+    color: var(--speaker-color, #00ff00);
+    text-shadow: 
+        0 0 8px var(--speaker-color, #00ff00),
+        1px 1px 2px rgba(0, 0, 0, 0.8);
+    min-height: 60px;
+    word-wrap: break-word;
+}
+
+.dialogue-card-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 24px;
+    background: var(--speaker-color, #00ff00);
+    margin-left: 4px;
+    animation: blink 1s step-end infinite;
+    vertical-align: baseline;
+}
+
+@keyframes blink {
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
+}
+
+.dialogue-card-hint {
+    font-family: 'Oxanium', sans-serif;
+    font-size: 12px;
+    color: #888888;
+    text-align: right;
+    margin-top: auto;
+    padding-top: 8px;
+    opacity: 0.7;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .dialogue-card {
+        width: 95%;
+        bottom: 10px;
+    }
+    
+    .dialogue-card-content {
+        padding: 16px;
+        min-height: 100px;
+    }
+    
+    .dialogue-card-speaker {
+        font-size: 16px;
+    }
+    
+    .dialogue-card-text {
+        font-size: 20px;
+    }
+}

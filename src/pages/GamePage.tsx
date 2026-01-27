@@ -5,6 +5,7 @@ import { initGame } from "../game/Game";
 import { getGameplaySettings } from "../services/settingsService";
 import { getAvailableCoins } from "../services/coinService";
 import { InventoryModal } from "../components/InventoryModal";
+import { DialogueCard } from "../components/DialogueCard";
 import type { MiniMeType } from "../services/inventoryService";
 import "./GamePage.css";
 
@@ -14,6 +15,12 @@ function GamePage() {
     const { primaryWallet } = useDynamicContext();
     const navigate = useNavigate();
     const [showInventoryModal, setShowInventoryModal] = useState(false);
+    const [currentDialogue, setCurrentDialogue] = useState<{
+        id: string;
+        speaker: string;
+        text: string;
+        speakerColor: string;
+    } | null>(null);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -60,6 +67,16 @@ function GamePage() {
         if (uiScene) {
             uiScene.events.on('open-inventory', () => {
                 setShowInventoryModal(true);
+            });
+            
+            // Listen for dialogue events
+            uiScene.events.on('show-dialogue', (data: {
+                id: string;
+                speaker: string;
+                text: string;
+                speakerColor: string;
+            }) => {
+                setCurrentDialogue(data);
             });
         }
 
@@ -114,6 +131,17 @@ function GamePage() {
                 onClose={() => setShowInventoryModal(false)}
                 onActivate={handleMiniMeActivate}
             />
+            {currentDialogue && (
+                <DialogueCard
+                    speaker={currentDialogue.speaker}
+                    text={currentDialogue.text}
+                    speakerColor={currentDialogue.speakerColor}
+                    onDismiss={() => setCurrentDialogue(null)}
+                    autoDismiss={true}
+                    dismissDelay={5000}
+                    typewriterSpeed={100}
+                />
+            )}
         </div>
     );
 }

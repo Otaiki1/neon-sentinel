@@ -88,6 +88,15 @@ import {
     updateCurrentRank,
     calculateRankMilestone,
 } from "../../services/rankService";
+import {
+    getDialogueForTrigger,
+    type DialogueState,
+} from "../lore/dialogues";
+import {
+    markDialogueAsViewed,
+    hasViewedDialogue,
+    isFirstRun,
+} from "../../services/dialogueService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -305,9 +314,14 @@ export class GameScene extends Phaser.Scene {
             this.introduceWhiteSentinel();
         });
         
-        // Trigger story dialogue on game start
+        // Trigger dialogue on game start
         this.time.delayedCall(1000, () => {
-            this.triggerStoryDialogue('game_start');
+            this.triggerDialogue('game_start');
+        });
+        
+        // Trigger layer start dialogue
+        this.time.delayedCall(1500, () => {
+            this.triggerDialogue('layer_start');
         });
         
         // Update story state
@@ -4306,6 +4320,13 @@ export class GameScene extends Phaser.Scene {
             `Defeat ${bossName} to advance`,
             0xff0000 // Red color for warning
         );
+        
+        // Trigger boss encounter dialogue
+        if (targetLayer === 6 && this.prestigeLevel === 8) {
+            this.triggerDialogue('final_boss_encounter');
+        } else {
+            this.triggerDialogue('boss_encounter');
+        }
 
         // Show warning message (could be enhanced with UI text)
         console.log(
@@ -6588,8 +6609,19 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("currentRank", newRank.name);
         }
         
+        // Trigger prestige completion dialogue
+        this.time.delayedCall(1000, () => {
+            this.triggerDialogue('prestige_complete');
+        });
+        
+        // Trigger prestige milestone dialogue if applicable (legacy system)
         this.time.delayedCall(1500, () => {
             this.triggerStoryDialogue('prestige_milestone');
+        });
+        
+        // Trigger layer start dialogue for new prestige
+        this.time.delayedCall(2000, () => {
+            this.triggerDialogue('layer_start');
         });
     }
     
@@ -6612,7 +6644,7 @@ export class GameScene extends Phaser.Scene {
     }
     
     /**
-     * Trigger story dialogue based on milestone type
+     * Trigger story dialogue based on milestone type (legacy system)
      */
     private triggerStoryDialogue(type: 'game_start' | 'layer_complete' | 'prestige_milestone' | 'boss_defeat' | 'final_boss'): void {
         const milestone = getMilestoneForProgress(this.prestigeLevel, this.currentLayer, type);
@@ -6644,6 +6676,87 @@ export class GameScene extends Phaser.Scene {
         if (shown) {
             console.log(`[Story] Triggered dialogue: ${milestone.dialogueId} for milestone ${milestone.id}`);
         }
+    }
+    
+    /**
+     * Trigger new dialogue system based on trigger type
+     */
+    private triggerDialogue(trigger: string): void {
+        const state: DialogueState = {
+            prestige: this.prestigeLevel,
+            layer: this.currentLayer,
+            isFirstRun: isFirstRun(),
+            bossDefeated: false,
+            prestigeCompleted: false,
+            finalBossEncountered: this.prestigeLevel === 8 && this.currentLayer === 6 && this.graduationBossActive,
+            finalBossDefeated: false,
+        };
+        
+        const dialogue = getDialogueForTrigger(trigger, state);
+        if (!dialogue) {
+            return;
+        }
+        
+        // Check if already viewed (for non-critical dialogues)
+        if (trigger !== 'final_boss_encounter' && trigger !== 'final_boss_defeat' && hasViewedDialogue(dialogue.id)) {
+            return;
+        }
+        
+        // Replace [Boss Name] placeholder with actual boss name if needed
+        let dialogueText = dialogue.text;
+        if (dialogueText.includes('[Boss Name]')) {
+            const bossName = this.getCurrentBossName();
+            dialogueText = dialogueText.replace('[Boss Name]', bossName);
+        }
+        
+        // Emit dialogue event to UIScene
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+            uiScene.events.emit('show-dialogue', {
+                id: dialogue.id,
+                speaker: dialogue.speaker,
+                text: dialogueText,
+                speakerColor: this.getSpeakerColor(dialogue.speaker),
+            });
+            
+            // Mark as viewed
+            markDialogueAsViewed(dialogue.id);
+        }
+    }
+    
+    /**
+     * Get current boss name for dialogue replacement
+     */
+    private getCurrentBossName(): string {
+        // Find active graduation boss
+        const activeBoss = this.enemies.children.entries.find((enemy: any) => 
+            enemy.getData && enemy.getData('isGraduationBoss')
+        ) as Phaser.Physics.Arcade.Sprite | undefined;
+        
+        if (activeBoss) {
+            const displayName = activeBoss.getData('displayName') as string;
+            if (displayName) {
+                return displayName;
+            }
+        }
+        
+        // Fallback: use enemy service to get boss name
+        if (this.currentLayer === 6 && this.prestigeLevel === 8) {
+            return 'Zrechostikal - The Swarm Overlord';
+        }
+        
+        return getGraduationBossName(this.currentLayer, this.prestigeLevel);
+    }
+    
+    /**
+     * Get speaker color based on speaker name
+     */
+    private getSpeakerColor(speaker: string): string {
+        if (speaker.includes('White Sentinel')) return '#ffffff';
+        if (speaker.includes('Prime Sentinel')) return '#00ffff';
+        if (speaker.includes('Zrechostikal')) return '#ff00ff';
+        if (speaker.includes('Boss')) return '#ff8800';
+        return '#00ff00'; // Default green
     }
 
     private applyPrestigeLevel(level: number) {
