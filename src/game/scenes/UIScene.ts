@@ -17,6 +17,7 @@ import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
 import { GameScene } from './GameScene';
 import { TooltipManager } from './TooltipManager';
+import { DialogueManager } from '../dialogue/DialogueManager';
 
 export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
@@ -84,6 +85,7 @@ export class UIScene extends Phaser.Scene {
   private revivePromptButton!: Phaser.GameObjects.Container;
   private revivePromptTimer?: Phaser.Time.TimerEvent;
   private tooltipManager!: TooltipManager;
+  private dialogueManager!: DialogueManager;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -94,6 +96,9 @@ export class UIScene extends Phaser.Scene {
     this.tooltipManager = new TooltipManager(this);
     // Allow GameScene to request tooltip hide
     this.events.on('hide-tooltips', () => this.tooltipManager.skipAll());
+    
+    // Initialize dialogue manager
+    this.dialogueManager = new DialogueManager(this);
 
     // Mobile UI scaling - reduce sizes on mobile
     const settingsScale = (this.registry.get('uiScale') as number) || 1;
@@ -1919,6 +1924,10 @@ export class UIScene extends Phaser.Scene {
     // Cleanup tooltip manager
     if (this.tooltipManager) {
       this.tooltipManager.destroy();
+    }
+    // Cleanup dialogue manager
+    if (this.dialogueManager) {
+      this.dialogueManager.destroy();
     }
   }
 }

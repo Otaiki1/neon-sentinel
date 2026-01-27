@@ -50,6 +50,12 @@ import {
 } from "../../services/heroGradeService";
 import { consumeCoins, getAvailableCoins } from "../../services/coinService";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
+import {
+    getMilestoneForProgress,
+    shouldTriggerMilestone,
+    completeMilestone,
+    updateStoryState,
+} from "../../services/storyService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -260,6 +266,14 @@ export class GameScene extends Phaser.Scene {
         this.time.delayedCall(500, () => {
             this.introduceWhiteSentinel();
         });
+        
+        // Trigger story dialogue on game start
+        this.time.delayedCall(1000, () => {
+            this.triggerStoryDialogue('game_start');
+        });
+        
+        // Update story state
+        updateStoryState(this.prestigeLevel, this.currentLayer);
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -4303,6 +4317,14 @@ export class GameScene extends Phaser.Scene {
 
             // If graduation boss was defeated, advance to next layer
             if (isGraduationBoss) {
+                // Trigger boss defeat story dialogue
+                const isFinalBoss = this.prestigeLevel === 8 && this.currentLayer === 6;
+                if (isFinalBoss) {
+                    this.triggerStoryDialogue('final_boss');
+                } else {
+                    this.triggerStoryDialogue('boss_defeat');
+                }
+                
                 if (this.pendingLayer >= MAX_LAYER) {
                     this.enterPrestigeMode(e.x, e.y);
                 } else {
@@ -4348,6 +4370,12 @@ export class GameScene extends Phaser.Scene {
                                 this.currentLayer as keyof typeof LAYER_CONFIG
                             ].name
                     );
+                    
+                    // Update story state and trigger layer complete dialogue
+                    updateStoryState(this.prestigeLevel, this.currentLayer);
+                    this.time.delayedCall(500, () => {
+                        this.triggerStoryDialogue('layer_complete');
+                    });
 
                     // Reset enemy count tracking for new layer
                     this.enemiesKilledThisLayer = 0;
@@ -6229,6 +6257,47 @@ export class GameScene extends Phaser.Scene {
                     originY + Phaser.Math.Between(-60, 60)
                 );
             });
+        }
+        
+        // Update story state and trigger prestige milestone dialogue
+        updateStoryState(this.prestigeLevel, this.currentLayer);
+        this.time.delayedCall(1500, () => {
+            this.triggerStoryDialogue('prestige_milestone');
+        });
+    }
+    
+    /**
+     * Trigger story dialogue based on milestone type
+     */
+    private triggerStoryDialogue(type: 'game_start' | 'layer_complete' | 'prestige_milestone' | 'boss_defeat' | 'final_boss'): void {
+        const milestone = getMilestoneForProgress(this.prestigeLevel, this.currentLayer, type);
+        if (!milestone) {
+            return;
+        }
+        
+        if (!shouldTriggerMilestone(this.prestigeLevel, this.currentLayer, type)) {
+            return;
+        }
+        
+        // Get UIScene to show dialogue
+        const uiScene = this.scene.get('UIScene');
+        if (!uiScene) return;
+        
+        const dialogueManager = (uiScene as any).dialogueManager;
+        if (!dialogueManager) return;
+        
+        // Show dialogue
+        const shown = dialogueManager.showDialogue(milestone.dialogueId, {
+            skipOnClick: true,
+            priority: milestone.type === 'final_boss' ? 'critical' : 'high',
+            onComplete: () => {
+                // Mark milestone as completed
+                completeMilestone(milestone.id);
+            },
+        });
+        
+        if (shown) {
+            console.log(`[Story] Triggered dialogue: ${milestone.dialogueId} for milestone ${milestone.id}`);
         }
     }
 
