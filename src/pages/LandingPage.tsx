@@ -402,9 +402,12 @@ function LandingPage() {
           </div>
         </div>
 
-        {/* Avatar Selector */}
+        {/* Avatar Selection Section */}
         <div className="text-center mb-6 md:mb-8">
           <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              AVATAR SELECTION
+            </h3>
             <div className="flex items-center gap-4 justify-center">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 md:w-20 md:h-20 border-2 border-neon-green bg-black mb-2 flex items-center justify-center">
@@ -421,6 +424,15 @@ function LandingPage() {
                 <p className="font-menu text-xs text-neon-green">
                   {getAvatarConfig(activeAvatar).displayName}
                 </p>
+                <div className="mt-1 text-xs font-body text-neon-green opacity-70">
+                  {getAvatarConfig(activeAvatar).description}
+                </div>
+                {/* Show stats */}
+                <div className="mt-2 text-xs font-body text-neon-green opacity-60">
+                  Speed: {getAvatarConfig(activeAvatar).stats.speedMult.toFixed(1)}x | 
+                  Fire: {getAvatarConfig(activeAvatar).stats.fireRateMult.toFixed(1)}x | 
+                  Health: {getAvatarConfig(activeAvatar).stats.healthMult.toFixed(1)}x
+                </div>
               </div>
               <button
                 className="retro-button font-menu text-sm px-4 py-2"
@@ -429,8 +441,72 @@ function LandingPage() {
                 CHANGE AVATAR
               </button>
             </div>
+            <div className="mt-3 text-xs font-body text-neon-green opacity-70 border-t border-neon-green border-opacity-30 pt-2">
+              Coins: {coins} | Prestige Required: {getAvatarConfig(activeAvatar).unlockPrestige}
+            </div>
+          </div>
+        </div>
+        
+        {/* Inventory Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              MINI-ME INVENTORY
+            </h3>
+            <button
+              className="retro-button font-menu text-sm px-4 py-2"
+              onClick={() => setShowInventoryModal(true)}
+            >
+              OPEN INVENTORY
+            </button>
             <div className="mt-2 text-xs font-body text-neon-green opacity-70">
-              Coins: {coins}
+              Manage your Mini-Me companions
+            </div>
+          </div>
+        </div>
+        
+        {/* Rank Display Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              CURRENT RANK
+            </h3>
+            <div className="flex items-center gap-4 justify-center">
+              <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
+                <div className="text-2xl font-menu text-neon-green">
+                  {currentRank ? '#' + (getCurrentRankFromStorage()?.number || 1) : '#'}
+                </div>
+              </div>
+              <div className="text-left">
+                <div className="font-menu text-base text-neon-green">{currentRank}</div>
+                <div className="font-body text-xs text-neon-green opacity-70 mt-1">
+                  {getCurrentRankFromStorage() ? 
+                    `Prestige ${getCurrentRankFromStorage()!.prestige}, Layer ${getCurrentRankFromStorage()!.layer}` : 
+                    'Progress to unlock ranks'}
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/profile"
+              className="mt-3 inline-block font-menu text-xs text-neon-green hover:text-red-500 transition-all duration-200"
+            >
+              View Rank History →
+            </Link>
+          </div>
+        </div>
+        
+        {/* Coin Display Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              COIN BALANCE
+            </h3>
+            <div className="text-2xl font-menu text-neon-green mb-2">
+              {coins} <span className="text-lg">coins</span>
+            </div>
+            <div className="text-xs font-body text-neon-green opacity-70 space-y-1">
+              <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
+              <div>Earn coins by completing prestiges</div>
             </div>
           </div>
         </div>
