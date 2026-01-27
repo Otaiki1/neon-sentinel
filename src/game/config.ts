@@ -203,6 +203,7 @@ export const MAX_LAYER = 6;
 
 export const PRESTIGE_CONFIG = {
     maxPrestige: 8,
+    finalBossPrestige: 8,
     prestigeTiers: [
         {
             level: 0,
@@ -468,6 +469,406 @@ export const RANK_CONFIG = {
             tier: "legendary",
         },
     ],
+} as const;
+
+/**
+ * Enemy Variant Mapping Configuration
+ * Maps enemy colors and types to sprite keys and display names based on prestige
+ */
+export const ENEMY_VARIANT_MAP = {
+    green: {
+        pawn: {
+            prestige0_1: "greenPawn1",
+            prestige2_3: "greenPawn2",
+            prestige4_5: "greenPawn3",
+            prestige6: "greenPawnCorrupted",
+        },
+        boss: {
+            prestige0_1: "greenBoss1",
+            prestige2_3: "greenBoss2",
+            prestige4_5: "greenBoss3",
+            prestige6: "greenBossCorrupted",
+        },
+    },
+    yellow: {
+        pawn: {
+            prestige0_1: "yellowRoutine1",
+            prestige2_3: "yellowRoutine2",
+            prestige4_5: "yellowRoutine3",
+            prestige6: "yellowRoutineCorrupted",
+        },
+        boss: {
+            prestige0_1: "yellowBoss1",
+            prestige2_3: "yellowBoss2",
+            prestige4_5: "yellowFinalBoss",
+            prestige6: "yellowFinalBossCorrupted",
+        },
+    },
+    blue: {
+        pawn: {
+            prestige0_1: "blueBot1",
+            prestige2_3: "blueBot2",
+            prestige4_5: "blueBot3",
+            prestige6: "blueBotCorrupted",
+        },
+        boss: {
+            prestige0_1: "blueBoss1",
+            prestige2_3: "blueBoss2",
+            prestige4_5: "blueBoss3",
+            prestige6: "blueBossCorrupted",
+        },
+    },
+    purple: {
+        pawn: {
+            prestige0_1: "purpleCore1",
+            prestige2_3: "purpleCore2",
+            prestige4_5: "purpleCore3",
+            prestige6: "purpleCoreCorrupted",
+        },
+        boss: {
+            prestige0_1: "purpleBoss1",
+            prestige2_3: "purpleBoss2",
+            prestige4_5: "purpleBoss3",
+            prestige6: "purpleBossCorrupted",
+        },
+    },
+} as const;
+
+/**
+ * Enemy Display Names Mapping
+ */
+export const ENEMY_NAMES = {
+    green: {
+        pawn: {
+            prestige0_1: "Green Pawn",
+            prestige2_3: "Jade Sentinel",
+            prestige4_5: "Emerald Vanguard",
+            prestige6: "Abyssal Fragment",
+        },
+        boss: {
+            prestige0_1: "Green Guardian 1",
+            prestige2_3: "Jade Guardian 2",
+            prestige4_5: "Emerald Guardian 3",
+            prestige6: "Abyssal Overlord",
+        },
+    },
+    yellow: {
+        pawn: {
+            prestige0_1: "Yellow Routine",
+            prestige2_3: "Amber Striker",
+            prestige4_5: "Golden Assault",
+            prestige6: "Corrupted Sentinel",
+        },
+        boss: {
+            prestige0_1: "Yellow Sentinel 1",
+            prestige2_3: "Amber Sentinel 2",
+            prestige4_5: "Golden Overlord",
+            prestige6: "Corrupted Prime",
+        },
+    },
+    blue: {
+        pawn: {
+            prestige0_1: "Blue Bot",
+            prestige2_3: "Cyan Enforcer",
+            prestige4_5: "Azure Guardian",
+            prestige6: "Void Entity",
+        },
+        boss: {
+            prestige0_1: "Blue Hijack-Core 1",
+            prestige2_3: "Cyan Command 2",
+            prestige4_5: "Azure Authority 3",
+            prestige6: "Void Entity Prime",
+        },
+    },
+    purple: {
+        pawn: {
+            prestige0_1: "Purple Core",
+            prestige2_3: "Violet Intelligence",
+            prestige4_5: "Magenta Overlord",
+            prestige6: "Infernal Mind",
+        },
+        boss: {
+            prestige0_1: "Purple Core-Emperor 1",
+            prestige2_3: "Violet Intellect 2",
+            prestige4_5: "Magenta Sovereign 3",
+            prestige6: "Infernal Overlord",
+        },
+    },
+} as const;
+
+/**
+ * Dialogue Configuration
+ * Defines all dialogues with their triggers and conditions
+ */
+export const DIALOGUE_CONFIG = {
+    dialogues: [
+        {
+            id: "game_start",
+            speaker: "White Sentinel",
+            text: "Sentinel, you have been assigned to liberate Neon Terminal. The Swarm has corrupted this system for 50 aeons. Proceed with caution.",
+            trigger: "gameStart",
+            conditions: { firstRun: true },
+        },
+        {
+            id: "prestige0_layer1",
+            speaker: "White Sentinel",
+            text: "You have entered the Boot Sector. Basic corrupted fragments detected. Begin your infiltration.",
+            trigger: "layerStart",
+            prestige: 0,
+            layer: 1,
+        },
+        {
+            id: "final_boss_encounter",
+            speaker: "Zrechostikal",
+            text: "You dare challenge me? I am the Swarm.",
+            trigger: "finalBossEncounter",
+            prestige: 8,
+            layer: 6,
+        },
+        {
+            id: "final_boss_defeat",
+            speaker: "Prime Sentinel",
+            text: "Rise, Sentinel. You have liberated Terminal Neon. You are now Prime Sentinel - Rank: Prime Sentinel.",
+            trigger: "finalBossDefeat",
+            prestige: 8,
+            layer: 6,
+        },
+        // Additional dialogues can be added here
+    ],
+} as const;
+
+/**
+ * Bullet Upgrade Configuration
+ * Defines bullet tiers with stats and unlock requirements
+ */
+export const BULLET_UPGRADE_CONFIG = {
+    tiers: [
+        {
+            tier: 1,
+            name: "Standard Bullet",
+            spriteKey: "bullet",
+            damageMultiplier: 1.0,
+            speedMultiplier: 1.0,
+            unlockPrestige: 0,
+            effects: {
+                trail: false,
+                glow: false,
+                piercing: 0,
+            },
+        },
+        {
+            tier: 2,
+            name: "Enhanced Bullet",
+            spriteKey: "bulletTier2",
+            damageMultiplier: 1.2,
+            speedMultiplier: 1.1,
+            unlockPrestige: 1,
+            effects: {
+                trail: true,
+                glow: true,
+                piercing: 0,
+            },
+        },
+        {
+            tier: 3,
+            name: "Accelerated Bullet",
+            spriteKey: "bulletTier3",
+            damageMultiplier: 1.4,
+            speedMultiplier: 1.3,
+            unlockPrestige: 3,
+            effects: {
+                trail: true,
+                glow: true,
+                piercing: 0,
+            },
+        },
+        {
+            tier: 4,
+            name: "Plasma Bullet",
+            spriteKey: "bulletTier4",
+            damageMultiplier: 1.6,
+            speedMultiplier: 1.5,
+            unlockPrestige: 5,
+            effects: {
+                trail: true,
+                glow: true,
+                piercing: 2, // Pierce through 2 enemies
+            },
+        },
+        {
+            tier: 5,
+            name: "Transcendent Bullet",
+            spriteKey: "bulletTier5",
+            damageMultiplier: 2.0,
+            speedMultiplier: 1.8,
+            unlockPrestige: 7,
+            effects: {
+                trail: true,
+                glow: true,
+                piercing: -1, // Infinite piercing
+            },
+        },
+    ],
+} as const;
+
+/**
+ * Coin Economy Configuration
+ */
+export const COIN_CONFIG = {
+    prestigeRewardFormula: "2 * (2^prestigeLevel)",
+    dailyPrimeSentinelBonus: 3,
+    revivalBaseCost: 100,
+    revivalCostMultiplier: 2,
+    miniMeCosts: {
+        scout: 50,
+        gunner: 75,
+        shield: 100,
+        decoy: 100,
+        collector: 75,
+        stun: 125,
+        healer: 125,
+    },
+} as const;
+
+/**
+ * Mini-Me Configuration
+ * Defines all mini-me types with their properties
+ */
+export const MINI_ME_CONFIG_UPDATED = {
+    maxActive: 7,
+    types: {
+        scout: {
+            cost: 50,
+            duration: 15000, // 15 seconds
+            spriteKey: "miniMeScout",
+            behavior: {
+                visionRange: 200,
+                scanEffect: true,
+            },
+        },
+        gunner: {
+            cost: 75,
+            duration: 12000, // 12 seconds
+            spriteKey: "miniMeGunner",
+            behavior: {
+                fireRate: 0.5, // 50% of player fire rate
+                bulletSpeed: 600,
+            },
+        },
+        shield: {
+            cost: 100,
+            duration: 10000, // 10 seconds
+            spriteKey: "miniMeShield",
+            behavior: {
+                damageReduction: 1,
+            },
+        },
+        decoy: {
+            cost: 100,
+            duration: 12000, // 12 seconds
+            spriteKey: "miniMeDecoy",
+            behavior: {
+                damageReduction: 0.3, // 30% less damage
+                priority: 0.7, // Enemies prioritize decoy 70% of the time
+            },
+        },
+        collector: {
+            cost: 75,
+            duration: 15000, // 15 seconds
+            spriteKey: "miniMeCollector",
+            behavior: {
+                collectionRadius: 300,
+            },
+        },
+        stun: {
+            cost: 125,
+            duration: 10000, // 10 seconds
+            spriteKey: "miniMeStun",
+            behavior: {
+                stunDuration: 1000, // 1 second
+                pulseInterval: 2000, // Every 2 seconds
+                stunRadius: 150,
+            },
+        },
+        healer: {
+            cost: 125,
+            duration: 12000, // 12 seconds
+            spriteKey: "miniMeHealer",
+            behavior: {
+                healAmount: 1, // 1 health bar
+                healInterval: 3000, // Every 3 seconds
+            },
+        },
+    },
+    maxHits: 3, // Mini-me survives 3 enemy hits before despawning
+} as const;
+
+/**
+ * Registry Keys Documentation
+ * 
+ * These keys are used in Phaser's registry system to track game state
+ * and communicate between scenes.
+ * 
+ * Core Game State:
+ * - healthBars: number (0-5) - Current health bars
+ * - currentPrestige: number - Current prestige level (0-8)
+ * - currentLayer: number - Current layer (1-6)
+ * - currentRank: string - Current rank name
+ * - currentRankNumber: number - Current rank number (1-18)
+ * - currentAvatar: string - Active avatar ID
+ * - bulletTier: number - Current bullet upgrade tier (1-5)
+ * - reviveCount: number - Revives used in current run
+ * - miniMeCount: number - Active mini-mes count (0-7)
+ * - coinBalance: number - Current coins
+ * - isPrimeSentinel: boolean - Flag for Prime Sentinel status
+ * - prestigeCompleted: boolean[] - Array of completed prestiges (length 9)
+ * 
+ * Gameplay State:
+ * - score: number - Current score
+ * - comboMultiplier: number - Current combo multiplier
+ * - gameOver: boolean - Game over state
+ * - isPaused: boolean - Pause state
+ * - finalBossVictory: boolean - Final boss victory flag
+ * 
+ * Progression:
+ * - deepestLayer: number - Deepest layer reached
+ * - previousPrestige: number - Previous prestige level
+ * - layerName: string - Current layer name
+ * 
+ * Settings:
+ * - gameplaySettings: object - Gameplay settings
+ * - walletAddress: string - Wallet address (if connected)
+ */
+export const REGISTRY_KEYS = {
+    // Core Game State
+    healthBars: "healthBars",
+    currentPrestige: "currentPrestige",
+    currentLayer: "currentLayer",
+    currentRank: "currentRank",
+    currentRankNumber: "currentRankNumber",
+    currentAvatar: "currentAvatar",
+    bulletTier: "bulletTier",
+    reviveCount: "reviveCount",
+    miniMeCount: "miniMeCount",
+    coinBalance: "coinBalance",
+    isPrimeSentinel: "isPrimeSentinel",
+    prestigeCompleted: "prestigeCompleted",
+    
+    // Gameplay State
+    score: "score",
+    comboMultiplier: "comboMultiplier",
+    gameOver: "gameOver",
+    isPaused: "isPaused",
+    finalBossVictory: "finalBossVictory",
+    
+    // Progression
+    deepestLayer: "deepestLayer",
+    previousPrestige: "previousPrestige",
+    layerName: "layerName",
+    
+    // Settings
+    gameplaySettings: "gameplaySettings",
+    walletAddress: "walletAddress",
 } as const;
 
 /**
@@ -977,9 +1378,13 @@ export const PLAYER_KERNELS = {
     },
 } as const;
 
+/**
+ * Avatar Configuration - Organized by tiers
+ * Each avatar contains: name, description, unlockPrestige, unlockCostCoins, stats, sprite
+ */
 export const AVATAR_CONFIG = {
-    // Tier 1: Entry Sentinels (Prestige 0-1)
-    default_sentinel: {
+    tier1: {
+        default_sentinel: {
         id: "default_sentinel",
         name: "Default Sentinel",
         displayName: "Azure Core",
@@ -1027,8 +1432,9 @@ export const AVATAR_CONFIG = {
             damageMult: 1.0,
         },
     },
-    // Tier 2: Veteran Sentinels (Prestige 2-3)
-    guardian_core: {
+    },
+    tier2: {
+        guardian_core: {
         id: "guardian_core",
         name: "Guardian Core",
         displayName: "Amber Veteran",
@@ -1078,8 +1484,9 @@ export const AVATAR_CONFIG = {
         },
         special: "burst_fire", // Special ability
     },
-    // Tier 3: Elite Sentinels (Prestige 4-5)
-    neon_guardian: {
+    },
+    tier3: {
+        neon_guardian: {
         id: "neon_guardian",
         name: "Neon Guardian",
         displayName: "Cyan Elite",
@@ -1130,8 +1537,9 @@ export const AVATAR_CONFIG = {
         },
         special: "energy_effect",
     },
-    // Tier 4: Prime Sentinels (Prestige 6-8)
-    prime_sentinel: {
+    },
+    tier4: {
+        prime_sentinel: {
         id: "prime_sentinel",
         name: "Prime Sentinel",
         displayName: "Gold Ascended",
@@ -1166,6 +1574,18 @@ export const AVATAR_CONFIG = {
         },
         special: "legendary_effects",
     },
+    },
+} as const;
+
+/**
+ * Flattened avatar config for backward compatibility
+ * Maps avatar IDs to their configurations
+ */
+export const AVATAR_CONFIG_FLAT = {
+    ...AVATAR_CONFIG.tier1,
+    ...AVATAR_CONFIG.tier2,
+    ...AVATAR_CONFIG.tier3,
+    ...AVATAR_CONFIG.tier4,
 } as const;
 
 export const SENSORY_ESCALATION = {

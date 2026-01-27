@@ -5,7 +5,7 @@
  */
 
 import { getAvailableCoins, spendCoins } from './coinService';
-import { AVATAR_CONFIG } from '../game/config';
+import { AVATAR_CONFIG_FLAT as AVATAR_CONFIG } from '../game/config';
 
 export type AvatarId = keyof typeof AVATAR_CONFIG;
 
