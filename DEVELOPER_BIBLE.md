@@ -156,7 +156,7 @@ ENEMY_CONFIG = {
         health: 3,
         spawnWeight: 2,
         canShoot: false,
-        shieldRadius: 200,
+        shieldRadius: 100, // Halved from 200 - more lethal proximity damage
         shieldDamageReduction: 0.5,
     },
     yellowEcho: {
@@ -474,20 +474,163 @@ FAILURE_FEEDBACK = {
 
 ```typescript
 PLAYER_KERNELS = {
-    sentinel_standard: { baseSpeed: 1.0, fireRate: 1.0, unlocked: true },
-    sentinel_speed: { baseSpeed: 1.3, fireRate: 1.2, unlocked: false },
-    sentinel_firepower: { baseSpeed: 0.85, fireRate: 0.6, unlocked: false },
-    sentinel_tanky: { baseSpeed: 0.8, fireRate: 1.0, healthPerLife: 1.2 },
-    sentinel_precision: { baseSpeed: 1.0, fireRate: 2.0, bulletPiercing: true },
+    sentinel_standard: {
+        name: "Azure Core",
+        description: "Balanced speed and firepower - Blue variant",
+        baseSpeed: 1.0,
+        fireRate: 1.0,
+        unlocked: true,
+        unlockCondition: "default",
+        spriteVariant: "blue", // Maps to heroGrade1Blue
+    },
+    sentinel_speed: {
+        name: "Violet Interceptor",
+        description: "30% faster movement, 20% slower fire rate - Purple variant",
+        baseSpeed: 1.3,
+        fireRate: 1.2,
+        unlocked: false,
+        unlockCondition: "reach_layer_3",
+        spriteVariant: "purple", // Maps to heroGrade2Purple
+    },
+    sentinel_firepower: {
+        name: "Crimson Artillery",
+        description: "40% faster fire rate, 15% slower movement - Red variant",
+        baseSpeed: 0.85,
+        fireRate: 0.6,
+        unlocked: false,
+        unlockCondition: "accumulate_1000_kills",
+        spriteVariant: "red", // Maps to heroGrade3Red
+    },
+    sentinel_tanky: {
+        name: "Amber Guardian",
+        description: "20% more health per life, 20% slower speed - Orange variant",
+        baseSpeed: 0.8,
+        fireRate: 1.0,
+        healthPerLife: 1.2,
+        unlocked: false,
+        unlockCondition: "survive_100_hits",
+        spriteVariant: "orange", // Maps to heroGrade4Orange
+    },
+    sentinel_precision: {
+        name: "Alabaster Sniper",
+        description: "Bullets pierce through enemies, 50% slower fire rate - White variant",
+        baseSpeed: 1.0,
+        fireRate: 2.0,
+        bulletPiercing: true,
+        unlocked: false,
+        unlockCondition: "achieve_90%_accuracy",
+        spriteVariant: "white", // Maps to heroGrade5White
+    },
 }
 ```
 
 **Kernel Mechanics**:
 - Selected on landing page and applied at run start only
+- **Kernels are now primarily cosmetic variants** - they map to colored hero sprite variants
 - Speed multiplier scales player movement
 - Fire rate multiplier scales `PLAYER_CONFIG.fireRate`
 - Tanky kernel uses fractional damage accumulator to reduce life loss
 - Precision kernel enables bullet piercing
+- Each kernel maps to a specific colored hero sprite variant (blue, purple, red, orange, white)
+- The actual hero sprite displayed combines the current hero grade (1-5) with the kernel's colored variant
+
+### Hero Grade System Configuration
+
+**Location**: `src/services/heroGradeService.ts`
+
+```typescript
+HERO_GRADES = {
+    1: {
+        grade: 1,
+        name: "Initiate Sentinel",
+        description: "The beginning of your journey",
+        unlockCondition: { type: "default", value: 0 },
+        specialFeature: {
+            name: "Basic Training",
+            description: "Standard capabilities",
+            speedBonus: 0,
+            fireRateBonus: 0,
+            healthBonus: 1.0,
+            damageBonus: 1.0,
+        },
+    },
+    2: {
+        grade: 2,
+        name: "Veteran Sentinel",
+        description: "Proven in combat",
+        unlockCondition: { type: "playtime", value: 3600000 }, // 1 hour
+        specialFeature: {
+            name: "Combat Experience",
+            description: "+10% movement speed",
+            speedBonus: 0.1,
+            fireRateBonus: 0,
+            healthBonus: 1.0,
+            damageBonus: 1.0,
+        },
+    },
+    3: {
+        grade: 3,
+        name: "Elite Sentinel",
+        description: "Master of the battlefield",
+        unlockCondition: { type: "kills", value: 5000 }, // 5000 kills
+        specialFeature: {
+            name: "Rapid Fire",
+            description: "+20% fire rate",
+            speedBonus: 0.1,
+            fireRateBonus: 0.2,
+            healthBonus: 1.0,
+            damageBonus: 1.0,
+        },
+    },
+    4: {
+        grade: 4,
+        name: "Legendary Sentinel",
+        description: "A force to be reckoned with",
+        unlockCondition: { type: "score", value: 100000 }, // 100k score
+        specialFeature: {
+            name: "Enhanced Resilience",
+            description: "+1 health per life, +15% damage",
+            speedBonus: 0.1,
+            fireRateBonus: 0.2,
+            healthBonus: 1.2,
+            damageBonus: 1.15,
+        },
+    },
+    5: {
+        grade: 5,
+        name: "Transcendent Sentinel",
+        description: "Beyond mortal limits",
+        unlockCondition: { type: "layers", value: 6 }, // Reach layer 6
+        specialFeature: {
+            name: "Mastery",
+            description: "+25% speed, +30% fire rate, +1.5x health, +25% damage",
+            speedBonus: 0.25,
+            fireRateBonus: 0.3,
+            healthBonus: 1.5,
+            damageBonus: 1.25,
+            specialAbility: "Bullet piercing",
+        },
+    },
+}
+```
+
+**Hero Grade Mechanics**:
+- **Hero grades represent skill levels** - unlockable as you play more
+- Grade 1 is unlocked by default
+- Grades 2-5 unlock based on lifetime stats (playtime, kills, score, deepest layer)
+- Each grade provides permanent bonuses to speed, fire rate, health, and damage
+- Grade 5 enables bullet piercing as a special ability
+- Hero grades are checked and unlocked at the end of each run via `checkAndUnlockHeroGrades()`
+- The current hero grade determines the base sprite (heroGrade1-5)
+- The selected kernel determines the colored variant (blue, purple, red, orange, white)
+- Combined sprite key: `heroGrade{grade}{Color}` (e.g., `heroGrade1Blue`, `heroGrade3Red`)
+
+**Service Functions**:
+- `getCurrentHeroGrade()`: Returns the highest unlocked grade
+- `getHeroGradeConfig(grade)`: Returns configuration for a specific grade
+- `checkAndUnlockHeroGrades(stats)`: Checks lifetime stats and unlocks new grades
+- `setCurrentHeroGrade(grade)`: Sets the active hero grade
+- `isHeroGradeUnlocked(grade)`: Checks if a grade is unlocked
 
 ### Sensory Escalation Configuration
 
@@ -753,13 +896,51 @@ function isMobileDevice(): boolean {
 - **Bosses**: Red enemies (spawned separately)
 - **Graduation Bosses**: Special bosses for layer progression
 
+**Enemy Sprite System**:
+- **Dynamic Sprite Selection**: Enemies use different sprites based on type, boss status, and layer/prestige
+- **Sprite Naming**: `{color}{Type}{variant}` (e.g., `greenPawn1`, `yellowBoss2`, `bluePawn3`)
+- **Pawn Variants**: Regular enemies use pawn sprites (1-3 variants based on layer complexity)
+- **Boss Variants**: Bosses use boss sprites (1-3 variants based on prestige level)
+- **Prestige-Based Variants**: 
+  - Prestige 0-1: Variant 1
+  - Prestige 2-3: Variant 2
+  - Prestige 4+: Variant 3
+- **Layer-Based Variants** (for pawns):
+  - Layer 1-2: Variant 1
+  - Layer 3-4: Variant 2
+  - Layer 5+: Variant 3
+- **Special Cases**:
+  - Yellow enemies only have variants 1-2 (no variant 3)
+  - Yellow final boss uses `yellowFinalBoss` sprite for high layers
+  - Red bosses use legacy sprite system (`finalBoss`, `mediumFinalBoss`, `miniFinalBoss`)
+
 **Boss Spawning**:
 ```typescript
 // Regular Boss: Random chance based on layerConfig.bossChance
 // Graduation Boss: Spawns when score threshold reached
-// Graduation Boss: 3x size, 10x health multiplier
+// Graduation Boss: 1.5x size (reduced from 3x), 10x health multiplier
 // Graduation Boss Assault: 15 seconds assault phase, 3 seconds rest (increased from 10s/5s)
+// Graduation Boss Sprite: Selected based on layer and prestige level
+//   - Layer 1 → Green boss (variant based on prestige)
+//   - Layer 2 → Yellow boss (variant based on prestige)
+//   - Layer 3 → Blue boss (variant based on prestige)
+//   - Layer 4 → Purple boss (variant based on prestige)
+//   - Layer 5 → Green boss (wraps, variant based on prestige)
+//   - Layer 6 → Yellow boss (wraps, variant based on prestige)
 ```
+
+**Boss Shockwave System**:
+- **Graduation and Final Bosses** can fire blue shockwaves
+- **Shockwave Appearance**: Blue wavy zigzag line that moves like a bullet
+- **Shockwave Behavior**: Travels toward player, can be dodged
+- **Stun Effect**: On hit, player is stunned for 3 seconds
+- **Stun Mechanics**:
+  - Player cannot move or shoot while stunned
+  - Visual feedback: "STUNNED!" floating text
+  - Player velocity set to 0
+- **Boss Bullet Lethality**: 
+  - Graduation and final boss bullets are 3x more lethal than regular enemy bullets
+  - Lethality increases as game progresses (scales with layer and prestige)
 
 **Enemy Behavior**:
 - **Movement**: Pursuit + predictive movement in later phases
@@ -768,7 +949,11 @@ function isMobileDevice(): boolean {
 - **Graduation Boss Assault Phases**: 15 seconds of aggressive shooting (3-bullet spread), 3 seconds rest (increased assault duration)
 - **Space Denial**: Graduation bosses add spread bursts in later phases
 - **Synergy Effects**:
-  - Shield drones reduce damage for nearby enemies
+  - **Shield Drones (yellowShield)**: 
+    - Shield radius: 100 (halved from 200) - more dangerous proximity
+    - Proximity damage: Deals 1 life of damage on contact (500ms interval)
+    - Visual indicator: Red pulsing aura (instead of yellow) to indicate danger
+    - Still reduces damage for nearby enemies by 50%
   - Buff nodes increase nearby fire rate and damage
   - Fragmenters split into greens on death
   - Echo enemies spawn decoy after-images
@@ -814,6 +999,20 @@ function isMobileDevice(): boolean {
 - **Lives**: Adds 2 to `lives` count (capped at MAX_LIVES = 20)
 - **Firepower**: Increases `firepowerLevel` by 0.5
 - **Invisibility**: Sets `isInvisible` to true, player alpha to 0.3
+
+**Power-Up Degradation System**:
+- **Mechanic**: Taking damage from enemies reduces firepower upgrades
+- **Trigger**: Every 2 hits from enemy bullets triggers degradation
+- **Degradation Effects**:
+  - Reduces `firepowerLevel` by 0.5 (one upgrade worth)
+  - Increases `fireRateMultiplier` by 10% (makes firing slower)
+  - Maximum `fireRateMultiplier` cap: 2.0
+- **Visual Feedback**: "UPGRADE DEGRADED!" floating text on degradation
+- **Tracking**: 
+  - `totalFirepowerUpgrades`: Total upgrades collected
+  - `enemyBulletHits`: Counter for degradation trigger
+  - `baseFireRateMultiplier`: Base fire rate before degradation
+- **Reset**: All degradation variables reset on game restart
 
 **Lives Cap**:
 - Maximum lives: 20 (4 orbs × 5 lives per orb)
@@ -994,6 +1193,63 @@ update() {
 - Critical hits use larger font and brighter color (bosses or high combo)
 - Combo pings appear on each kill
 - Score milestones show centered banner text
+- Power-up degradation shows "UPGRADE DEGRADED!" text
+- Stun effects show "STUNNED!" text in cyan
+- Shield damage shows "SHIELD DAMAGE!" text in red
+
+### White Sentinel Guide System
+
+**Location**: `TooltipManager.ts` and `GameScene.ts`
+
+**Purpose**: In-game guide character that delivers tooltips and guidance
+
+**Implementation**:
+- **Sprite**: `whiteSentinel` (60x60px image)
+- **Introduction**: Introduced at game start (500ms delay) with "WHITE SENTINEL ONLINE" text
+- **Tooltip Integration**: 
+  - White Sentinel sprite appears in every tooltip (left side)
+  - Tooltip width increased to 300px to accommodate sentinel
+  - Pulsing cyan glow effect around sentinel
+  - Text positioned to the right of the sentinel
+- **Tooltip Messages**: All tooltip messages rewritten from White Sentinel's perspective
+  - Example: "I'm tracking your combo multiplier, Commander. Destroy enemies without taking damage to build it up for massive scores!"
+- **Visual Effects**:
+  - Pulsing glow animation (alpha 0.3-0.6, 1500ms cycle)
+  - Blend mode: ADD for glow effect
+  - Depth: Above tooltip background, below text
+
+### Layer Background System
+
+**Location**: `GameScene.ts`
+
+**Purpose**: Layer-specific background images for visual variety
+
+**Implementation**:
+- **Background Images**: 
+  - Layer 1: No background (grid only)
+  - Layer 2: `layerFirewall` (Firewall layer)
+  - Layer 3: `layerSecurityCore` (Security Core layer)
+  - Layer 4: `layerCorruptedAI` (Corrupted AI layer)
+  - Layer 5: `layerKernelBreach` (Kernel Breach layer)
+  - Layer 6: `layerSystemCollapse` (System Collapse layer)
+- **Background Properties**:
+  - Depth: -1000 (behind everything)
+  - Alpha: 0.3 (semi-transparent)
+  - Blend Mode: NORMAL
+  - Scroll Factor: 0 (fixed position)
+- **Dark Overlay**:
+  - 70% black overlay on top of background (depth: -999)
+  - Increases "blackness" for better contrast
+  - Blend Mode: NORMAL
+  - Scroll Factor: 0 (fixed position)
+- **Prestige Display**:
+  - `layerPrestige` image briefly appears when entering prestige mode
+  - Fade in (500ms), hold (2000ms), fade out (500ms)
+  - Alpha: 0.6 during display
+  - Overlay effect, then destroyed
+- **Player Visibility Safeguard**:
+  - Player explicitly set to `alpha: 1` and `depth: 100` when backgrounds are active
+  - Continuous check in update loop to ensure player remains visible
 
 **Registry Listeners**:
 ```typescript
@@ -1156,15 +1412,31 @@ registry.events.on('changedata-score', callback);
 
 **Location**: `BootScene.ts`
 
-**Sprite Paths**: All sprites loaded from `/sprites/` (public directory)
+**Sprite Paths**: 
+- Hero sprites: `/hero/` directory
+- Enemy sprites: `/green-enemies/`, `/yellow-enemies/`, `/blue-enemies/`, `/purple-enemies/` directories
+- Legacy sprites: `/sprites/` directory (fallback)
+- Background images: `/scenes/` directory
+- Guide character: `/white-sentinel.png`
 
-**Sprite Keys**:
-- Player: `hero`, `hero_2`, `hero_3`, `sidekick`, `hero_sidekick_2`
-- Enemies: `enemyGreen`, `enemyYellow`, `enemyBlue`, `enemyPurple`, etc.
+**Hero Sprite Keys**:
+- Base grades: `heroGrade1`, `heroGrade2`, `heroGrade3`, `heroGrade4`, `heroGrade5`
+- Colored variants: `heroGrade1Blue`, `heroGrade2Purple`, `heroGrade3Red`, `heroGrade4Orange`, `heroGrade5White`
+- Legacy (fallback): `hero`, `heroVanguard`, `heroGhost`, `heroDrone`, `heroGodMode`
+
+**Enemy Sprite Keys**:
+- **Green**: `greenPawn1`, `greenPawn2`, `greenPawn3`, `greenBoss1`, `greenBoss2`, `greenBoss3`
+- **Yellow**: `yellowPawn1`, `yellowPawn2`, `yellowBoss1`, `yellowBoss2`, `yellowFinalBoss`
+- **Blue**: `bluePawn1`, `bluePawn2`, `bluePawn3`, `blueBoss1`, `blueBoss2`, `blueBoss3`
+- **Purple**: `purplePawn1`, `purplePawn2`, `purplePawn3`, `purpleBoss1`, `purpleBoss2`, `purpleBoss3`
+- **Legacy (fallback)**: `enemyGreen`, `enemyYellow`, `enemyBlue`, `enemyPurple`, `enemyPurpleBoss`, `miniFinalBoss`, `mediumFinalBoss`, `finalBoss`
+
+**Other Sprite Keys**:
 - Bullets: `greenBullet1`, `greenBullet2`, `yellowBullet`, `blueBullet`
 - Explosions: `smallFire`, `mediumFire`, `bigFire`, `greenFire`
 - Power-ups: `power_up`, `power_up_2`, `orb`
-- Bosses: `enemyPurpleBoss`, `miniFinalBoss`, `mediumFinalBoss`, `finalBoss`
+- Guide: `whiteSentinel`
+- Backgrounds: `layerFirewall`, `layerSecurityCore`, `layerCorruptedAI`, `layerKernelBreach`, `layerSystemCollapse`, `layerPrestige`
 
 ### Sprite Scaling
 
@@ -1177,7 +1449,7 @@ registry.events.on('changedata-score', callback);
 - Enemies: `0.5 * MOBILE_SCALE`
 - Bullets: `0.3 * MOBILE_SCALE`
 - Power-ups: `0.4 * MOBILE_SCALE`
-- Bosses: `0.6 * MOBILE_SCALE` (regular), `0.7 * 3 * MOBILE_SCALE` (graduation)
+- Bosses: `0.6 * MOBILE_SCALE` (regular), `0.7 * 1.5 * MOBILE_SCALE` (graduation - reduced from 3x)
 
 ### Font Loading
 
@@ -1537,6 +1809,48 @@ console.log(registry.getAll());
 
 ---
 
-*Last Updated: Game Version 1.8 - 2026-01-27 (Game Balance Update)*
+*Last Updated: Game Version 2.0 - 2026-01-27 (Hero Grade System & Enemy Sprite Overhaul)*
 *Maintained by: Neon Sentinel Development Team*
+
+---
+
+## 🆕 Recent Updates (v2.0)
+
+### Hero Grade System
+- **New System**: Unlockable hero grades (1-5) representing skill progression
+- **Colored Variants**: Kernels now map to colored sprite variants (blue, purple, red, orange, white)
+- **Permanent Bonuses**: Each grade provides speed, fire rate, health, and damage bonuses
+- **Unlock Conditions**: Based on lifetime playtime, kills, score, and deepest layer reached
+
+### Enemy Sprite System
+- **Dynamic Sprites**: Enemies now use different sprites based on type, boss status, layer, and prestige
+- **Pawn/Boss Variants**: Separate sprites for regular enemies (pawns) and bosses
+- **Complexity Levels**: 3 variants per color (1-3) reflecting game progression
+- **Prestige Integration**: Boss variants change based on prestige level (2 prestiges per variant)
+
+### Boss Mechanics Overhaul
+- **Reduced Scaling**: Graduation bosses now 1.5x size (reduced from 3x)
+- **Shockwave System**: Graduation and final bosses can fire blue shockwaves
+- **Stun Mechanic**: Player stunned for 3 seconds on shockwave hit (cannot move or shoot)
+- **Increased Lethality**: Boss bullets are 3x more lethal, scaling with progression
+
+### Power-Up Degradation
+- **New System**: Taking damage reduces firepower upgrades
+- **Degradation Rate**: Every 2 enemy bullet hits reduces firepower by 0.5 and increases fire rate by 10%
+- **Visual Feedback**: "UPGRADE DEGRADED!" floating text
+
+### Yellow Shield Enemy Update
+- **Reduced Shield Radius**: 100 (halved from 200)
+- **Proximity Damage**: Deals 1 life of damage on contact (500ms interval)
+- **Visual Indicator**: Red pulsing aura (instead of yellow) to indicate danger
+
+### White Sentinel Guide
+- **In-Game Guide**: White Sentinel character integrated into all tooltips
+- **Introduction**: Introduced at game start as player's guide
+- **Tooltip Redesign**: All tooltips rewritten from White Sentinel's perspective
+
+### Layer Backgrounds
+- **Visual Variety**: Each layer (2-6) has its own background image
+- **Dark Overlay**: 70% black overlay for better contrast
+- **Prestige Display**: Brief prestige layer image on prestige entry
 

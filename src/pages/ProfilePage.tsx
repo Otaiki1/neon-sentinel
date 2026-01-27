@@ -43,25 +43,25 @@ function ProfilePage() {
     {
       key: "sentinel_standard",
       name: "Sentinel Standard",
-      sprite: "/sprites/hero.svg",
+      sprite: "/hero/hero-grade-1.svg",
       unlockScore: 0,
     },
     {
       key: "sentinel_vanguard",
       name: "Sentinel Vanguard",
-      sprite: "/sprites/hero_2.svg",
+      sprite: "/hero/hero-grade-2.svg",
       unlockScore: 25000,
     },
     {
       key: "sentinel_ghost",
       name: "Sentinel Ghost",
-      sprite: "/sprites/hero_3.svg",
+      sprite: "/hero/hero-grade-3.svg",
       unlockScore: 75000,
     },
     {
       key: "sentinel_drone",
       name: "Sentinel Drone",
-      sprite: "/sprites/hero_sidekick_2.svg",
+      sprite: "/hero/hero-grade-4.svg",
       unlockScore: 150000,
     },
   ];

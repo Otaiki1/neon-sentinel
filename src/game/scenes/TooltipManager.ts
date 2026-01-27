@@ -64,21 +64,43 @@ export class TooltipManager {
         }
 
         const position = config.position || 'top';
-        const width = config.width || 260;
+        const width = config.width || 300; // Increased width to accommodate sentinel
         const padding = 12;
         const arrowSize = 8;
+        const sentinelSize = 60; // Size of white sentinel character
+        const sentinelPadding = 8; // Space between sentinel and text
 
         // Create container
         const container = this.scene.add.container(0, 0);
         container.setDepth(10000);
         container.setVisible(true);
 
-        // Create text first to measure dimensions
+        // Create white sentinel sprite
+        const sentinel = this.scene.add.image(0, 0, 'whiteSentinel');
+        sentinel.setDisplaySize(sentinelSize, sentinelSize);
+        sentinel.setOrigin(0, 0);
+        
+        // Add subtle glow to sentinel
+        const sentinelGlow = this.scene.add.graphics();
+        sentinelGlow.fillStyle(0xffffff, 0.2);
+        sentinelGlow.fillCircle(sentinelSize / 2, sentinelSize / 2, sentinelSize / 2 + 5);
+        sentinelGlow.setBlendMode(Phaser.BlendModes.ADD);
+        
+        // Pulse animation for sentinel glow
+        this.scene.tweens.add({
+            targets: sentinelGlow,
+            alpha: { from: 0.2, to: 0.4 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+        });
+
+        // Create text first to measure dimensions (adjusted width to account for sentinel)
         const textStyle = {
             fontFamily: 'JetBrains Mono',
             fontSize: 12,
             color: '#00ff00',
-            wordWrap: { width: width - padding * 2 },
+            wordWrap: { width: width - padding * 2 - sentinelSize - sentinelPadding },
             align: 'left',
         } as const;
         const text = this.scene.add.text(0, 0, config.content, textStyle);
@@ -86,7 +108,8 @@ export class TooltipManager {
         const textHeight = textBounds.height;
         const spacing = 12;
         const buttonHeight = 24;
-        const totalHeight = padding * 2 + textHeight + spacing + buttonHeight;
+        const contentHeight = Math.max(textHeight, sentinelSize); // Use larger of text or sentinel height
+        const totalHeight = padding * 2 + contentHeight + spacing + buttonHeight;
 
         // Calculate position and layout dynamically now that we know text height
         let tooltipX = config.targetX;
@@ -102,8 +125,16 @@ export class TooltipManager {
             tooltipX = config.targetX + spacing + arrowSize;
         }
 
-        // Position text after computing tooltip coordinates
-        text.setPosition(tooltipX + padding, tooltipY + padding);
+        // Position sentinel and text after computing tooltip coordinates
+        const sentinelX = tooltipX + padding;
+        const sentinelY = tooltipY + padding + (contentHeight - sentinelSize) / 2; // Center vertically
+        sentinel.setPosition(sentinelX, sentinelY);
+        sentinelGlow.setPosition(sentinelX, sentinelY);
+        
+        // Position text next to sentinel
+        const textX = sentinelX + sentinelSize + sentinelPadding;
+        const textY = tooltipY + padding + (contentHeight - textHeight) / 2; // Center vertically
+        text.setPosition(textX, textY);
 
         // Draw rounded rectangle background
         const bg = this.scene.add.graphics();
@@ -202,8 +233,8 @@ export class TooltipManager {
             repeat: -1,
         });
 
-        // Add to container
-        container.add([glow, bg, arrow, text, buttonBg, buttonText, buttonZone]);
+        // Add to container (sentinel and glow first so they appear behind text)
+        container.add([glow, bg, arrow, sentinelGlow, sentinel, text, buttonBg, buttonText, buttonZone]);
 
         this.tooltips.set(config.id, container);
         this.activeTooltipId = config.id;

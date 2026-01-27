@@ -642,46 +642,51 @@ export const FAILURE_FEEDBACK = {
 
 export const PLAYER_KERNELS = {
     sentinel_standard: {
-        name: "Standard Sentinel",
-        description: "Balanced speed and firepower",
+        name: "Azure Core",
+        description: "Balanced speed and firepower - Blue variant",
         baseSpeed: 1.0,
         fireRate: 1.0,
         unlocked: true,
         unlockCondition: "default",
+        spriteVariant: "blue", // Maps to heroGrade1Blue
     },
     sentinel_speed: {
-        name: "Swift Interceptor",
-        description: "30% faster movement, 20% slower fire rate",
+        name: "Violet Interceptor",
+        description: "30% faster movement, 20% slower fire rate - Purple variant",
         baseSpeed: 1.3,
         fireRate: 1.2,
         unlocked: false,
         unlockCondition: "reach_layer_3",
+        spriteVariant: "purple", // Maps to heroGrade2Purple
     },
     sentinel_firepower: {
-        name: "Artillery Unit",
-        description: "40% faster fire rate, 15% slower movement",
+        name: "Crimson Artillery",
+        description: "40% faster fire rate, 15% slower movement - Red variant",
         baseSpeed: 0.85,
         fireRate: 0.6,
         unlocked: false,
         unlockCondition: "accumulate_1000_kills",
+        spriteVariant: "red", // Maps to heroGrade3Red
     },
     sentinel_tanky: {
-        name: "Guardian Core",
-        description: "20% more health per life, 20% slower speed",
+        name: "Amber Guardian",
+        description: "20% more health per life, 20% slower speed - Orange variant",
         baseSpeed: 0.8,
         fireRate: 1.0,
         healthPerLife: 1.2,
         unlocked: false,
         unlockCondition: "survive_100_hits",
+        spriteVariant: "orange", // Maps to heroGrade4Orange
     },
     sentinel_precision: {
-        name: "Sniper Kernel",
-        description: "Bullets pierce through enemies, 50% slower fire rate",
+        name: "Alabaster Sniper",
+        description: "Bullets pierce through enemies, 50% slower fire rate - White variant",
         baseSpeed: 1.0,
         fireRate: 2.0,
         bulletPiercing: true,
         unlocked: false,
         unlockCondition: "achieve_90%_accuracy",
+        spriteVariant: "white", // Maps to heroGrade5White
     },
 } as const;
 

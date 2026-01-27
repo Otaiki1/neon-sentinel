@@ -27,7 +27,6 @@ import {
     addLifetimeScore,
     getLifetimeStats,
     getSelectedCosmetic,
-    getSelectedHero,
     getSelectedSkin,
     recordProfileRunStats,
     setAchievementProgress,
@@ -44,6 +43,11 @@ import {
     getSelectedKernelKey,
     recordKernelRunStats,
 } from "../../services/kernelService";
+import {
+    getCurrentHeroGrade,
+    getHeroGradeConfig,
+    checkAndUnlockHeroGrades,
+} from "../../services/heroGradeService";
 import { consumeCoins, getAvailableCoins } from "../../services/coinService";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 
@@ -64,6 +68,8 @@ export class GameScene extends Phaser.Scene {
     private lives: number = PLAYER_CONFIG.initialLives;
     private lastHitTime = 0;
     private backgroundGrid!: Phaser.GameObjects.Graphics;
+    private layerBackgroundImage!: Phaser.GameObjects.Image;
+    private darkOverlay!: Phaser.GameObjects.Graphics;
     private currentLayer = 1;
     private deepestLayer = 1;
     private prestigeLevel = 0;
@@ -159,6 +165,11 @@ export class GameScene extends Phaser.Scene {
     private kernelHealthMultiplier = 1;
     private kernelBulletPiercing = false;
     private kernelDamageAccumulator = 0;
+    private heroGradeSpeedMultiplier = 1;
+    private heroGradeFireRateMultiplier = 1;
+    private heroGradeHealthMultiplier = 1;
+    private heroGradeDamageMultiplier = 1;
+    private heroGradeBulletPiercing = false;
     private shotsFiredThisRun = 0;
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
@@ -244,6 +255,11 @@ export class GameScene extends Phaser.Scene {
         // Draw background grid
         this.drawBackgroundGrid();
         this.createSensoryOverlays();
+        
+        // White Sentinel introduction sequence
+        this.time.delayedCall(500, () => {
+            this.introduceWhiteSentinel();
+        });
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -254,6 +270,8 @@ export class GameScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(startX, startY, heroTexture);
         this.player.setCollideWorldBounds(true);
         this.player.setScale(0.5 * MOBILE_SCALE);
+        this.player.setDepth(100); // Ensure player is above all backgrounds
+        this.player.setAlpha(1); // Ensure player is fully opaque
         this.originalPlayerTexture = heroTexture; // Store original texture
         this.applySelectedAppearance();
         
@@ -566,9 +584,115 @@ export class GameScene extends Phaser.Scene {
         }
 
         this.backgroundGrid.setAlpha(this.gridOpacityMultiplier);
+        
+        // Update layer background image
+        this.updateLayerBackground();
 
         // Draw faint progress bar at the bottom
         this.drawProgressBar();
+    }
+    
+    private updateLayerBackground() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        // Map layer number to background image key
+        const layerImageMap: Record<number, string> = {
+            1: '', // Boot Sector - no image, use default grid
+            2: 'layerFirewall',
+            3: 'layerSecurityCore',
+            4: 'layerCorruptedAI',
+            5: 'layerKernelBreach',
+            6: 'layerSystemCollapse',
+        };
+        
+        const imageKey = layerImageMap[this.currentLayer];
+        
+        // If no image for this layer, hide the background image and overlay
+        if (!imageKey) {
+            if (this.layerBackgroundImage) {
+                this.layerBackgroundImage.setVisible(false);
+            }
+            if (this.darkOverlay) {
+                this.darkOverlay.setVisible(false);
+            }
+            // Ensure player is always fully opaque
+            if (this.player && this.player.active) {
+                this.player.setAlpha(1);
+                this.player.setDepth(100);
+            }
+            return;
+        }
+        
+        // Create or update the background image
+        if (!this.layerBackgroundImage) {
+            this.layerBackgroundImage = this.add.image(width / 2, height / 2, imageKey);
+            this.layerBackgroundImage.setDepth(-1000); // Behind everything
+            this.layerBackgroundImage.setAlpha(0.3); // Reduced opacity for background image
+            this.layerBackgroundImage.setDisplaySize(width, height);
+            this.layerBackgroundImage.setBlendMode(Phaser.BlendModes.NORMAL); // Ensure normal blend mode
+            this.layerBackgroundImage.setScrollFactor(0); // Fixed position
+            
+            // Add dark overlay on top of background image to make it darker
+            this.darkOverlay = this.add.graphics();
+            this.darkOverlay.fillStyle(0x000000, 0.7); // 70% black overlay for darker effect
+            this.darkOverlay.fillRect(0, 0, width, height);
+            this.darkOverlay.setDepth(-999); // Just above background image, below grid
+            this.darkOverlay.setScrollFactor(0); // Fixed position
+            this.darkOverlay.setBlendMode(Phaser.BlendModes.NORMAL); // Ensure normal blend mode
+        } else {
+            // Update existing image
+            this.layerBackgroundImage.setTexture(imageKey);
+            this.layerBackgroundImage.setVisible(true);
+            this.layerBackgroundImage.setDisplaySize(width, height);
+            
+            // Update dark overlay size if it exists
+            if (this.darkOverlay) {
+                this.darkOverlay.clear();
+                this.darkOverlay.fillStyle(0x000000, 0.7); // 70% black overlay for darker effect
+                this.darkOverlay.fillRect(0, 0, width, height);
+            }
+        }
+        
+        // Ensure player is always fully opaque and at correct depth
+        if (this.player && this.player.active) {
+            this.player.setAlpha(1);
+            this.player.setDepth(100);
+        }
+    }
+    
+    private showPrestigeLayerBriefly() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        // Create prestige layer image overlay
+        const prestigeImage = this.add.image(width / 2, height / 2, 'layerPrestige');
+        prestigeImage.setDepth(-999); // Just above regular background
+        prestigeImage.setAlpha(0);
+        prestigeImage.setDisplaySize(width, height);
+        
+        // Fade in
+        this.tweens.add({
+            targets: prestigeImage,
+            alpha: 0.6,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                // Hold for 2 seconds
+                this.time.delayedCall(2000, () => {
+                    // Fade out
+                    this.tweens.add({
+                        targets: prestigeImage,
+                        alpha: 0,
+                        duration: 500,
+                        ease: 'Power2',
+                        onComplete: () => {
+                            prestigeImage.destroy();
+                        }
+                    });
+                });
+            }
+        });
     }
 
     private drawProgressBar() {
@@ -958,6 +1082,17 @@ export class GameScene extends Phaser.Scene {
         // GameScene update continues to run even when paused so UIScene can handle input
 
         if (this.gameOver || this.isPaused) return;
+        
+        // Ensure player is always fully opaque and at correct depth (safeguard against background effects)
+        // This is especially important when background images are active (layer 2+)
+        if (this.player && this.player.active && this.currentLayer >= 2) {
+            if (this.player.alpha !== 1) {
+                this.player.setAlpha(1);
+            }
+            if (this.player.depth !== 100) {
+                this.player.setDepth(100);
+            }
+        }
 
         this.updateDifficultyPhase(time);
         this.samplePlayerMovement(time);
@@ -984,6 +1119,7 @@ export class GameScene extends Phaser.Scene {
             this.overclockFireRateMultiplier *
             this.challengeFireRateMultiplier *
             this.kernelFireRateMultiplier *
+            this.heroGradeFireRateMultiplier *
             this.layerFireRateMultiplier;
 
         // Check stun status
@@ -1323,6 +1459,7 @@ export class GameScene extends Phaser.Scene {
             this.speedMultiplier *
             this.overclockSpeedMultiplier *
             this.kernelSpeedMultiplier *
+            this.heroGradeSpeedMultiplier *
             this.modifierSpeedCap;
 
         // Mobile joystick controls
@@ -1631,20 +1768,44 @@ export class GameScene extends Phaser.Scene {
     }
 
     private getSelectedHeroTextureKey() {
-        const heroKey = getSelectedHero();
-        switch (heroKey) {
-            case "sentinel_vanguard":
-                return "heroVanguard";
-            case "sentinel_ghost":
-                return "heroGhost";
-            case "sentinel_drone":
-                return "heroDrone";
+        // New system:
+        // - Hero Grade (1-5) determines base sprite (unlockable skill levels)
+        // - Kernel selection determines colored variant
+        
+        const kernelKey = getSelectedKernelKey();
+        const currentGrade = getCurrentHeroGrade();
+        
+        // Get kernel config to determine colored variant
+        const kernelConfig = PLAYER_KERNELS[kernelKey];
+        const spriteVariant = (kernelConfig as any).spriteVariant || "default";
+        
+        // Map kernel variant to sprite key
+        // Grade determines which base sprite, variant determines color
+        switch (currentGrade) {
+            case 1:
+                if (spriteVariant === "blue") return "heroGrade1Blue";
+                return "heroGrade1";
+            case 2:
+                if (spriteVariant === "purple") return "heroGrade2Purple";
+                return "heroGrade2";
+            case 3:
+                if (spriteVariant === "red") return "heroGrade3Red";
+                return "heroGrade3";
+            case 4:
+                if (spriteVariant === "orange") return "heroGrade4Orange";
+                return "heroGrade4";
+            case 5:
+                if (spriteVariant === "white") return "heroGrade5White";
+                return "heroGrade5";
             default:
-                return "hero";
+                return "heroGrade1";
         }
     }
 
     private getSkinTint(skinKey: string) {
+        // Colored variants are now determined by kernel selection, not skins
+        // Skins are kept for backward compatibility but don't affect sprite color
+        // Only apply tint for legacy skins that don't have kernel variants
         switch (skinKey) {
             case "skin_crimson":
                 return 0xff3366;
@@ -1859,6 +2020,70 @@ export class GameScene extends Phaser.Scene {
         return Phaser.Math.Between(50, gameHeight - 50);
     }
 
+    private getEnemySpriteKey(
+        enemyType: keyof typeof ENEMY_CONFIG | "red",
+        isBoss: boolean = false,
+        layer: number = 1,
+        prestigeLevel?: number
+    ): string {
+        // Handle red bosses (final bosses) - use old sprite system as fallback
+        if (enemyType === "red") {
+            if (layer >= 6) {
+                return "finalBoss";
+            } else if (layer >= 5) {
+                return "mediumFinalBoss";
+            } else {
+                return "miniFinalBoss";
+            }
+        }
+        
+        // For bosses, determine variant based on prestige level (2 prestiges per variant)
+        // Prestige 0-1: variant 1, Prestige 2-3: variant 2, Prestige 4+: variant 3
+        let variant = 1;
+        if (isBoss && prestigeLevel !== undefined) {
+            if (prestigeLevel >= 4) {
+                variant = 3;
+            } else if (prestigeLevel >= 2) {
+                variant = 2;
+            } else {
+                variant = 1;
+            }
+        } else if (!isBoss) {
+            // For regular enemies (pawns), determine variant based on layer
+            // Layer 1-2: variant 1, Layer 3-4: variant 2, Layer 5+: variant 3
+            if (layer >= 5) {
+                variant = 3;
+            } else if (layer >= 3) {
+                variant = 2;
+            }
+        }
+        
+        // Map enemy types to base color
+        let baseColor: "green" | "yellow" | "blue" | "purple" = "green";
+        if (enemyType === "green") {
+            baseColor = "green";
+        } else if (enemyType === "yellow" || enemyType === "yellowShield" || enemyType === "yellowEcho") {
+            baseColor = "yellow";
+            // Yellow only has variants 1 and 2, cap at 2
+            if (variant > 2) variant = 2;
+        } else if (enemyType === "blue" || enemyType === "blueBuff") {
+            baseColor = "blue";
+        } else if (enemyType === "purple" || enemyType === "purpleFragmenter") {
+            baseColor = "purple";
+        }
+        
+        // Determine if it's a boss or pawn
+        const typePrefix = isBoss ? "Boss" : "Pawn";
+        
+        // Special case: yellow final boss for high layers/prestiges
+        if (isBoss && baseColor === "yellow" && layer >= 6 && variant === 2) {
+            return "yellowFinalBoss";
+        }
+        
+        // Construct sprite key: {color}{Type}{variant}
+        return `${baseColor}${typePrefix}${variant}`;
+    }
+
     private spawnEnemyOfType(
         selectedType: keyof typeof ENEMY_CONFIG,
         options?: {
@@ -1871,20 +2096,12 @@ export class GameScene extends Phaser.Scene {
             overrideHealth?: number;
             overridePoints?: number;
             isFragment?: boolean;
+            isBoss?: boolean;
         }
     ) {
         const config = ENEMY_CONFIG[selectedType];
-        const keyMap: Record<string, string> = {
-            green: "enemyGreen",
-            yellow: "enemyYellow",
-            yellowShield: "enemyYellow",
-            yellowEcho: "enemyYellow",
-            blue: "enemyBlue",
-            blueBuff: "enemyBlue",
-            purple: "enemyPurple",
-            purpleFragmenter: "enemyPurple",
-        };
-        const key = keyMap[selectedType] || "enemyGreen";
+        const isBoss = options?.isBoss || false;
+        const key = this.getEnemySpriteKey(selectedType, isBoss, this.currentLayer, this.prestigeLevel);
 
         const gameWidth = this.scale.width;
         const x =
@@ -3368,6 +3585,30 @@ export class GameScene extends Phaser.Scene {
         this.kernelHealthMultiplier = ("healthPerLife" in kernel && kernel.healthPerLife) ? kernel.healthPerLife : 1;
         this.kernelBulletPiercing = ("bulletPiercing" in kernel && kernel.bulletPiercing) ? kernel.bulletPiercing : false;
         this.kernelDamageAccumulator = 0;
+        
+        // Apply hero grade bonuses
+        this.applyHeroGradeBonuses();
+    }
+    
+    private applyHeroGradeBonuses() {
+        const currentGrade = getCurrentHeroGrade();
+        const gradeConfig = getHeroGradeConfig(currentGrade);
+        const feature = gradeConfig.specialFeature;
+        
+        // Apply speed bonus (additive with kernel)
+        this.heroGradeSpeedMultiplier = 1 + (feature.speedBonus || 0);
+        
+        // Apply fire rate bonus (additive with kernel)
+        this.heroGradeFireRateMultiplier = 1 + (feature.fireRateBonus || 0);
+        
+        // Apply health bonus (multiplicative with kernel)
+        this.heroGradeHealthMultiplier = feature.healthBonus || 1;
+        
+        // Apply damage bonus
+        this.heroGradeDamageMultiplier = feature.damageBonus || 1;
+        
+        // Apply special abilities
+        this.heroGradeBulletPiercing = feature.specialAbility === "Bullet piercing" || false;
     }
 
     private initRotatingModifier(time: number) {
@@ -3738,57 +3979,50 @@ export class GameScene extends Phaser.Scene {
             this.spawnTimer = null;
         }
 
-        // Determine boss type based on target layer (exact match, not >=)
-        let bossKey = "";
+        // Determine boss type based on target layer
+        // Layer 1 = green, Layer 2 = yellow, Layer 3 = blue, Layer 4 = purple
+        // Layer 5 = green (wraps), Layer 6 = yellow (wraps)
         let bossType = "";
         let points = 0;
         let health = 0;
         let speed = 0;
 
-        // Final boss (layer 6) should only appear in prestige mode, not as graduation boss
-        // For layer 6, use medium boss instead
-        if (targetLayer === 6) {
-            // Use medium boss for layer 6 (final boss is prestige-only)
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500; // Higher points for graduation boss
-            health = 15; // More health
-            speed = 100;
-        } else if (targetLayer === 5) {
-            // Medium boss for layer 5
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500; // Higher points for graduation boss
-            health = 15; // More health
-            speed = 100;
-        } else if (targetLayer === 4) {
-            // Purple boss for layer 4
-            bossKey = "enemyPurpleBoss";
-            bossType = "purple";
-            points = 250; // Higher points
-            health = 12; // More health
-            speed = 150;
-        } else if (targetLayer === 3) {
-            // Blue boss for layer 3 (use blue enemy sprite)
-            bossKey = "enemyBlue";
-            bossType = "blue";
-            points = 150;
-            health = 10;
-            speed = 120;
-        } else if (targetLayer === 2) {
-            // Yellow boss for layer 2
-            bossKey = "enemyYellow";
-            bossType = "yellow";
-            points = 100;
-            health = 6;
-            speed = 150;
-        } else {
-            // Green boss for layer 1 (shouldn't happen, but just in case)
-            bossKey = "enemyGreen";
-            bossType = "green";
+        const layerColorMap: Record<number, "green" | "yellow" | "blue" | "purple"> = {
+            1: "green",
+            2: "yellow",
+            3: "blue",
+            4: "purple",
+            5: "green",
+            6: "yellow",
+        };
+
+        bossType = layerColorMap[targetLayer] || "green";
+
+        // Base stats based on layer
+        if (targetLayer === 1) {
             points = 50;
             health = 4;
             speed = 100;
+        } else if (targetLayer === 2) {
+            points = 100;
+            health = 6;
+            speed = 150;
+        } else if (targetLayer === 3) {
+            points = 150;
+            health = 10;
+            speed = 120;
+        } else if (targetLayer === 4) {
+            points = 250;
+            health = 12;
+            speed = 150;
+        } else if (targetLayer === 5) {
+            points = 300;
+            health = 14;
+            speed = 140;
+        } else if (targetLayer === 6) {
+            points = 400;
+            health = 16;
+            speed = 130;
         }
 
         const gameWidth = this.scale.width;
@@ -3797,8 +4031,16 @@ export class GameScene extends Phaser.Scene {
         const x = gameWidth * 0.85; // 85% from left (near right edge)
         const y = gameHeight / 2; // Center vertically
 
-        const boss = this.physics.add.sprite(x, y, bossKey);
-        boss.setScale(0.7 * 3 * MOBILE_SCALE); // 3x larger for graduation bosses, scaled for mobile
+        // Use new sprite system for bosses with prestige level
+        const bossSpriteKey = this.getEnemySpriteKey(
+            bossType as keyof typeof ENEMY_CONFIG,
+            true,
+            targetLayer,
+            this.prestigeLevel
+        );
+        const boss = this.physics.add.sprite(x, y, bossSpriteKey);
+        // Reduced scaling: 1.5x instead of 3x for better visual balance
+        boss.setScale(0.7 * 1.5 * MOBILE_SCALE);
         boss.setImmovable(false); // Boss can move to maintain line of sight
 
         // Scale boss health and speed based on target layer
@@ -3834,7 +4076,7 @@ export class GameScene extends Phaser.Scene {
         boss.setData("canShoot", true); // Graduation bosses can shoot
         boss.setData("isBoss", true);
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
-        boss.setData("bossKey", bossKey); // Store boss key for identification
+        boss.setData("bossKey", bossSpriteKey); // Store boss sprite key for identification
         boss.setData("lastShockwave", 0); // Track last shockwave time
         // Varying damage levels based on layer (1-6)
         const bossDamage = Math.min(1 + (targetLayer * 0.5), 4); // 1.5, 2, 2.5, 3, 3.5, 4 damage
@@ -3908,7 +4150,7 @@ export class GameScene extends Phaser.Scene {
             return; // Enemy hasn't appeared on screen yet, ignore collision
         }
 
-        if (this.kernelBulletPiercing) {
+        if (this.kernelBulletPiercing || this.heroGradeBulletPiercing) {
             const enemyUid = e.getData("uid");
             const lastHitEnemy = b.getData("lastHitEnemy");
             const lastHitTime = (b.getData("lastHitTime") as number) || 0;
@@ -3931,7 +4173,7 @@ export class GameScene extends Phaser.Scene {
         // Deal damage (apply shield drone reduction if applicable)
         this.shotsHitThisRun += 1;
         const shieldReduction = this.getShieldDamageReduction(e);
-        const damage = 1 * (1 - shieldReduction);
+        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier;
         const isCriticalHit = isBoss || this.comboMultiplier >= 3;
         const damageText = Number.isInteger(damage)
             ? `${damage}`
@@ -4391,6 +4633,22 @@ export class GameScene extends Phaser.Scene {
             addLifetimeScore(this.score);
             addLifetimePlayMs(this.time.now - this.runStartTime);
             const lifetime = getLifetimeStats();
+            
+            // Check and unlock hero grades
+            const newlyUnlockedGrades = checkAndUnlockHeroGrades({
+                lifetimePlayMs: lifetime.lifetimePlayMs,
+                lifetimeEnemiesDefeated: lifetime.lifetimeEnemiesDefeated,
+                lifetimeScore: lifetime.lifetimeScore,
+                deepestLayer: this.deepestLayer,
+            });
+            newlyUnlockedGrades.forEach((grade) => {
+                const gradeConfig = getHeroGradeConfig(grade);
+                this.showAnnouncement(
+                    "HERO GRADE UNLOCKED",
+                    `${gradeConfig.name}: ${gradeConfig.specialFeature.name}`,
+                    0x00ff99
+                );
+            });
             this.updateAchievementProgress(
                 "1m_points",
                 lifetime.lifetimeScore,
@@ -5809,7 +6067,9 @@ export class GameScene extends Phaser.Scene {
         this.lastMovementSampleTime = 0;
         this.lastEdgeSampleTime = 0;
         this.lastCoordinatedFireTime = 0;
-        this.lives = PLAYER_CONFIG.initialLives;
+        // Apply hero grade health bonus to initial lives
+        const baseLives = PLAYER_CONFIG.initialLives;
+        this.lives = Math.floor(baseLives * this.heroGradeHealthMultiplier);
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
         this.totalLivesLost = 0;
@@ -5818,6 +6078,9 @@ export class GameScene extends Phaser.Scene {
         this.pendingLayer = 1;
         this.applyGameplaySettings();
         this.reviveCount = 0;
+        
+        // Apply kernel and hero grade bonuses
+        this.applySelectedKernel();
 
         // Reset player to dynamic position
         const gameWidth = this.scale.width;
@@ -5949,6 +6212,9 @@ export class GameScene extends Phaser.Scene {
             0xff00ff
         );
 
+        // Show prestige layer image briefly
+        this.showPrestigeLayerBriefly();
+
         this.drawBackgroundGrid();
         this.updateSpawnTimer();
         this.updatePrestigeEffects();
@@ -6027,6 +6293,36 @@ export class GameScene extends Phaser.Scene {
             Math.min(1, hsl.v + 0.1)
         ) as { r: number; g: number; b: number };
         return Phaser.Display.Color.GetColor(shifted.r, shifted.g, shifted.b);
+    }
+
+    private introduceWhiteSentinel(): void {
+        // Get UIScene to show introduction tooltip
+        const uiScene = this.scene.get('UIScene');
+        if (!uiScene) return;
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        
+        // Show introduction tooltip from White Sentinel
+        const tooltipManager = (uiScene as any).tooltipManager;
+        if (tooltipManager) {
+            tooltipManager.enqueueTooltip({
+                id: 'white-sentinel-intro',
+                targetX: gameWidth / 2,
+                targetY: gameHeight / 2,
+                content: "Greetings, Sentinel. I am your White Sentinel guide. I'll be with you throughout this mission, teaching you everything you need to know. Let's begin your journey!",
+                position: 'top',
+                width: 350,
+            }, 0);
+        }
+        
+        // Create floating text for dramatic effect
+        this.createFloatingText(
+            gameWidth / 2,
+            gameHeight / 2 - 100,
+            "WHITE SENTINEL ONLINE",
+            { color: "#ffffff", fontSize: 24 }
+        );
     }
 
     private updatePrestigeEffects() {

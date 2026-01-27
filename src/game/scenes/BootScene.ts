@@ -69,14 +69,60 @@ export class BootScene extends Phaser.Scene {
       assetText.destroy();
     });
 
-    // Load sprites from public folder
+    // Load new hero sprites from /hero directory
+    // Base grade sprites (for heroes/kernels)
+    this.load.image('heroGrade1', '/hero/hero-grade-1.svg');
+    this.load.image('heroGrade2', '/hero/hero-grade-2.svg');
+    this.load.image('heroGrade3', '/hero/hero-grade-3.svg');
+    this.load.image('heroGrade4', '/hero/hero-grade-4.svg');
+    this.load.image('heroGrade5', '/hero/hero-grade-5.svg');
+    
+    // Colored skin variants
+    this.load.image('heroGrade1Blue', '/hero/hero-grade-1-blue-skin.svg');
+    this.load.image('heroGrade2Purple', '/hero/hero-grade-2-purple-skin.svg');
+    this.load.image('heroGrade3Red', '/hero/hero-grade-3-red-skin.svg');
+    this.load.image('heroGrade4Orange', '/hero/hero-grade-4-orange-skin.svg');
+    this.load.image('heroGrade5White', '/hero/hero-grade-5-white-skin.svg');
+    
+    // Keep old sprites as fallback
     this.load.image('hero', '/sprites/hero.svg');
     this.load.image('heroVanguard', '/sprites/hero_2.svg');
     this.load.image('heroGhost', '/sprites/hero_3.svg');
     this.load.image('heroDrone', '/sprites/hero_sidekick_2.svg');
     this.load.image('heroGodMode', '/sprites/hero-god-mode.svg');
     
-    // Enemy sprites
+    // Load new enemy sprites - Green enemies
+    this.load.image('greenPawn1', '/green-enemies/green-pawn-1.svg');
+    this.load.image('greenPawn2', '/green-enemies/green-pawn-2.svg');
+    this.load.image('greenPawn3', '/green-enemies/green-pawn-3.svg');
+    this.load.image('greenBoss1', '/green-enemies/green-boss-1.svg');
+    this.load.image('greenBoss2', '/green-enemies/green-boss-2.svg');
+    this.load.image('greenBoss3', '/green-enemies/green-boss-3.svg');
+    
+    // Yellow enemies
+    this.load.image('yellowPawn1', '/yellow-enemies/yellow-pawn-1.svg');
+    this.load.image('yellowPawn2', '/yellow-enemies/yellow-pawn-2.svg');
+    this.load.image('yellowBoss1', '/yellow-enemies/yellow-boss-1.svg');
+    this.load.image('yellowBoss2', '/yellow-enemies/yellow-boss-2.svg');
+    this.load.image('yellowFinalBoss', '/yellow-enemies/yellow-final-boss.svg');
+    
+    // Blue enemies
+    this.load.image('bluePawn1', '/blue-enemies/blue-pawn-1.svg');
+    this.load.image('bluePawn2', '/blue-enemies/blue-pawn-2.svg');
+    this.load.image('bluePawn3', '/blue-enemies/blue-pawn-3.svg');
+    this.load.image('blueBoss1', '/blue-enemies/blue-boss-1.svg');
+    this.load.image('blueBoss2', '/blue-enemies/blue-boss-2.svg');
+    this.load.image('blueBoss3', '/blue-enemies/blue-boss-3.svg');
+    
+    // Purple enemies
+    this.load.image('purplePawn1', '/purple-enemies/purple-pawn-1.svg');
+    this.load.image('purplePawn2', '/purple-enemies/purple-pawn-2.svg');
+    this.load.image('purplePawn3', '/purple-enemies/purple-pawn-3.svg');
+    this.load.image('purpleBoss1', '/purple-enemies/purple-boss-1.svg');
+    this.load.image('purpleBoss2', '/purple-enemies/purple-boss-2.svg');
+    this.load.image('purpleBoss3', '/purple-enemies/purple-boss-3.svg');
+    
+    // Keep old sprites as fallback
     this.load.image('enemyGreen', '/sprites/enemy_green.svg');
     this.load.image('enemyYellow', '/sprites/enemy_yellow.svg');
     this.load.image('enemyBlue', '/sprites/enemy_blue.svg');
@@ -102,6 +148,17 @@ export class BootScene extends Phaser.Scene {
     this.load.image('power_up', '/sprites/power_up.svg');
     this.load.image('power_up_2', '/sprites/power_up_2.svg');
     this.load.image('orb', '/sprites/orb.svg');
+    
+    // White Sentinel guide character
+    this.load.image('whiteSentinel', '/white-sentinel.png');
+    
+    // Layer background images
+    this.load.image('layerFirewall', '/scenes/firewall-layer.png');
+    this.load.image('layerSecurityCore', '/scenes/security-core-layer.png');
+    this.load.image('layerCorruptedAI', '/scenes/corrupted-ai-layer.png');
+    this.load.image('layerKernelBreach', '/scenes/kernel-breach-layer.png');
+    this.load.image('layerSystemCollapse', '/scenes/system-collapse-layer.png');
+    this.load.image('layerPrestige', '/scenes/prestige-layer.png');
   }
 
   create() {
