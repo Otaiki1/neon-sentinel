@@ -95,32 +95,44 @@ export class BootScene extends Phaser.Scene {
     this.load.image('greenPawn1', '/green-enemies/green-pawn-1.svg');
     this.load.image('greenPawn2', '/green-enemies/green-pawn-2.svg');
     this.load.image('greenPawn3', '/green-enemies/green-pawn-3.svg');
+    this.load.image('greenPawnCorrupted', '/green-enemies/green-pawn-3.svg'); // Use variant 3 as corrupted fallback
     this.load.image('greenBoss1', '/green-enemies/green-boss-1.svg');
     this.load.image('greenBoss2', '/green-enemies/green-boss-2.svg');
     this.load.image('greenBoss3', '/green-enemies/green-boss-3.svg');
+    this.load.image('greenBossCorrupted', '/green-enemies/green-boss-3.svg'); // Use variant 3 as corrupted fallback
     
     // Yellow enemies
-    this.load.image('yellowPawn1', '/yellow-enemies/yellow-pawn-1.svg');
-    this.load.image('yellowPawn2', '/yellow-enemies/yellow-pawn-2.svg');
+    this.load.image('yellowRoutine1', '/yellow-enemies/yellow-pawn-1.svg');
+    this.load.image('yellowRoutine2', '/yellow-enemies/yellow-pawn-2.svg');
+    this.load.image('yellowRoutine3', '/yellow-enemies/yellow-pawn-2.svg'); // Use variant 2 as variant 3 fallback
+    this.load.image('yellowRoutineCorrupted', '/yellow-enemies/yellow-pawn-2.svg'); // Use variant 2 as corrupted fallback
     this.load.image('yellowBoss1', '/yellow-enemies/yellow-boss-1.svg');
     this.load.image('yellowBoss2', '/yellow-enemies/yellow-boss-2.svg');
     this.load.image('yellowFinalBoss', '/yellow-enemies/yellow-final-boss.svg');
+    this.load.image('yellowFinalBossCorrupted', '/yellow-enemies/yellow-final-boss.svg'); // Use final boss as corrupted fallback
     
     // Blue enemies
-    this.load.image('bluePawn1', '/blue-enemies/blue-pawn-1.svg');
-    this.load.image('bluePawn2', '/blue-enemies/blue-pawn-2.svg');
-    this.load.image('bluePawn3', '/blue-enemies/blue-pawn-3.svg');
+    this.load.image('blueBot1', '/blue-enemies/blue-pawn-1.svg');
+    this.load.image('blueBot2', '/blue-enemies/blue-pawn-2.svg');
+    this.load.image('blueBot3', '/blue-enemies/blue-pawn-3.svg');
+    this.load.image('blueBotCorrupted', '/blue-enemies/blue-pawn-3.svg'); // Use variant 3 as corrupted fallback
     this.load.image('blueBoss1', '/blue-enemies/blue-boss-1.svg');
     this.load.image('blueBoss2', '/blue-enemies/blue-boss-2.svg');
     this.load.image('blueBoss3', '/blue-enemies/blue-boss-3.svg');
+    this.load.image('blueBossCorrupted', '/blue-enemies/blue-boss-3.svg'); // Use variant 3 as corrupted fallback
     
     // Purple enemies
-    this.load.image('purplePawn1', '/purple-enemies/purple-pawn-1.svg');
-    this.load.image('purplePawn2', '/purple-enemies/purple-pawn-2.svg');
-    this.load.image('purplePawn3', '/purple-enemies/purple-pawn-3.svg');
+    this.load.image('purpleCore1', '/purple-enemies/purple-pawn-1.svg');
+    this.load.image('purpleCore2', '/purple-enemies/purple-pawn-2.svg');
+    this.load.image('purpleCore3', '/purple-enemies/purple-pawn-3.svg');
+    this.load.image('purpleCoreCorrupted', '/purple-enemies/purple-pawn-3.svg'); // Use variant 3 as corrupted fallback
     this.load.image('purpleBoss1', '/purple-enemies/purple-boss-1.svg');
     this.load.image('purpleBoss2', '/purple-enemies/purple-boss-2.svg');
     this.load.image('purpleBoss3', '/purple-enemies/purple-boss-3.svg');
+    this.load.image('purpleBossCorrupted', '/purple-enemies/purple-boss-3.svg'); // Use variant 3 as corrupted fallback
+    
+    // Final boss
+    this.load.image('zrechostikal', '/sprites/final_boss.svg');
     
     // Keep old sprites as fallback
     this.load.image('enemyGreen', '/sprites/enemy_green.svg');

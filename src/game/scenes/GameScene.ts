@@ -62,6 +62,14 @@ import {
     activateMiniMe,
     type MiniMeType,
 } from "../../services/inventoryService";
+import {
+    getEnemySpriteKey,
+    getEnemyDisplayName,
+    getEnemyStats,
+    getEnemyColorFromType,
+    getGraduationBossName,
+    getGraduationBossSpriteKey,
+} from "../../services/enemyService";
 import { MINI_ME_CONFIG } from "../config";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 import {
@@ -2158,6 +2166,10 @@ export class GameScene extends Phaser.Scene {
         return Phaser.Math.Between(50, gameHeight - 50);
     }
 
+    /**
+     * Get enemy sprite key using enemy service
+     * @deprecated Use getEnemySpriteKey from enemyService directly
+     */
     private getEnemySpriteKey(
         enemyType: keyof typeof ENEMY_CONFIG | "red",
         isBoss: boolean = false,
@@ -2175,51 +2187,12 @@ export class GameScene extends Phaser.Scene {
             }
         }
         
-        // For bosses, determine variant based on prestige level (2 prestiges per variant)
-        // Prestige 0-1: variant 1, Prestige 2-3: variant 2, Prestige 4+: variant 3
-        let variant = 1;
-        if (isBoss && prestigeLevel !== undefined) {
-            if (prestigeLevel >= 4) {
-                variant = 3;
-            } else if (prestigeLevel >= 2) {
-                variant = 2;
-            } else {
-                variant = 1;
-            }
-        } else if (!isBoss) {
-            // For regular enemies (pawns), determine variant based on layer
-            // Layer 1-2: variant 1, Layer 3-4: variant 2, Layer 5+: variant 3
-            if (layer >= 5) {
-                variant = 3;
-            } else if (layer >= 3) {
-                variant = 2;
-            }
-        }
+        // Get enemy color from type
+        const color = getEnemyColorFromType(enemyType);
+        const prestige = prestigeLevel !== undefined ? prestigeLevel : this.prestigeLevel;
         
-        // Map enemy types to base color
-        let baseColor: "green" | "yellow" | "blue" | "purple" = "green";
-        if (enemyType === "green") {
-            baseColor = "green";
-        } else if (enemyType === "yellow" || enemyType === "yellowShield" || enemyType === "yellowEcho") {
-            baseColor = "yellow";
-            // Yellow only has variants 1 and 2, cap at 2
-            if (variant > 2) variant = 2;
-        } else if (enemyType === "blue" || enemyType === "blueBuff") {
-            baseColor = "blue";
-        } else if (enemyType === "purple" || enemyType === "purpleFragmenter") {
-            baseColor = "purple";
-        }
-        
-        // Determine if it's a boss or pawn
-        const typePrefix = isBoss ? "Boss" : "Pawn";
-        
-        // Special case: yellow final boss for high layers/prestiges
-        if (isBoss && baseColor === "yellow" && layer >= 6 && variant === 2) {
-            return "yellowFinalBoss";
-        }
-        
-        // Construct sprite key: {color}{Type}{variant}
-        return `${baseColor}${typePrefix}${variant}`;
+        // Use enemy service to get sprite key
+        return getEnemySpriteKey(color, prestige, isBoss);
     }
 
     private spawnEnemyOfType(
@@ -2279,21 +2252,37 @@ export class GameScene extends Phaser.Scene {
             options?.overrideHealth !== undefined
                 ? options.overrideHealth
                 : config.health;
+        
+        // Use enemy service for stat scaling
+        const enemyColor = getEnemyColorFromType(selectedType);
+        const enemyStats = getEnemyStats(
+            baseHealth,
+            config.speed,
+            config.points,
+            this.prestigeLevel,
+            baseHealthMultiplier * extraHealthMultiplier
+        );
+        
+        // Apply additional multipliers
         const scaledHealth = Math.ceil(
-            baseHealth *
-                baseHealthMultiplier *
-                extraHealthMultiplier *
+            enemyStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
         );
 
         const baseSpeedMultiplier = options?.speedMultiplier || 1.0;
         const scaledSpeed = Math.round(
-            config.speed *
+            enemyStats.speed *
                 baseSpeedMultiplier *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier *
                 this.settingsEnemySpeedMultiplier
+        );
+        
+        // Use scaled points from enemy service
+        const scaledPoints = Math.round(
+            enemyStats.points *
+                this.prestigeScoreMultiplier
         );
 
         const behaviors = this.getBehaviorsForEnemy(
@@ -2311,8 +2300,12 @@ export class GameScene extends Phaser.Scene {
             "points",
             options?.overridePoints !== undefined
                 ? options.overridePoints
-                : config.points
+                : scaledPoints
         );
+        
+        // Store enemy display name for UI/debugging
+        const displayName = getEnemyDisplayName(enemyColor, this.prestigeLevel, isBoss);
+        enemy.setData("displayName", displayName);
         enemy.setData("speed", scaledSpeed);
         enemy.setData("health", scaledHealth);
         enemy.setData("maxHealth", scaledHealth);
@@ -3999,46 +3992,67 @@ export class GameScene extends Phaser.Scene {
         let health = 0;
         let speed = 0;
 
-        // Final boss should only appear in prestige mode (prestigeLevel > 0)
-        // For layer 6 without prestige, use medium boss instead
-        if (this.currentLayer >= 6 && this.prestigeLevel > 0 && Math.random() < 0.1) {
-            // Final boss (only in prestige mode)
-            bossKey = "finalBoss";
-            bossType = "red";
-            points = ENEMY_CONFIG.red.points;
-            health = ENEMY_CONFIG.red.health;
-            speed = ENEMY_CONFIG.red.speed;
-        } else if (this.currentLayer >= 6 && Math.random() < 0.1) {
-            // Use medium boss for layer 6 without prestige (final boss is prestige-only)
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500;
-            health = 15;
-            speed = 100;
-        } else if (this.currentLayer >= 5) {
-            // Medium or mini boss
-            if (Math.random() < 0.5) {
-                bossKey = "mediumFinalBoss";
+        // Use enemy service for boss selection
+        if (this.currentLayer >= 6) {
+            // Layer 6: Prestige boss (yellow) or final boss (Zrechostikal)
+            if (this.prestigeLevel === 8) {
+                // Final boss: Zrechostikal
+                bossKey = "zrechostikal"; // Special final boss sprite
                 bossType = "red";
-                points = 300;
-                health = 10; // Doubled from 5
-                speed = 80;
-            } else {
-                bossKey = "miniFinalBoss";
-                bossType = "red";
-                points = 200;
-                health = 6; // Doubled from 3
+                points = 1000;
+                health = 50;
                 speed = 100;
+            } else {
+                // Prestige boss: yellow variant
+                bossKey = getGraduationBossSpriteKey(6, this.prestigeLevel);
+                bossType = "yellow";
+                const baseStats = getEnemyStats(16, 130, 400, this.prestigeLevel, 10);
+                points = baseStats.points;
+                health = baseStats.health;
+                speed = baseStats.speed;
             }
+        } else if (this.currentLayer >= 5) {
+            // Layer 5: Green variant (wraps)
+            bossKey = getGraduationBossSpriteKey(5, this.prestigeLevel);
+            bossType = "green";
+            const baseStats = getEnemyStats(14, 140, 300, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
         } else if (this.currentLayer >= 4) {
-            // Purple boss
-            bossKey = "enemyPurpleBoss";
+            // Layer 4: Purple boss
+            bossKey = getGraduationBossSpriteKey(4, this.prestigeLevel);
             bossType = "purple";
-            points = 150;
-            health = 8; // Doubled from 4
-            speed = 150;
+            const baseStats = getEnemyStats(12, 150, 250, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 3) {
+            // Layer 3: Blue boss
+            bossKey = getGraduationBossSpriteKey(3, this.prestigeLevel);
+            bossType = "blue";
+            const baseStats = getEnemyStats(10, 120, 150, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 2) {
+            // Layer 2: Yellow boss
+            bossKey = getGraduationBossSpriteKey(2, this.prestigeLevel);
+            bossType = "yellow";
+            const baseStats = getEnemyStats(6, 150, 100, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 1) {
+            // Layer 1: Green boss
+            bossKey = getGraduationBossSpriteKey(1, this.prestigeLevel);
+            bossType = "green";
+            const baseStats = getEnemyStats(4, 100, 50, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
         } else {
-            return; // No boss for lower layers
+            return; // No boss for invalid layers
         }
 
         const gameWidth = this.scale.width;
@@ -4049,15 +4063,24 @@ export class GameScene extends Phaser.Scene {
         const boss = this.physics.add.sprite(x, y, bossKey);
         boss.setScale(0.6 * MOBILE_SCALE);
 
-        // Scale boss health and speed based on current layer
+        // Scale boss health and speed based on current layer using enemy service
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
             1.0; // Corruption system removed
+        
+        // Use enemy service for stat scaling
+        const bossStats = getEnemyStats(
+            health,
+            speed,
+            points,
+            this.prestigeLevel,
+            healthMultiplier
+        );
+        
         const scaledHealth = Math.ceil(
-            health *
-                healthMultiplier *
+            bossStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
         );
@@ -4065,18 +4088,32 @@ export class GameScene extends Phaser.Scene {
         const scaledSpeed = Math.max(
             40,
             Math.round(
-                speed *
+                bossStats.speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
                     corruptionDifficultyMultiplier *
                     this.settingsEnemySpeedMultiplier
             )
         );
+        
+        // Use scaled points
+        const scaledPoints = Math.round(
+            bossStats.points *
+                this.prestigeScoreMultiplier
+        );
 
         boss.setData("type", bossType);
         boss.setData("uid", this.enemyUidCounter++);
         boss.setData("uid", this.enemyUidCounter++);
-        boss.setData("points", points);
+        boss.setData("points", scaledPoints);
+        
+        // Store boss display name
+        if (this.currentLayer === 6 && this.prestigeLevel === 8) {
+            boss.setData("displayName", "Zrechostikal - The Swarm Overlord");
+        } else {
+            const bossDisplayName = getGraduationBossName(this.currentLayer, this.prestigeLevel);
+            boss.setData("displayName", bossDisplayName);
+        }
         boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
@@ -4101,11 +4138,10 @@ export class GameScene extends Phaser.Scene {
         boss.setVelocity(0, 0);
 
         // Show announcement card for regular boss incoming
-        const layerName =
-            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name;
+        const bossDisplayName = boss.getData("displayName") as string || "Boss";
         this.showAnnouncement(
             "BOSS INCOMING!",
-            `Elite enemy detected in ${layerName}`,
+            `${bossDisplayName} detected`,
             0xff8800 // Orange color for warning
         );
     }
@@ -4172,45 +4208,56 @@ export class GameScene extends Phaser.Scene {
         const x = gameWidth * 0.85; // 85% from left (near right edge)
         const y = gameHeight / 2; // Center vertically
 
-        // Use new sprite system for bosses with prestige level
-        const bossSpriteKey = this.getEnemySpriteKey(
-            bossType as keyof typeof ENEMY_CONFIG,
-            true,
-            targetLayer,
-            this.prestigeLevel
-        );
+        // Use enemy service for graduation boss sprite and name
+        const bossSpriteKey = getGraduationBossSpriteKey(targetLayer, this.prestigeLevel);
+        const bossName = getGraduationBossName(targetLayer, this.prestigeLevel);
         const boss = this.physics.add.sprite(x, y, bossSpriteKey);
         // Reduced scaling: 1.5x instead of 3x for better visual balance
         boss.setScale(0.7 * 1.5 * MOBILE_SCALE);
         boss.setImmovable(false); // Boss can move to maintain line of sight
 
-        // Scale boss health and speed based on target layer
+        // Scale boss health and speed based on target layer using enemy service
         const layerConfig =
             LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
             1.0; // Corruption system removed
+        
+        // Use enemy service for stat scaling (10x toughness for graduation bosses)
+        const baseEnemyStats = getEnemyStats(
+            health,
+            speed,
+            points,
+            this.prestigeLevel,
+            healthMultiplier * 10 // 10x toughness for graduation bosses
+        );
+        
         const scaledHealth = Math.ceil(
-            health *
-                healthMultiplier *
-                10 *
+            baseEnemyStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
-        ); // 10x toughness for graduation bosses
+        );
         const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
         const scaledSpeed = Math.max(
             40,
             Math.round(
-                speed *
+                baseEnemyStats.speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
                     corruptionDifficultyMultiplier *
                     this.settingsEnemySpeedMultiplier
             )
         );
+        
+        // Use scaled points from enemy service
+        const scaledPoints = Math.round(
+            baseEnemyStats.points *
+                this.prestigeScoreMultiplier
+        );
 
         boss.setData("type", bossType);
-        boss.setData("points", points);
+        boss.setData("points", scaledPoints);
+        boss.setData("displayName", bossName);
         boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
@@ -4253,12 +4300,10 @@ export class GameScene extends Phaser.Scene {
         this.applyCameraFlash(300, 255, 0, 0); // Red flash
         this.applyCameraShake(500, 0.02);
 
-        // Show announcement card for boss incoming
-        const bossName =
-            LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name;
+        // Show announcement card for boss incoming (using enemy service name)
         this.showAnnouncement(
             "GRADUATION BOSS INCOMING!",
-            `Defeat it to advance to ${bossName}`,
+            `Defeat ${bossName} to advance`,
             0xff0000 // Red color for warning
         );
 
