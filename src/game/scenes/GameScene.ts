@@ -90,7 +90,7 @@ export class GameScene extends Phaser.Scene {
     private gameOver = false;
     private score = 0;
     private comboMultiplier = 1;
-    private lives: number = PLAYER_CONFIG.initialLives;
+    private healthBars: number = PLAYER_CONFIG.initialHealthBars;
     private lastHitTime = 0;
     private backgroundGrid!: Phaser.GameObjects.Graphics;
     private layerBackgroundImage!: Phaser.GameObjects.Image;
@@ -193,7 +193,7 @@ export class GameScene extends Phaser.Scene {
     private kernelDamageAccumulator = 0;
     private heroGradeSpeedMultiplier = 1;
     private heroGradeFireRateMultiplier = 1;
-    private heroGradeHealthMultiplier = 1;
+    // Health bars are always 5, not affected by hero grade
     private heroGradeDamageMultiplier = 1;
     private heroGradeBulletPiercing = false;
     private avatarSpeedMultiplier = 1;
@@ -216,7 +216,7 @@ export class GameScene extends Phaser.Scene {
     private comboShakeCooldown = 0;
     private powerUpsCollected = 0;
     private totalBulletsDodged = 0;
-    private totalLivesLost = 0;
+    private totalHealthBarsLost = 0;
     private lastRunStatsUpdate = 0;
     private settingsEnemySpeedMultiplier = 1;
     private settingsSpawnRateMultiplier = 1;
@@ -308,6 +308,9 @@ export class GameScene extends Phaser.Scene {
         
         // Initialize coin balance in registry
         this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Initialize health bars in registry
+        this.registry.set("healthBars", this.healthBars);
         
         // Check and grant Prime Sentinel bonus if eligible
         if (checkAndGrantPrimeSentinelBonus(this.prestigeLevel)) {
@@ -577,7 +580,7 @@ export class GameScene extends Phaser.Scene {
         this.enemyUidCounter = 0;
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
-        this.totalLivesLost = 0;
+        this.totalHealthBarsLost = 0;
         this.lastRunStatsUpdate = this.runStartTime;
         this.reviveCount = 0;
         this.reviveCount = 0;
@@ -964,7 +967,7 @@ export class GameScene extends Phaser.Scene {
             accuracy,
             bulletsDodged: this.totalBulletsDodged,
             powerUpsCollected: this.powerUpsCollected,
-            livesUsed: this.totalLivesLost,
+            livesUsed: this.totalHealthBarsLost,
             deaths: this.hitsTakenThisRun,
             bestCombo: this.peakComboMultiplier,
         });
@@ -985,9 +988,9 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("reviveCount", this.reviveCount);
         this.isPaused = false;
         this.player.setVelocity(0, 0);
-        const reviveLives = Math.max(PLAYER_CONFIG.initialLives, 5);
-        this.lives = reviveLives;
-        this.registry.set("lives", this.lives);
+        // Restore all 5 health bars on revival
+        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        this.registry.set("healthBars", this.healthBars);
         this.lastHitTime = this.time.now;
 
         this.enemyBullets.clear(true, true);
@@ -3504,9 +3507,12 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("comboMultiplier", this.comboMultiplier);
         }
         if (reward.extraLife) {
-            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
-            this.lives = Math.min(this.lives + reward.extraLife, MAX_LIVES);
-            this.registry.set("lives", this.lives);
+            // Restore 1 health bar per life orb (max 5 health bars)
+            this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+            this.registry.set("healthBars", this.healthBars);
+            
+            // Show floating text for health restoration
+            this.createFloatingText(this.player.x, this.player.y - 20, "+1 Health", { color: "#00ff00" });
         }
 
         const duration = 10000;
@@ -3699,7 +3705,7 @@ export class GameScene extends Phaser.Scene {
         this.heroGradeFireRateMultiplier = 1 + (feature.fireRateBonus || 0);
         
         // Apply health bonus (multiplicative with kernel)
-        this.heroGradeHealthMultiplier = feature.healthBonus || 1;
+        // Health bars are always 5, not affected by hero grade
         
         // Apply damage bonus
         this.heroGradeDamageMultiplier = feature.damageBonus || 1;
@@ -4604,7 +4610,6 @@ export class GameScene extends Phaser.Scene {
         if (this.gameOver) return;
 
         const b = bullet as Phaser.Physics.Arcade.Sprite;
-        const damageMultiplier = (b.getData("damageMultiplier") as number) || 1;
 
         // Remove bullet
         b.destroy();
@@ -4618,8 +4623,24 @@ export class GameScene extends Phaser.Scene {
             this.enemyBulletHits = 0; // Reset counter
         }
 
-        // Take damage (lose a life)
-        this.takeDamage(damageMultiplier);
+        // Calculate damage based on bullet type
+        // Regular bullet: 1 health bar
+        // Boss/graduation boss bullet: 2 health bars
+        // Prestige 5+ boss bullet: 2.5 health bars
+        let bulletDamage = 1;
+        const isBossBullet = b.getData("isBossBullet") || false;
+        const isGraduationBossBullet = b.getData("isGraduationBossBullet") || false;
+        
+        if (isBossBullet || isGraduationBossBullet) {
+            if (this.prestigeLevel >= 5) {
+                bulletDamage = 2.5; // Prestige 5+ boss bullets deal 2.5 health bars
+            } else {
+                bulletDamage = 2; // Regular boss bullets deal 2 health bars
+            }
+        }
+        
+        // Take damage
+        this.takeDamage(bulletDamage);
     }
 
     private handlePlayerEnemyCollision(
@@ -4698,8 +4719,8 @@ export class GameScene extends Phaser.Scene {
             return; // Still in invincibility period, ignore damage
         }
 
-        // Safety check: ensure lives is a valid number
-        if (this.lives <= 0) {
+        // Safety check: ensure healthBars is a valid number
+        if (this.healthBars <= 0) {
             return; // Already dead, don't process damage
         }
 
@@ -4725,32 +4746,46 @@ export class GameScene extends Phaser.Scene {
         this.createExplosion(this.player.x, this.player.y, "medium");
         this.triggerHaptic(SENSORY_ESCALATION.hapticFeedback.onDamage);
 
-        // Reduce lives by exactly 1
-        const previousLives = this.lives;
-        let damage = 1;
-        if (damageMultiplier > 1) {
-            const bonusChance = Phaser.Math.Clamp(damageMultiplier - 1, 0, 1);
-            if (Math.random() < bonusChance) {
-                damage = 2;
+        // Calculate health bar damage based on damage multiplier
+        const previousHealthBars = this.healthBars;
+        let damageBars = 1; // Default: -1 health bar
+        
+        // Boss/graduation boss bullets: -2 health bars
+        if (damageMultiplier >= 2) {
+            damageBars = 2;
+        }
+        // Prestige 5+ boss bullets: -2.5 health bars (rounds down to 2, but can accumulate)
+        if (damageMultiplier >= 2.5 && this.prestigeLevel >= 5) {
+            // For prestige 5+, boss bullets deal 2.5 bars
+            // We'll track fractional damage and apply it as whole bars
+            this.kernelDamageAccumulator += 2.5 / this.kernelHealthMultiplier;
+            const accumulatedDamage = Math.floor(this.kernelDamageAccumulator);
+            if (accumulatedDamage > 0) {
+                damageBars = accumulatedDamage;
+                this.kernelDamageAccumulator -= accumulatedDamage;
+            } else {
+                damageBars = 2; // At least 2 bars for prestige 5+ boss bullets
             }
+        } else {
+            // Regular damage: just apply the damage multiplier as whole bars
+            damageBars = Math.floor(damageMultiplier);
         }
+        
         this.hitsTakenThisRun += 1;
-        this.kernelDamageAccumulator += damage / this.kernelHealthMultiplier;
-        const appliedDamage = Math.floor(this.kernelDamageAccumulator);
-        this.kernelDamageAccumulator -= appliedDamage;
-        if (appliedDamage > 0) {
-            this.totalLivesLost += appliedDamage;
+        if (damageBars > 0) {
+            this.totalHealthBarsLost += damageBars;
         }
-        this.lives = Math.max(0, this.lives - appliedDamage);
-        this.registry.set("lives", this.lives);
+        this.healthBars = Math.max(0, this.healthBars - damageBars);
+        this.healthBars = Math.min(this.healthBars, PLAYER_CONFIG.maxHealthBars); // Cap at max
+        this.registry.set("healthBars", this.healthBars);
 
-        // Debug: Log lives to help diagnose
+        // Debug: Log health bars to help diagnose
         console.log(
-            `Player took damage. Lives: ${previousLives} -> ${this.lives}`
+            `Player took damage. Health Bars: ${previousHealthBars} -> ${this.healthBars} (damage: ${damageBars} bars)`
         );
 
-        // Game over only when lives equals 0
-        if (this.lives === 0) {
+        // Game over only when health bars equals 0
+        if (this.healthBars === 0) {
             // Game over
             this.gameOver = true;
             this.registry.set("finalScore", this.score);
@@ -5848,12 +5883,13 @@ export class GameScene extends Phaser.Scene {
             });
             this.powerUpTimers.set("autoShoot", timer);
         } else if (powerUpType === "lives") {
-            // Grant lives (capped at 20 lives = 4 orbs)
-            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
-            const livesToAdd = config.livesGranted;
-            this.lives = Math.min(this.lives + livesToAdd, MAX_LIVES);
-            this.registry.set("lives", this.lives);
-            this.runLifeOrbs += 1;
+            // Restore 1 health bar (max 5)
+            if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
+                this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+                this.registry.set("healthBars", this.healthBars);
+                this.createFloatingText(this.player.x, this.player.y - 20, "+1 Health", { color: "#00ff00" });
+            }
+            // Health restoration already handled above
             this.updateAchievementProgress(
                 "collect_5_lives",
                 this.runLifeOrbs,
@@ -6221,12 +6257,12 @@ export class GameScene extends Phaser.Scene {
         this.lastMovementSampleTime = 0;
         this.lastEdgeSampleTime = 0;
         this.lastCoordinatedFireTime = 0;
-        // Apply hero grade health bonus to initial lives
-        const baseLives = PLAYER_CONFIG.initialLives;
-        this.lives = Math.floor(baseLives * this.heroGradeHealthMultiplier);
+        // Health bars are always 5 (not affected by hero grade multiplier)
+        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        this.registry.set("healthBars", this.healthBars);
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
-        this.totalLivesLost = 0;
+        this.totalHealthBarsLost = 0;
         this.lastRunStatsUpdate = 0;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
@@ -6285,7 +6321,7 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentLayer", 1);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
-        this.registry.set("lives", this.lives);
+        this.registry.set("healthBars", this.healthBars);
         this.registry.set("reviveCount", 0);
         this.registry.set("prestigeChampion", false);
         this.registry.set("prestigeLevel", this.prestigeLevel);

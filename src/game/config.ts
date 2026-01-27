@@ -25,7 +25,8 @@ export const PLAYER_CONFIG = {
     fireRate: 150, // Faster fire rate (was 200)
     startX: 400,
     startY: 550,
-    initialLives: 1, // Player starts with 1 life
+    initialHealthBars: 5, // Player starts with 5 health bars
+    maxHealthBars: 5, // Maximum health bars (cannot exceed)
 } as const;
 
 export const ENEMY_CONFIG = {

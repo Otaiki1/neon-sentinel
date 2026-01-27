@@ -26,6 +26,7 @@ export class UIScene extends Phaser.Scene {
   private prestigeText!: Phaser.GameObjects.Text;
   private rankText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
+  private healthBarLabel!: Phaser.GameObjects.Text;
   // Shock bomb meter (red/orange)
   private shockBombBarBg!: Phaser.GameObjects.Graphics;
   private shockBombBarFill!: Phaser.GameObjects.Graphics;
@@ -245,20 +246,28 @@ export class UIScene extends Phaser.Scene {
       this.rankText,
     ]);
 
-    // Lives display (orb indicators only)
-    const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
+    // Health bars display
+    const healthX = baseX + 10 * uiScale;
+    const healthY = baseY + lineSpacing * 5 + 8 * uiScale;
     this.livesOrb = this.add.graphics();
-    this.renderLivesOrbs(1, livesX, livesY, uiScale);
+    this.healthBarLabel = this.add.text(healthX - 5 * uiScale, healthY - 2 * uiScale, 'HEALTH: 5/5', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2 * uiScale,
+    });
+    this.healthBarLabel.setAlpha(this.uiOpacityMultiplier);
+    this.renderHealthBars(5, healthX, healthY, uiScale);
     this.livesOrb.setAlpha(this.uiOpacityMultiplier);
 
-    // Show tooltip for lives (first time only)
+    // Show tooltip for health bars (first time only)
     this.tooltipManager.enqueueTooltip(
       {
-        id: 'game-lives',
-        targetX: livesX + 40,
-        targetY: livesY + 20,
-        content: 'Each orb represents 2 lives. Collect purple Life Orbs to gain more lives (max 20). Be careful - you lose a life when enemies touch you!',
+        id: 'game-health',
+        targetX: healthX + 40,
+        targetY: healthY + 20,
+        content: 'You have 5 health bars. Each enemy collision or bullet hit removes health bars. Collect Life Orbs to restore health. Game over when all health bars are depleted!',
         position: 'right',
         width: 280,
       },
@@ -339,7 +348,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-challengeTitle', this.updateChallengeTitle, this);
     this.registry.events.on('changedata-challengeDescription', this.updateChallengeDescription, this);
     this.registry.events.on('changedata-challengeProgress', this.updateChallengeProgress, this);
-    this.registry.events.on('changedata-lives', this.updateLives, this);
+    this.registry.events.on('changedata-healthBars', this.updateHealthBars, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     // Run stats UI is hidden (summary shown on game over only)
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -1542,56 +1551,77 @@ export class UIScene extends Phaser.Scene {
     this.godModeBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
   }
 
-  private updateLives(_parent: Phaser.Data.DataManager, value: number) {
+  private updateHealthBars(_parent: Phaser.Data.DataManager, value: number) {
     const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0;
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30;
     const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
     const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
-    const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
+    const healthX = baseX + 10 * uiScale;
+    const healthY = baseY + lineSpacing * 5 + 8 * uiScale;
 
-    this.renderLivesOrbs(value, livesX, livesY, uiScale);
+    this.renderHealthBars(value, healthX, healthY, uiScale);
   }
 
-  private renderLivesOrbs(lives: number, x: number, y: number, uiScale: number) {
-    const radius = 10 * uiScale;
-    const spacing = 26 * uiScale;
-    const maxOrbs = 4;
-    const clampedLives = Math.max(0, Math.min(lives, maxOrbs * 5));
+  private renderHealthBars(healthBars: number, x: number, y: number, uiScale: number) {
+    const barWidth = 20 * uiScale;
+    const barHeight = 8 * uiScale;
+    const spacing = 4 * uiScale;
+    const maxBars = 5;
+    const clampedBars = Math.max(0, Math.min(healthBars, maxBars));
 
     this.livesOrb.clear();
-    for (let i = 0; i < maxOrbs; i += 1) {
-      const segment = clampedLives - i * 5;
-      if (segment <= 0) {
-        break;
+    
+    // Update health bar label
+    if (this.healthBarLabel) {
+      this.healthBarLabel.setText(`HEALTH: ${clampedBars}/5`);
+    }
+    
+    // Draw health bars
+    const startY = y + 15 * uiScale;
+    for (let i = 0; i < maxBars; i += 1) {
+      const barX = x + i * (barWidth + spacing);
+      const isFilled = i < clampedBars;
+      
+      // Background (empty bar)
+      this.livesOrb.fillStyle(0x333333, 0.5);
+      this.livesOrb.fillRect(barX, startY, barWidth, barHeight);
+      this.livesOrb.lineStyle(1 * uiScale, 0x666666, 0.8);
+      this.livesOrb.strokeRect(barX, startY, barWidth, barHeight);
+      
+      // Filled bar
+      if (isFilled) {
+        // Color based on health level (green when full, red when low)
+        let color = 0x00ff00; // Green
+        if (clampedBars === 1) {
+          color = 0xff0000; // Red when at 1 health
+        } else if (clampedBars <= 2) {
+          color = 0xff6600; // Orange when at 2 health
+        }
+        
+        this.livesOrb.fillStyle(color, 1);
+        this.livesOrb.fillRect(barX, startY, barWidth, barHeight);
+        this.livesOrb.lineStyle(1 * uiScale, color, 1);
+        this.livesOrb.strokeRect(barX, startY, barWidth, barHeight);
       }
-      const progress = Math.min(segment, 5);
-      const orbX = x + i * spacing;
-      const color = this.getOrbColor(progress);
-
-      this.livesOrb.fillStyle(color, 1);
-      this.livesOrb.fillCircle(orbX, y, radius);
-      this.livesOrb.lineStyle(2 * uiScale, 0x001100, 0.8);
-      this.livesOrb.strokeCircle(orbX, y, radius);
+    }
+    
+    // Pulsing red warning effect when at 1 health
+    if (clampedBars === 1) {
+      this.tweens.add({
+        targets: [this.livesOrb, this.healthBarLabel],
+        alpha: { from: 1, to: 0.5 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+      });
+    } else {
+      this.livesOrb.setAlpha(this.uiOpacityMultiplier);
+      if (this.healthBarLabel) {
+        this.healthBarLabel.setAlpha(this.uiOpacityMultiplier);
+      }
     }
   }
 
-  private getOrbColor(progress: number): number {
-    const palette = [
-      0xff1a1a, // red
-      0xff7a00, // orange
-      0xffff00, // yellow
-      0x00ff66, // green
-    ];
-    const clamped = Math.max(0, Math.min(progress, 5));
-    const t = clamped / 5;
-
-    const start = Phaser.Display.Color.ValueToColor(palette[0]);
-    const end = Phaser.Display.Color.ValueToColor(palette[palette.length - 1]);
-    const blended = Phaser.Display.Color.Interpolate.ColorWithColor(start, end, 100, Math.round(t * 100));
-    const blendedObj = blended as { r: number; g: number; b: number };
-    return Phaser.Display.Color.GetColor(blendedObj.r, blendedObj.g, blendedObj.b);
-  }
 
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {
     if (value) {
