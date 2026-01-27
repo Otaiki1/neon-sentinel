@@ -24,6 +24,7 @@ export class UIScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private layerText!: Phaser.GameObjects.Text;
   private prestigeText!: Phaser.GameObjects.Text;
+  private rankText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
   // Shock bomb meter (red/orange)
   private shockBombBarBg!: Phaser.GameObjects.Graphics;
@@ -44,6 +45,7 @@ export class UIScene extends Phaser.Scene {
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
   private prestigeBadgeText!: Phaser.GameObjects.Text;
+  private rankTextGameOver!: Phaser.GameObjects.Text;
   private pauseContainer!: Phaser.GameObjects.Container;
   private pauseText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
@@ -55,6 +57,7 @@ export class UIScene extends Phaser.Scene {
   private achievementTexts: Phaser.GameObjects.Text[] = [];
   private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
   private celebrationLines: Phaser.GameObjects.Text[] = [];
+  private currentRankPauseText!: Phaser.GameObjects.Text;
   private uiTextColor = UI_CONFIG.neonGreen as string;
   private uiOpacityMultiplier = 1;
   private uiMenuFont = UI_CONFIG.menuFont as string;
@@ -221,11 +224,25 @@ export class UIScene extends Phaser.Scene {
       4000
     );
 
+    // Rank display
+    this.rankText = this.add.text(baseX, baseY + lineSpacing * 5, 'RANK: Initiate Sentinel', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    if (MOBILE_SCALE < 1.0) {
+      this.rankText.setAlpha(0.85);
+    }
+    this.rankText.setAlpha(this.rankText.alpha * this.uiOpacityMultiplier);
+
     this.registerUiGlitchTargets([
       this.scoreText,
       this.comboText,
       this.layerText,
       this.prestigeText,
+      this.rankText,
     ]);
 
     // Lives display (orb indicators only)
@@ -312,6 +329,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
+    this.registry.events.on('changedata-currentRank', this.updateRank, this);
     this.registry.events.on('changedata-shockBombProgress', this.updateShockBomb, this);
     this.registry.events.on('changedata-shockBombReady', this.updateShockBombReady, this);
     this.registry.events.on('changedata-godModeProgress', this.updateGodMode, this);
@@ -442,6 +460,16 @@ export class UIScene extends Phaser.Scene {
     });
     this.finalScoreText.setOrigin(0.5, 0.5);
 
+    // Rank display
+    this.rankTextGameOver = this.add.text(width / 2, height / 2 - 20, 'RANK: Initiate Sentinel', {
+      fontFamily: this.uiMenuFont,
+      fontSize: 18,
+      color: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    this.rankTextGameOver.setOrigin(0.5, 0.5);
+
     this.prestigeBadgeText = this.add.text(width / 2, height / 2 - 10, 'BADGE UNLOCKED: PRESTIGE CHAMPION', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: 18,
@@ -559,6 +587,7 @@ export class UIScene extends Phaser.Scene {
     this.summaryContainer = this.add.container(0, 0, [
       this.gameOverText,
       this.finalScoreText,
+      this.rankTextGameOver,
       this.prestigeBadgeText,
       ...this.runSummaryTexts,
       this.progressStatementText,
@@ -732,7 +761,32 @@ export class UIScene extends Phaser.Scene {
       this.toggleSettings();
     });
 
-    const achievementsTitle = this.add.text(width / 2, height / 2 + 170, 'ACHIEVEMENTS', {
+    // Current rank display in pause menu
+    const rankTitle = this.add.text(width / 2, height / 2 + 170, 'CURRENT RANK', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    rankTitle.setOrigin(0.5, 0.5);
+    
+    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 195, '', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    this.currentRankPauseText.setOrigin(0.5, 0.5);
+    
+    // Update rank display when it changes
+    this.registry.events.on('changedata-currentRank', () => {
+      const rank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      this.currentRankPauseText.setText(rank);
+    });
+    
+    const achievementsTitle = this.add.text(width / 2, height / 2 + 220, 'ACHIEVEMENTS', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -745,7 +799,7 @@ export class UIScene extends Phaser.Scene {
     for (let i = 0; i < 4; i += 1) {
       const line = this.add.text(
         width / 2,
-        height / 2 + 195 + i * 18,
+        height / 2 + 245 + i * 18,
         '',
         {
           fontFamily: UI_CONFIG.bodyFont,
@@ -766,6 +820,8 @@ export class UIScene extends Phaser.Scene {
       this.resumeButton,
       pauseMenuButton,
       settingsButton,
+      rankTitle,
+      this.currentRankPauseText,
       achievementsTitle,
       ...this.achievementTexts,
     ]);
@@ -1086,6 +1142,10 @@ export class UIScene extends Phaser.Scene {
 
   private updatePrestige(_parent: Phaser.Data.DataManager, value: number) {
     this.prestigeText.setText(`PRESTIGE: ${value}`);
+  }
+
+  private updateRank(_parent: Phaser.Data.DataManager, rankName: string) {
+    this.rankText.setText(`RANK: ${rankName}`);
   }
 
 
@@ -1537,6 +1597,12 @@ export class UIScene extends Phaser.Scene {
     if (value) {
       const finalScore = this.registry.get('finalScore') || 0;
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
+      
+      // Display current rank
+      const currentRank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      this.rankTextGameOver.setText(`RANK: ${currentRank}`);
+      this.rankTextGameOver.setVisible(true);
+      
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
       const coins = (this.registry.get('coins') as number) || 0;
@@ -1782,6 +1848,12 @@ export class UIScene extends Phaser.Scene {
       this.pauseContainer.setVisible(true);
       this.pauseButton.setVisible(false); // Hide pause button when paused
       this.refreshAchievementProgress();
+      
+      // Update rank display in pause menu
+      const rank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      if (this.currentRankPauseText) {
+        this.currentRankPauseText.setText(rank);
+      }
     } else {
       this.pauseContainer.setVisible(false);
       this.settingsContainer.setVisible(false);
@@ -1809,11 +1881,13 @@ export class UIScene extends Phaser.Scene {
     deepestLayer?: number,
     prestigeLevel?: number,
     runMetrics?: any,
-    modifierKey?: string
+    modifierKey?: string,
+    currentRank?: string
   ) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics, modifierKey);
+    const rank = currentRank || (this.registry.get('currentRank') as string) || 'Initiate Sentinel';
+    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics, modifierKey, rank);
 
     const playerName = walletAddress
       ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`

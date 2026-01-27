@@ -125,6 +125,11 @@ function LeaderboardPage() {
                     <span className="font-score text-xs md:text-sm text-red-500 ml-2">
                       P{entry.prestigeLevel ?? 0}
                     </span>
+                    {entry.currentRank && (
+                      <span className="font-score text-xs md:text-sm text-cyan-400 ml-2">
+                        {entry.currentRank}
+                      </span>
+                    )}
                   </span>
                   <span className="font-score text-base md:text-lg text-neon-green">
                     {getValueLabel(board.key, entry)}

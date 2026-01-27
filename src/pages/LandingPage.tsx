@@ -18,6 +18,7 @@ import AvatarSelectionModal from '../components/AvatarSelectionModal';
 import { FirstTimeTooltip } from '../components/Tooltip';
 import { KernelIcon } from '../components/KernelIcon';
 import { getActiveAvatar, getAvatarConfig } from '../services/avatarService';
+import { getCurrentRankFromStorage } from '../services/rankService';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
@@ -57,7 +58,7 @@ function LandingPage() {
     ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
     : 'LOGIN';
   const [leaderboard, setLeaderboard] = useState<
-    Array<{ score: number; playerName: string; prestigeLevel?: number }>
+    Array<{ score: number; playerName: string; prestigeLevel?: number; currentRank?: string }>
   >([]);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -70,6 +71,10 @@ function LandingPage() {
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
   const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
   const [coins, setCoins] = useState(getAvailableCoins());
+  const [currentRank, setCurrentRank] = useState(() => {
+    const stored = getCurrentRankFromStorage();
+    return stored ? stored.name : 'Initiate Sentinel';
+  });
   const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(() => {
     const unseen = TOOLTIP_KEYS.find(
       (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
@@ -86,6 +91,15 @@ function LandingPage() {
     setSelectedKernel(kernelState.selectedKernel);
     setSettings(getGameplaySettings());
     setCoins(getAvailableCoins());
+    
+    // Update rank display
+    const stored = getCurrentRankFromStorage();
+    if (stored) {
+      setCurrentRank(stored.name);
+    } else {
+      // Default to Initiate Sentinel - rank will update during gameplay
+      setCurrentRank('Initiate Sentinel');
+    }
   }, []);
 
   // Show wallet modal on first visit if wallet not connected
@@ -501,6 +515,11 @@ function LandingPage() {
                       <span className="font-score text-xs md:text-sm text-red-500 ml-2">
                         P{entry.prestigeLevel ?? 0}
                       </span>
+                      {entry.currentRank && (
+                        <span className="font-score text-xs md:text-sm text-cyan-400 ml-2">
+                          {entry.currentRank}
+                        </span>
+                      )}
                       </span>
                       <span className="font-score text-base md:text-lg text-neon-green">
                         {entry.score.toLocaleString()}
@@ -524,7 +543,7 @@ function LandingPage() {
             </div>
           </FirstTimeTooltip>
 
-          {/* Middle Panel: System Depth */}
+          {/* Middle Panel: System Depth & Rank */}
           <FirstTimeTooltip
             id="system-depth"
             content="System Depth = Current Layer + (Prestige × 6). This measures how deep you've penetrated The Grid. Higher depth = more challenge and rewards!"
@@ -539,8 +558,11 @@ function LandingPage() {
               }}>
                 SYSTEM DEPTH
               </h2>
-            <div className="text-xs text-neon-green opacity-70 mb-4 font-body">
+            <div className="text-xs text-neon-green opacity-70 mb-2 font-body">
               Current Depth: <span className="text-red-500 font-semibold">LAYER {currentLayerIndex + 1}</span>
+            </div>
+            <div className="text-xs text-neon-green opacity-70 mb-4 font-body border-t border-neon-green border-opacity-30 pt-2 mt-2">
+              Current Rank: <span className="text-cyan-400 font-semibold">{currentRank}</span>
             </div>
             <div className="grid grid-cols-5 gap-2 mb-4">
               {layers.map((layer, index) => {

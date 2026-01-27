@@ -63,6 +63,11 @@ import {
     getActiveAvatarStats,
     getAvatarConfig,
 } from "../../services/avatarService";
+import {
+    getRankName,
+    updateCurrentRank,
+    calculateRankMilestone,
+} from "../../services/rankService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -289,6 +294,10 @@ export class GameScene extends Phaser.Scene {
         
         // Apply avatar stats
         this.applyAvatarStats();
+        
+        // Initialize rank display
+        const initialRankName = getRankName(this.prestigeLevel, this.currentLayer);
+        this.registry.set("currentRank", initialRankName);
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -463,6 +472,10 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentPrestige", this.prestigeLevel);
         this.registry.set("previousPrestige", -1);
         this.registry.set("prestigeCompleted", new Array(9).fill(false));
+        this.registry.set("isPrimeSentinel", false);
+        
+        // Initialize rank (already set in create method)
+        
         this.registry.set(
             "prestigeScoreMultiplier",
             this.prestigeScoreMultiplier
@@ -4433,6 +4446,27 @@ export class GameScene extends Phaser.Scene {
                     
                     // Update story state and trigger layer complete dialogue
                     updateStoryState(this.prestigeLevel, this.currentLayer);
+                    
+                    // Update rank and check for rank achievement
+                    const previousLayer = this.currentLayer - 1;
+                    const previousPrestige = this.prestigeLevel;
+                    const newRank = updateCurrentRank(this.prestigeLevel, this.currentLayer);
+                    const rankMilestone = calculateRankMilestone(
+                        this.prestigeLevel,
+                        this.currentLayer,
+                        previousPrestige,
+                        previousLayer
+                    );
+                    
+                    if (rankMilestone) {
+                        // New rank achieved!
+                        this.showRankAchievement(rankMilestone);
+                    }
+                    
+                    if (newRank) {
+                        this.registry.set("currentRank", newRank.name);
+                    }
+                    
                     this.time.delayedCall(500, () => {
                         this.triggerStoryDialogue('layer_complete');
                     });
@@ -4814,6 +4848,7 @@ export class GameScene extends Phaser.Scene {
                 // Communicate to UIScene via game events
                 const uiScene = this.scene.get("UIScene");
                 if (uiScene && uiScene.scene.isActive()) {
+                    const currentRank = this.registry.get("currentRank") as string || getRankName(this.prestigeLevel, this.currentLayer);
                     uiScene.events.emit(
                         "submitScore",
                         this.score,
@@ -4821,7 +4856,8 @@ export class GameScene extends Phaser.Scene {
                         this.deepestLayer,
                         this.prestigeLevel,
                         runMetrics,
-                        this.currentModifierKey
+                        this.currentModifierKey,
+                        currentRank
                     );
                 }
             });
@@ -6350,8 +6386,33 @@ export class GameScene extends Phaser.Scene {
         
         // Update story state and trigger prestige milestone dialogue
         updateStoryState(this.prestigeLevel, this.currentLayer);
+        
+        // Update rank after prestige advancement
+        const newRank = updateCurrentRank(this.prestigeLevel, this.currentLayer);
+        if (newRank) {
+            this.registry.set("currentRank", newRank.name);
+        }
+        
         this.time.delayedCall(1500, () => {
             this.triggerStoryDialogue('prestige_milestone');
+        });
+    }
+    
+    /**
+     * Show rank achievement notification
+     */
+    private showRankAchievement(rank: { number: number; name: string; badge: string }): void {
+        this.showAnnouncement(
+            "RANK ACHIEVED!",
+            `${rank.name} - Rank ${rank.number}`,
+            0x00ffff
+        );
+        
+        // Store achievement for later display
+        this.registry.set("lastRankAchievement", {
+            number: rank.number,
+            name: rank.name,
+            badge: rank.badge,
         });
     }
     

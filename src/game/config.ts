@@ -315,6 +315,185 @@ export function getPrestigeCoinReward(prestigeLevel: number): number {
     return 2 * Math.pow(2, prestigeLevel);
 }
 
+export const RANK_CONFIG = {
+    ranks: [
+        // Entry Ranks (Prestige 0-1)
+        {
+            number: 1,
+            prestige: 0,
+            layer: 1,
+            name: "Initiate Sentinel",
+            badge: "badge_1",
+            tier: "entry",
+        },
+        {
+            number: 2,
+            prestige: 0,
+            layer: 3,
+            name: "Trial Sentinel",
+            badge: "badge_2",
+            tier: "entry",
+        },
+        {
+            number: 3,
+            prestige: 0,
+            layer: 6,
+            name: "Boot Master",
+            badge: "badge_3",
+            tier: "entry",
+        },
+        {
+            number: 4,
+            prestige: 1,
+            layer: 3,
+            name: "Advancing Sentinel",
+            badge: "badge_4",
+            tier: "entry",
+        },
+        {
+            number: 5,
+            prestige: 1,
+            layer: 6,
+            name: "Firewall Breaker",
+            badge: "badge_5",
+            tier: "entry",
+        },
+        // Intermediate Ranks (Prestige 2-3)
+        {
+            number: 6,
+            prestige: 2,
+            layer: 3,
+            name: "Security Breaker",
+            badge: "badge_6",
+            tier: "intermediate",
+        },
+        {
+            number: 7,
+            prestige: 2,
+            layer: 6,
+            name: "Core Liberator",
+            badge: "badge_7",
+            tier: "intermediate",
+        },
+        {
+            number: 8,
+            prestige: 3,
+            layer: 3,
+            name: "Revelation Seeker",
+            badge: "badge_8",
+            tier: "intermediate",
+        },
+        {
+            number: 9,
+            prestige: 3,
+            layer: 6,
+            name: "AI Executor",
+            badge: "badge_9",
+            tier: "intermediate",
+        },
+        // Advanced Ranks (Prestige 4-5)
+        {
+            number: 10,
+            prestige: 4,
+            layer: 3,
+            name: "Corruption Master",
+            badge: "badge_10",
+            tier: "advanced",
+        },
+        {
+            number: 11,
+            prestige: 4,
+            layer: 6,
+            name: "Kernel Shatterer",
+            badge: "badge_11",
+            tier: "advanced",
+        },
+        {
+            number: 12,
+            prestige: 5,
+            layer: 3,
+            name: "System Ascendant",
+            badge: "badge_12",
+            tier: "advanced",
+        },
+        {
+            number: 13,
+            prestige: 5,
+            layer: 6,
+            name: "Breach Master",
+            badge: "badge_13",
+            tier: "advanced",
+        },
+        // Elite Ranks (Prestige 6-7)
+        {
+            number: 14,
+            prestige: 6,
+            layer: 3,
+            name: "Neon Defender",
+            badge: "badge_14",
+            tier: "elite",
+        },
+        {
+            number: 15,
+            prestige: 6,
+            layer: 6,
+            name: "Terminal Guardian",
+            badge: "badge_15",
+            tier: "elite",
+        },
+        {
+            number: 16,
+            prestige: 7,
+            layer: 3,
+            name: "Void Walker",
+            badge: "badge_16",
+            tier: "elite",
+        },
+        {
+            number: 17,
+            prestige: 7,
+            layer: 6,
+            name: "Sentinel Prime-Elect",
+            badge: "badge_17",
+            tier: "elite",
+        },
+        // Legendary Rank
+        {
+            number: 18,
+            prestige: 8,
+            layer: 6,
+            name: "Prime Sentinel",
+            badge: "badge_18",
+            tier: "legendary",
+        },
+    ],
+} as const;
+
+/**
+ * Get rank configuration for a given prestige and layer
+ */
+export function getRankForProgress(prestige: number, layer: number) {
+    return RANK_CONFIG.ranks.find(
+        (rank) => rank.prestige === prestige && rank.layer === layer
+    );
+}
+
+/**
+ * Get the highest rank achieved for given prestige/layer
+ */
+export function getHighestRank(prestige: number, layer: number) {
+    // Find the highest rank that the player has reached or exceeded
+    let highestRank = null;
+    for (const rank of RANK_CONFIG.ranks) {
+        if (prestige > rank.prestige || (prestige === rank.prestige && layer >= rank.layer)) {
+            highestRank = rank;
+        } else {
+            break;
+        }
+    }
+    return highestRank || RANK_CONFIG.ranks[0];
+}
+
 export const DIFFICULTY_EVOLUTION = {
     phase1: {
         timeRange: "0-3 minutes",

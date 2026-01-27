@@ -6,6 +6,7 @@ import {
   setSelectedHero,
 } from "../services/achievementService";
 import { StatIcon } from "../components/StatIcon";
+import { getRankHistory, getCurrentRankFromStorage, getRankTierName } from "../services/rankService";
 import "./LandingPage.css";
 
 function formatTime(ms: number) {
@@ -38,6 +39,8 @@ function StatItem({ iconType, label, value }: { iconType?: 'target' | 'rocket' |
 function ProfilePage() {
   const stats = getProfileStats();
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
+  const rankHistory = getRankHistory();
+  const currentRank = getCurrentRankFromStorage();
 
   const heroOptions = [
     {
@@ -96,6 +99,26 @@ function ProfilePage() {
             </Link>
           </div>
         </div>
+
+        {/* Current Rank Display */}
+        {currentRank && (
+          <div className="retro-panel mb-8">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
+              CURRENT RANK
+            </h2>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
+                <div className="text-2xl font-menu text-neon-green">#{currentRank.number}</div>
+              </div>
+              <div>
+                <div className="font-menu text-lg text-neon-green">{currentRank.name}</div>
+                <div className="font-body text-sm text-neon-green opacity-70">
+                  {getRankTierName(currentRank.tier)} • Prestige {currentRank.prestige}, Layer {currentRank.layer}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -203,6 +226,38 @@ function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Rank History Timeline */}
+        {rankHistory.length > 0 && (
+          <div className="retro-panel mb-8">
+            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2">
+              RANK HISTORY
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {rankHistory.map((rank) => (
+                <div
+                  key={rank.number}
+                  className="border-2 border-neon-green border-opacity-30 p-3"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 border border-neon-green bg-black flex items-center justify-center">
+                      <div className="text-sm font-menu text-neon-green">#{rank.number}</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-menu text-sm text-neon-green">{rank.name}</div>
+                      <div className="font-body text-xs text-neon-green opacity-70">
+                        P{rank.prestige} L{rank.layer}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-body text-neon-green opacity-60">
+                    {getRankTierName(rank.tier)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Heroes & Skins */}
         <div className="retro-panel mb-8">
