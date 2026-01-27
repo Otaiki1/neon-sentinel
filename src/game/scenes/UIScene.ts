@@ -27,6 +27,7 @@ export class UIScene extends Phaser.Scene {
   private rankText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
   private healthBarLabel!: Phaser.GameObjects.Text;
+  private miniMeCountText!: Phaser.GameObjects.Text;
   // Shock bomb meter (red/orange)
   private shockBombBarBg!: Phaser.GameObjects.Graphics;
   private shockBombBarFill!: Phaser.GameObjects.Graphics;
@@ -274,6 +275,30 @@ export class UIScene extends Phaser.Scene {
       5000
     );
 
+    // Mini-me count display
+    const miniMeX = baseX + 10 * uiScale;
+    const miniMeY = baseY + lineSpacing * 6 + 40 * uiScale;
+    this.miniMeCountText = this.add.text(miniMeX, miniMeY, 'MINI-MES: 0/7', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    if (MOBILE_SCALE < 1.0) {
+      this.miniMeCountText.setAlpha(0.85);
+    }
+    this.miniMeCountText.setAlpha(this.miniMeCountText.alpha * this.uiOpacityMultiplier);
+    
+    this.registerUiGlitchTargets([
+      this.scoreText,
+      this.comboText,
+      this.layerText,
+      this.prestigeText,
+      this.rankText,
+      this.miniMeCountText,
+    ]);
+
     // Removed top-left run stats panel per UX request
 
     // Create shock bomb and god mode meters
@@ -339,6 +364,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
     this.registry.events.on('changedata-currentRank', this.updateRank, this);
+    this.registry.events.on('changedata-activeMiniMes', this.updateMiniMeCount, this);
     this.registry.events.on('changedata-shockBombProgress', this.updateShockBomb, this);
     this.registry.events.on('changedata-shockBombReady', this.updateShockBombReady, this);
     this.registry.events.on('changedata-godModeProgress', this.updateGodMode, this);
@@ -771,7 +797,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     // Current rank display in pause menu
-    const rankTitle = this.add.text(width / 2, height / 2 + 170, 'CURRENT RANK', {
+    const rankTitle = this.add.text(width / 2, height / 2 + 230, 'CURRENT RANK', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -780,7 +806,7 @@ export class UIScene extends Phaser.Scene {
     });
     rankTitle.setOrigin(0.5, 0.5);
     
-    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 195, '', {
+    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 255, '', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: '#00ffff',
@@ -795,7 +821,7 @@ export class UIScene extends Phaser.Scene {
       this.currentRankPauseText.setText(rank);
     });
     
-    const achievementsTitle = this.add.text(width / 2, height / 2 + 220, 'ACHIEVEMENTS', {
+    const achievementsTitle = this.add.text(width / 2, height / 2 + 280, 'ACHIEVEMENTS', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -808,7 +834,7 @@ export class UIScene extends Phaser.Scene {
     for (let i = 0; i < 4; i += 1) {
       const line = this.add.text(
         width / 2,
-        height / 2 + 245 + i * 18,
+        height / 2 + 305 + i * 18,
         '',
         {
           fontFamily: UI_CONFIG.bodyFont,
@@ -822,6 +848,21 @@ export class UIScene extends Phaser.Scene {
       this.achievementTexts.push(line);
     }
 
+    // Inventory button (for pause menu)
+    const inventoryButton = this.createButton(
+      width / 2,
+      height / 2 + 170,
+      'INVENTORY',
+      180,
+      45,
+      18
+    );
+    const inventoryBg = inventoryButton.list[0] as Phaser.GameObjects.Rectangle;
+    inventoryBg.on('pointerdown', () => {
+      // Emit event to open inventory modal (handled by React component)
+      this.events.emit('open-inventory');
+    });
+
     // Create container and hide it initially
     this.pauseContainer = this.add.container(0, 0, [
       overlay,
@@ -829,6 +870,7 @@ export class UIScene extends Phaser.Scene {
       this.resumeButton,
       pauseMenuButton,
       settingsButton,
+      inventoryButton,
       rankTitle,
       this.currentRankPauseText,
       achievementsTitle,
@@ -1155,6 +1197,10 @@ export class UIScene extends Phaser.Scene {
 
   private updateRank(_parent: Phaser.Data.DataManager, rankName: string) {
     this.rankText.setText(`RANK: ${rankName}`);
+  }
+
+  private updateMiniMeCount(_parent: Phaser.Data.DataManager, count: number) {
+    this.miniMeCountText.setText(`MINI-MES: ${count}/7`);
   }
 
 

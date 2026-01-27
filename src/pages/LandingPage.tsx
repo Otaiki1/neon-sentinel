@@ -15,6 +15,7 @@ import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
 import AvatarSelectionModal from '../components/AvatarSelectionModal';
+import { InventoryModal } from '../components/InventoryModal';
 import { FirstTimeTooltip } from '../components/Tooltip';
 import { KernelIcon } from '../components/KernelIcon';
 import { getActiveAvatar, getAvatarConfig } from '../services/avatarService';
@@ -66,6 +67,7 @@ function LandingPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
   const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
@@ -348,6 +350,19 @@ function LandingPage() {
             <button type="button" className="nav-icon-button" onClick={handleOpenMarketplace} aria-label="Marketplace">
               <img src={iconMarketplace} alt="" className="nav-icon-image" />
               <span className="nav-icon-label">MARKET</span>
+            </button>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
+            id="nav-inventory"
+            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <button type="button" className="nav-icon-button" onClick={() => setShowInventoryModal(true)} aria-label="Inventory">
+              <span className="nav-icon-text" style={{ fontSize: '1.5rem' }}>📦</span>
+              <span className="nav-icon-label">INVENTORY</span>
             </button>
           </FirstTimeTooltip>
           <FirstTimeTooltip
@@ -1033,6 +1048,14 @@ function LandingPage() {
         isOpen={showAvatarModal}
         onClose={handleCloseAvatarModal}
         onAvatarChange={handleAvatarChange}
+      />
+      <InventoryModal
+        isOpen={showInventoryModal}
+        onClose={() => setShowInventoryModal(false)}
+        onActivate={(type) => {
+          // Mini-me activation will be handled by GameScene when game is running
+          console.log('Mini-me activated:', type);
+        }}
       />
     </div>
   );

@@ -1228,6 +1228,53 @@ export const SPAWN_CONFIG = {
     baseMaxEnemies: 30, // Increased by 1.5x (was 20)
 } as const;
 
+export const MINI_ME_CONFIG = {
+    maxActive: 7,
+    duration: {
+        min: 10000, // 10 seconds
+        max: 15000, // 15 seconds
+    },
+    costs: {
+        scout: 50,
+        gunner: 75,
+        shield: 100,
+        decoy: 100,
+        collector: 75,
+        stun: 125,
+        healer: 125,
+    },
+    behaviors: {
+        scout: {
+            visionRange: 200,
+            scanEffect: true,
+        },
+        gunner: {
+            fireRate: 0.5, // 50% of player fire rate
+            bulletSpeed: 600,
+        },
+        shield: {
+            damageReduction: 1,
+        },
+        decoy: {
+            damageReduction: 0.3, // 30% less damage
+            priority: 0.7, // Enemies prioritize decoy 70% of the time
+        },
+        collector: {
+            collectionRadius: 300,
+        },
+        stun: {
+            stunDuration: 1000, // 1 second
+            pulseInterval: 2000, // Every 2 seconds
+            stunRadius: 150,
+        },
+        healer: {
+            healAmount: 1, // 1 health bar
+            healInterval: 3000, // Every 3 seconds
+        },
+    },
+    maxHits: 3, // Mini-me survives 3 enemy hits before despawning
+} as const;
+
 export const POWERUP_CONFIG = {
     spawnChance: 0.15, // Reduced from 0.25 (less frequent)
     livesSpawnChance: 0.12, // 12% chance for lives power-up from all enemies (reduced from 20%)

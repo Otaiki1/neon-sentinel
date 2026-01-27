@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { initGame } from "../game/Game";
 import { getGameplaySettings } from "../services/settingsService";
 import { getAvailableCoins } from "../services/coinService";
+import { InventoryModal } from "../components/InventoryModal";
+import type { MiniMeType } from "../services/inventoryService";
 import "./GamePage.css";
 
 function GamePage() {
@@ -11,6 +13,7 @@ function GamePage() {
     const gameInstanceRef = useRef<Phaser.Game | null>(null);
     const { primaryWallet } = useDynamicContext();
     const navigate = useNavigate();
+    const [showInventoryModal, setShowInventoryModal] = useState(false);
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -51,6 +54,14 @@ function GamePage() {
 
         // Expose navigation function to game
         (game as any).returnToMenu = handleReturnToMenu;
+        
+        // Listen for inventory open event from UIScene
+        const uiScene = game.scene.getScene('UIScene');
+        if (uiScene) {
+            uiScene.events.on('open-inventory', () => {
+                setShowInventoryModal(true);
+            });
+        }
 
         // Handle window resize / orientation
         window.addEventListener("resize", updateViewportSize);
@@ -85,9 +96,24 @@ function GamePage() {
         }
     }, [primaryWallet]);
 
+    const handleMiniMeActivate = (type: MiniMeType) => {
+        // Spawn mini-me in game
+        if (gameInstanceRef.current) {
+            const gameScene = gameInstanceRef.current.scene.getScene('GameScene') as any;
+            if (gameScene && typeof gameScene.spawnMiniMe === 'function') {
+                gameScene.spawnMiniMe(type);
+            }
+        }
+    };
+
     return (
         <div className="game-page-container">
             <div ref={gameContainerRef} className="game-container" />
+            <InventoryModal
+                isOpen={showInventoryModal}
+                onClose={() => setShowInventoryModal(false)}
+                onActivate={handleMiniMeActivate}
+            />
         </div>
     );
 }

@@ -58,6 +58,11 @@ import {
     getReviveCost,
     checkAndGrantPrimeSentinelBonus,
 } from "../../services/coinService";
+import {
+    activateMiniMe,
+    type MiniMeType,
+} from "../../services/inventoryService";
+import { MINI_ME_CONFIG } from "../config";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
 import {
     getMilestoneForProgress,
@@ -244,6 +249,7 @@ export class GameScene extends Phaser.Scene {
     private graduationBossActive = false; // Track if graduation boss is active
     private pendingLayer = 1; // Layer waiting to be unlocked after boss defeat
     private powerUps!: Phaser.Physics.Arcade.Group;
+    private miniMes!: Phaser.Physics.Arcade.Group;
     private speedMultiplier = 1;
     private fireRateMultiplier = 1;
     private layerFireRateMultiplier = 1; // Increases slightly with each layer
@@ -312,6 +318,9 @@ export class GameScene extends Phaser.Scene {
         // Initialize health bars in registry
         this.registry.set("healthBars", this.healthBars);
         
+        // Initialize mini-me active count
+        this.registry.set("activeMiniMes", 0);
+        
         // Check and grant Prime Sentinel bonus if eligible
         if (checkAndGrantPrimeSentinelBonus(this.prestigeLevel)) {
             this.time.delayedCall(2000, () => {
@@ -358,6 +367,10 @@ export class GameScene extends Phaser.Scene {
         this.explosions = this.add.group();
 
         this.powerUps = this.physics.add.group();
+        this.miniMes = this.physics.add.group({
+            defaultKey: 'power_up', // Use power-up sprite as placeholder
+            maxSize: MINI_ME_CONFIG.maxActive,
+        });
 
         // Shockwaves group (for blue zigzag lines from bosses)
         this.shockwaves = this.physics.add.group();
@@ -464,6 +477,15 @@ export class GameScene extends Phaser.Scene {
             this.powerUps,
             this
                 .handlePlayerPowerUpCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+            undefined,
+            this
+        );
+        
+        // Collision between enemies and mini-mes
+        this.physics.add.overlap(
+            this.enemies,
+            this.miniMes,
+            this.handleEnemyMiniMeCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
             undefined,
             this
         );
@@ -984,6 +1006,9 @@ export class GameScene extends Phaser.Scene {
         this.reviveCount += 1;
         this.gameOver = false;
         this.registry.set("gameOver", false);
+        
+        // Clean up mini-mes on restart
+        this.cleanupMiniMes();
         this.registry.set("coinBalance", getAvailableCoins());
         this.registry.set("reviveCount", this.reviveCount);
         this.isPaused = false;
@@ -1183,6 +1208,11 @@ export class GameScene extends Phaser.Scene {
 
         // Player movement
         this.handlePlayerMovement();
+        
+        // Update mini-mes
+        if (!this.gameOver) {
+            this.updateMiniMes(time);
+        }
 
         // Shooting - manual or auto-shoot power-up
         const currentFireRate =
@@ -1272,6 +1302,14 @@ export class GameScene extends Phaser.Scene {
         // Handle blue enemy shooting and wall bouncing
         this.enemies.children.entries.forEach((enemyObj) => {
             const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            // Check if enemy is stunned
+            const isStunned = enemy.getData('stunned') as boolean || false;
+            const stunEndTime = enemy.getData('stunEndTime') as number || 0;
+            if (isStunned && time < stunEndTime) {
+                // Enemy is stunned - don't update movement or shooting
+                enemy.setVelocity(0, 0);
+                return;
+            }
             const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
             const behaviors =
                 (enemy.getData("behaviors") as string[] | undefined) || [];
@@ -4710,6 +4748,36 @@ export class GameScene extends Phaser.Scene {
         if (this.isInvisible) {
             return; // Invisible, no damage taken
         }
+        
+        // Check for shield mini-me (reduces damage by 1)
+        let hasShield = false;
+        let hasDecoy = false;
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (!miniMe.active) return;
+            const type = miniMe.getData('type') as MiniMeType;
+            if (type === 'shield') {
+                hasShield = true;
+            }
+            if (type === 'decoy') {
+                hasDecoy = true;
+            }
+        });
+        
+        // Apply shield damage reduction
+        if (hasShield) {
+            damageMultiplier = Math.max(0, damageMultiplier - MINI_ME_CONFIG.behaviors.shield.damageReduction);
+            if (damageMultiplier <= 0) {
+                // Shield absorbed all damage
+                this.createFloatingText(this.player.x, this.player.y - 20, "SHIELD BLOCKED", { color: "#00ffff" });
+                return;
+            }
+        }
+        
+        // Apply decoy damage reduction (30% less damage)
+        if (hasDecoy) {
+            damageMultiplier *= (1 - MINI_ME_CONFIG.behaviors.decoy.damageReduction);
+        }
 
         // Prevent multiple damage calls within invincibility period
         // This matches the visual flash duration and prevents rapid damage
@@ -4788,6 +4856,9 @@ export class GameScene extends Phaser.Scene {
         if (this.healthBars === 0) {
             // Game over
             this.gameOver = true;
+            
+            // Clean up mini-mes on game over
+            this.cleanupMiniMes();
             this.registry.set("finalScore", this.score);
             this.registry.set("gameOver", true);
             this.registry.set("deepestLayer", this.deepestLayer);
@@ -4932,6 +5003,24 @@ export class GameScene extends Phaser.Scene {
                     this.player.setAlpha(1);
                 },
             });
+        }
+    }
+
+    /**
+     * Handle collision between enemies and mini-mes
+     */
+    private handleEnemyMiniMeCollision(
+        _enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+        _miniMe: Phaser.Types.Physics.Arcade.GameObjectWithBody
+    ) {
+        const miniMe = _miniMe as Phaser.Physics.Arcade.Sprite;
+        const hits = (miniMe.getData('hits') as number) || 0;
+        const newHits = hits + 1;
+        miniMe.setData('hits', newHits);
+        
+        if (newHits >= MINI_ME_CONFIG.maxHits) {
+            // Mini-me destroyed
+            this.destroyMiniMe(miniMe);
         }
     }
 
@@ -6618,6 +6707,333 @@ export class GameScene extends Phaser.Scene {
             "WHITE SENTINEL ONLINE",
             { color: "#ffffff", fontSize: 24 }
         );
+    }
+
+    /**
+     * Spawn a mini-me companion
+     */
+    public spawnMiniMe(type: MiniMeType): boolean {
+        const activeCount = this.miniMes.children.size;
+        if (activeCount >= MINI_ME_CONFIG.maxActive) {
+            // Show warning
+            this.showAnnouncement(
+                "MAX MINI-MES",
+                `Cannot spawn more than ${MINI_ME_CONFIG.maxActive} mini-mes`,
+                0xff0000
+            );
+            return false;
+        }
+        
+        const coins = getAvailableCoins();
+        const result = activateMiniMe(type, coins);
+        
+        if (!result.success) {
+            return false;
+        }
+        
+        // Deduct coins
+        spendCoins(result.coinsSpent, `mini_me_${type}`);
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Create mini-me sprite
+        const offsetX = Phaser.Math.Between(-30, 30);
+        const offsetY = Phaser.Math.Between(-30, 30);
+        const miniMe = this.miniMes.create(
+            this.player.x + offsetX,
+            this.player.y + offsetY,
+            'power_up' // Placeholder sprite
+        ) as Phaser.Physics.Arcade.Sprite;
+        
+        // Set mini-me properties
+        miniMe.setScale(0.3 * MOBILE_SCALE);
+        miniMe.setDepth(99); // Just below player
+        miniMe.setData('type', type);
+        miniMe.setData('spawnTime', this.time.now);
+        miniMe.setData('hits', 0);
+        miniMe.setData('lastHealTime', this.time.now);
+        miniMe.setData('lastStunPulse', this.time.now);
+        
+        // Set duration (10-15 seconds)
+        const duration = Phaser.Math.Between(
+            MINI_ME_CONFIG.duration.min,
+            MINI_ME_CONFIG.duration.max
+        );
+        miniMe.setData('expireTime', this.time.now + duration);
+        
+        // Type-specific setup
+        this.setupMiniMeBehavior(miniMe, type);
+        
+        // Update active count
+        this.registry.set("activeMiniMes", this.miniMes.children.size);
+        
+        // Show announcement
+        import('../../services/inventoryService').then(({ getMiniMeName }) => {
+            this.showAnnouncement(
+                "MINI-ME DEPLOYED",
+                `${getMiniMeName(type)} activated!`,
+                0x00ffff
+            );
+        });
+        
+        return true;
+    }
+    
+    /**
+     * Setup mini-me behavior based on type
+     */
+    private setupMiniMeBehavior(miniMe: Phaser.Physics.Arcade.Sprite, type: MiniMeType): void {
+        switch (type) {
+            case 'scout':
+                // Scout: Add scanning effect
+                miniMe.setTint(0x00ffff); // Cyan tint
+                break;
+            case 'gunner':
+                // Gunner: Add shooting capability
+                miniMe.setTint(0xff0000); // Red tint
+                miniMe.setData('lastShotTime', 0);
+                break;
+            case 'shield':
+                // Shield: Create barrier effect
+                miniMe.setTint(0x00ff00); // Green tint
+                miniMe.setAlpha(0.5); // Semi-transparent
+                break;
+            case 'decoy':
+                // Decoy: Holographic effect
+                miniMe.setTint(0xffff00); // Yellow tint
+                miniMe.setAlpha(0.7);
+                break;
+            case 'collector':
+                // Collector: Vacuum effect
+                miniMe.setTint(0xff00ff); // Magenta tint
+                break;
+            case 'stun':
+                // Stun: Sparking effect
+                miniMe.setTint(0xffffff); // White tint
+                break;
+            case 'healer':
+                // Healer: Healing aura
+                miniMe.setTint(0x00ff99); // Light green tint
+                break;
+        }
+    }
+    
+    /**
+     * Update all active mini-mes
+     */
+    private updateMiniMes(time: number): void {
+        if (this.gameOver || this.isPaused) {
+            return;
+        }
+        
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (!miniMe.active) {
+                return;
+            }
+            
+            const type = miniMe.getData('type') as MiniMeType;
+            const expireTime = miniMe.getData('expireTime') as number;
+            
+            // Check if expired
+            if (time >= expireTime) {
+                this.destroyMiniMe(miniMe);
+                return;
+            }
+            
+            // Follow player with offset
+            const offsetX = Phaser.Math.Between(-20, 20);
+            const offsetY = Phaser.Math.Between(-20, 20);
+            const targetX = this.player.x + offsetX;
+            const targetY = this.player.y + offsetY;
+            
+            // Smooth movement toward player
+            const lerpSpeed = 0.1;
+            const newX = Phaser.Math.Linear(miniMe.x, targetX, lerpSpeed);
+            const newY = Phaser.Math.Linear(miniMe.y, targetY, lerpSpeed);
+            miniMe.setPosition(newX, newY);
+            
+            // Execute type-specific behavior
+            this.executeMiniMeBehavior(miniMe, type, time);
+        });
+        
+        // Update active count
+        this.registry.set("activeMiniMes", this.miniMes.children.size);
+    }
+    
+    /**
+     * Execute mini-me type-specific behavior
+     */
+    private executeMiniMeBehavior(miniMe: Phaser.Physics.Arcade.Sprite, type: MiniMeType, time: number): void {
+        switch (type) {
+            case 'scout':
+                // Scout: Reveal enemies (visual effect only for now)
+                // Could add enemy highlighting here
+                break;
+            case 'gunner':
+                // Gunner: Shoot alongside player
+                const lastShotTime = miniMe.getData('lastShotTime') as number || 0;
+                const gunnerFireRate = PLAYER_CONFIG.fireRate * MINI_ME_CONFIG.behaviors.gunner.fireRate;
+                if (time - lastShotTime >= gunnerFireRate) {
+                    this.shootMiniMeBullet(miniMe);
+                    miniMe.setData('lastShotTime', time);
+                }
+                break;
+            case 'shield':
+                // Shield: Damage reduction handled in takeDamage()
+                break;
+            case 'decoy':
+                // Decoy: Damage reduction handled in takeDamage()
+                break;
+            case 'collector':
+                // Collector: Gather nearby power-ups
+                this.collectNearbyPowerUps(miniMe);
+                break;
+            case 'stun':
+                // Stun: Emit stun pulses
+                const lastStunPulse = miniMe.getData('lastStunPulse') as number || 0;
+                if (time - lastStunPulse >= MINI_ME_CONFIG.behaviors.stun.pulseInterval) {
+                    this.emitStunPulse(miniMe);
+                    miniMe.setData('lastStunPulse', time);
+                }
+                break;
+            case 'healer':
+                // Healer: Restore health periodically
+                const lastHealTime = miniMe.getData('lastHealTime') as number || 0;
+                if (time - lastHealTime >= MINI_ME_CONFIG.behaviors.healer.healInterval) {
+                    this.healPlayer(miniMe);
+                    miniMe.setData('lastHealTime', time);
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Shoot bullet from gunner mini-me
+     */
+    private shootMiniMeBullet(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        // Use player's bullet sprite or create a simple one
+        let bullet: Phaser.Physics.Arcade.Sprite;
+        if (this.textures.exists('bullet')) {
+            bullet = this.bullets.create(miniMe.x, miniMe.y, 'bullet') as Phaser.Physics.Arcade.Sprite;
+        } else {
+            // Create a simple bullet graphic if texture doesn't exist
+            if (!this.textures.exists('miniMeBullet')) {
+                const graphics = this.add.graphics();
+                graphics.fillStyle(0x00ff00, 1);
+                graphics.fillCircle(0, 0, 4);
+                graphics.generateTexture('miniMeBullet', 8, 8);
+                graphics.destroy();
+            }
+            bullet = this.bullets.create(miniMe.x, miniMe.y, 'miniMeBullet') as Phaser.Physics.Arcade.Sprite;
+        }
+        bullet.setVelocityY(-MINI_ME_CONFIG.behaviors.gunner.bulletSpeed);
+        bullet.setScale(0.5 * MOBILE_SCALE);
+        bullet.setDepth(50);
+        bullet.setData('isMiniMeBullet', true);
+    }
+    
+    /**
+     * Collect nearby power-ups (collector mini-me)
+     */
+    private collectNearbyPowerUps(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        const radius = MINI_ME_CONFIG.behaviors.collector.collectionRadius;
+        this.powerUps.children.entries.forEach((powerUpObj) => {
+            const powerUp = powerUpObj as Phaser.Physics.Arcade.Sprite;
+            const distance = Phaser.Math.Distance.Between(
+                miniMe.x, miniMe.y,
+                powerUp.x, powerUp.y
+            );
+            if (distance <= radius) {
+                // Move power-up toward player
+                const angle = Phaser.Math.Angle.Between(
+                    powerUp.x, powerUp.y,
+                    this.player.x, this.player.y
+                );
+                const speed = 400;
+                powerUp.setVelocity(
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed
+                );
+            }
+        });
+    }
+    
+    /**
+     * Emit stun pulse (stun mini-me)
+     */
+    private emitStunPulse(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        const radius = MINI_ME_CONFIG.behaviors.stun.stunRadius;
+        const stunDuration = MINI_ME_CONFIG.behaviors.stun.stunDuration;
+        
+        // Visual effect
+        const circle = this.add.circle(miniMe.x, miniMe.y, radius, 0xffffff, 0.3);
+        this.tweens.add({
+            targets: circle,
+            radius: radius * 2,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => circle.destroy(),
+        });
+        
+        // Stun nearby enemies
+        this.enemies.children.entries.forEach((enemyObj) => {
+            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            if (!enemy.active) return;
+            const distance = Phaser.Math.Distance.Between(
+                miniMe.x, miniMe.y,
+                enemy.x, enemy.y
+            );
+            if (distance <= radius) {
+                enemy.setData('stunned', true);
+                enemy.setData('stunEndTime', this.time.now + stunDuration);
+                // Visual: Make enemy gray
+                enemy.setTint(0x888888);
+                // Stop enemy movement when stunned
+                enemy.setVelocity(0, 0);
+                this.time.delayedCall(stunDuration, () => {
+                    if (enemy.active) {
+                        enemy.setData('stunned', false);
+                        enemy.clearTint();
+                        // Restore enemy velocity (will be updated in enemy update loop)
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Heal player (healer mini-me)
+     */
+    private healPlayer(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
+            this.healthBars = Math.min(this.healthBars + MINI_ME_CONFIG.behaviors.healer.healAmount, PLAYER_CONFIG.maxHealthBars);
+            this.registry.set("healthBars", this.healthBars);
+            this.createFloatingText(miniMe.x, miniMe.y - 20, "+1 Health", { color: "#00ff00" });
+        }
+    }
+    
+    /**
+     * Destroy mini-me
+     */
+    private destroyMiniMe(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        // Create explosion
+        this.createExplosion(miniMe.x, miniMe.y, "small");
+        miniMe.destroy();
+        const newCount = this.miniMes.children.size;
+        this.registry.set("activeMiniMes", newCount);
+    }
+    
+    /**
+     * Clean up all mini-mes (on game over or restart)
+     */
+    private cleanupMiniMes(): void {
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (miniMe.active) {
+                miniMe.destroy();
+            }
+        });
+        this.registry.set("activeMiniMes", 0);
     }
 
     private updatePrestigeEffects() {
