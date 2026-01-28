@@ -1709,37 +1709,66 @@ export const POWERUP_CONFIG = {
     invisibilitySpawnChance: 0.10, // 10% chance for invisibility power-up from all enemies (reduced from 15%)
     types: {
         speed: {
-            key: "power_up",
+            key: "powerupShield", // Shield icon for speed boost
             duration: 10000, // 10 seconds
             speedMultiplier: 1.5,
         },
         fireRate: {
-            key: "power_up_2",
+            key: "powerupBulletFireRate", // Fire rate icon
             duration: 10000,
             fireRateMultiplier: 0.5, // Half fire rate (faster)
         },
         score: {
-            key: "orb",
+            key: "powerupCoin", // Coin icon for score multiplier
             duration: 15000,
             scoreMultiplier: 2,
         },
         autoShoot: {
-            key: "power_up", // Using same sprite for now, can be changed
+            key: "powerupBulletFireRate", // Fire rate icon for auto-shoot
             duration: 5000, // 5 seconds
         },
         lives: {
-            key: "orb", // Using orb sprite for lives power-up
+            key: "powerupHealth", // Health icon for lives
             livesGranted: 2, // Grants 2 lives
         },
         firepower: {
-            key: "power_up_2", // Yellow power-up sprite
+            key: "powerupBulletDamage", // Bullet damage icon
             duration: 15000, // 15 seconds
             fireRateMultiplier: 1.0, // Normal fire rate (2.5x slower than previous 0.4)
             firepowerLevel: 0.5, // Increases firepower level by 0.5 (requires 2 power-ups for 1 full level)
         },
         invisibility: {
-            key: "power_up", // Using power_up sprite
+            key: "powerupInvincibility", // Invincibility icon
             duration: 10000, // 10 seconds of invincibility
+        },
+        bomb: {
+            key: "powerupBomb", // Bomb icon
+            // Instant effect - no duration
+        },
+        miniMe: {
+            key: "powerupMiniMe", // Mini-me icon
+            duration: 15000, // 15 seconds
+        },
+        prestige: {
+            key: "powerupPrestige", // Prestige star icon
+            duration: 20000, // 20 seconds
+            scoreMultiplier: 1.5, // 50% score boost
+            coinBonus: 5, // Grants 5 coins
+        },
+        primeSentinel: {
+            key: "powerupPrimeSentinel", // Prime sentinel icon
+            duration: 20000, // 20 seconds
+        },
+        comboRate: {
+            key: "powerupComboRate", // Combo rate icon
+            duration: 15000, // 15 seconds
+            comboMultiplier: 10, // 10x combo multiplier
+        },
+        crown: {
+            key: "powerupCrown", // Crown icon
+            duration: 30000, // 30 seconds
+            scoreMultiplier: 3, // 3x score multiplier
+            coinBonus: 20, // Grants 20 coins
         },
     },
 } as const;

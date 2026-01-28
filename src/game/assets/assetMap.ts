@@ -142,19 +142,74 @@ export const BULLET_ASSETS: AssetMapping[] = [
     // Hero bullet explosion
     { key: 'heroBulletExplosion', path: '/hero-bullet/explosion-1.svg', fallback: 'explosionGrade1', required: false },
     
-    // Legacy bullet sprites (from /sprites/)
+    // Legacy bullet sprites (from /sprites/) - kept as fallbacks
     { key: 'greenBullet1', path: '/sprites/green_bullet_1.svg', required: false },
     { key: 'greenBullet2', path: '/sprites/green_bullet_2.svg', required: false },
     { key: 'yellowBullet', path: '/sprites/yellow_bullet.svg', required: false },
     { key: 'blueBullet', path: '/sprites/blue_bullet.svg', required: false },
     
-    // Enemy bullet sprites (for reference, loaded separately if needed)
-    // Green enemy bullets: /green-enemy-bullet/
-    // Yellow enemy bullets: /yellow-enemy-bullet/
-    // Blue enemy bullets: /blue-enemy-bullet/
-    // Purple enemy bullets: /purple-enemy-bullet/
-    // Red enemy bullets: /red-enemy-bullet/
-    // Flaming red enemy bullets: /flame-red-enemy-bullet/
+    // Green enemy bullets - from /green-enemy-bullet/
+    { key: 'greenEnemyBullet0', path: '/green-enemy-bullet/bullet-grade-0.svg', fallback: 'greenBullet1', required: false },
+    { key: 'greenEnemyBullet0_2', path: '/green-enemy-bullet/bullet-grade-0.2.svg', fallback: 'greenEnemyBullet0', required: false },
+    { key: 'greenEnemyBullet0_5', path: '/green-enemy-bullet/bullet-grade-0.5.svg', fallback: 'greenEnemyBullet0', required: false },
+    { key: 'greenEnemyBullet1', path: '/green-enemy-bullet/bullet-grade-1.svg', fallback: 'greenEnemyBullet0', required: false },
+    { key: 'greenEnemyBullet2', path: '/green-enemy-bullet/bullet-grade-2.svg', fallback: 'greenEnemyBullet1', required: false },
+    { key: 'greenEnemyBullet4', path: '/green-enemy-bullet/bullet-grade-4.svg', fallback: 'greenEnemyBullet2', required: false },
+    { key: 'greenEnemyBullet5', path: '/green-enemy-bullet/bullet-grade-5.svg', fallback: 'greenEnemyBullet4', required: false },
+    { key: 'greenEnemyBullet6', path: '/green-enemy-bullet/bullet-grade-6.svg', fallback: 'greenEnemyBullet5', required: false },
+    { key: 'greenEnemyBulletExplosion', path: '/green-enemy-bullet/explosion.svg', fallback: 'heroBulletExplosion', required: false },
+    
+    // Yellow enemy bullets - from /yellow-enemy-bullet/
+    { key: 'yellowEnemyBullet0', path: '/yellow-enemy-bullet/bullet-grade-0.svg', fallback: 'yellowBullet', required: false },
+    { key: 'yellowEnemyBullet1', path: '/yellow-enemy-bullet/bullet-grade-1.svg', fallback: 'yellowEnemyBullet0', required: false },
+    { key: 'yellowEnemyBullet2', path: '/yellow-enemy-bullet/bullet-grade-2.svg', fallback: 'yellowEnemyBullet1', required: false },
+    { key: 'yellowEnemyBullet3', path: '/yellow-enemy-bullet/bullet-grade-3.svg', fallback: 'yellowEnemyBullet2', required: false },
+    { key: 'yellowEnemyBullet4', path: '/yellow-enemy-bullet/bullet-grade-4.svg', fallback: 'yellowEnemyBullet3', required: false },
+    { key: 'yellowEnemyBullet5', path: '/yellow-enemy-bullet/bullet-grade-5.svg', fallback: 'yellowEnemyBullet4', required: false },
+    { key: 'yellowEnemyBulletExplosion', path: '/yellow-enemy-bullet/explosion.svg', fallback: 'heroBulletExplosion', required: false },
+    
+    // Blue enemy bullets - from /blue-enemy-bullet/
+    { key: 'blueEnemyBullet0', path: '/blue-enemy-bullet/bullet-grade-0.svg', fallback: 'blueBullet', required: false },
+    { key: 'blueEnemyBullet1', path: '/blue-enemy-bullet/bullet-grade-1.svg', fallback: 'blueEnemyBullet0', required: false },
+    { key: 'blueEnemyBullet2', path: '/blue-enemy-bullet/bullet-grade-2.svg', fallback: 'blueEnemyBullet1', required: false },
+    { key: 'blueEnemyBullet4', path: '/blue-enemy-bullet/bullet-grade-4.svg', fallback: 'blueEnemyBullet2', required: false },
+    { key: 'blueEnemyBullet5', path: '/blue-enemy-bullet/bullet-grade-5.svg', fallback: 'blueEnemyBullet4', required: false },
+    { key: 'blueEnemyBulletExplosion', path: '/blue-enemy-bullet/explosion.svg', fallback: 'heroBulletExplosion', required: false },
+    
+    // Purple enemy bullets - from /purple-enemy-bullet/
+    { key: 'purpleEnemyBullet0', path: '/purple-enemy-bullet/bullet-grade-0.svg', fallback: 'yellowBullet', required: false },
+    { key: 'purpleEnemyBullet1', path: '/purple-enemy-bullet/bullet-grade-1.svg', fallback: 'purpleEnemyBullet0', required: false },
+    { key: 'purpleEnemyBullet2', path: '/purple-enemy-bullet/bullet-grade-2.svg', fallback: 'purpleEnemyBullet1', required: false },
+    { key: 'purpleEnemyBullet3', path: '/purple-enemy-bullet/bullet-grade-3.svg', fallback: 'purpleEnemyBullet2', required: false },
+    { key: 'purpleEnemyBullet4', path: '/purple-enemy-bullet/bullet-grade-4.svg', fallback: 'purpleEnemyBullet3', required: false },
+    { key: 'purpleEnemyBullet5', path: '/purple-enemy-bullet/bullet-grade-5.svg', fallback: 'purpleEnemyBullet4', required: false },
+    { key: 'purpleEnemyBulletTeleportal', path: '/purple-enemy-bullet/teleportal.svg', fallback: 'purpleEnemyBullet5', required: false },
+    { key: 'purpleEnemyBulletTeleportalExplosion', path: '/purple-enemy-bullet/teleportal-explosion.svg', fallback: 'purpleEnemyBulletExplosion', required: false },
+    
+    // Red enemy bullets - from /red-enemy-bullet/
+    { key: 'redEnemyBullet0', path: '/red-enemy-bullet/bullet-grade-0.svg', fallback: 'greenBullet1', required: false },
+    { key: 'redEnemyBullet1', path: '/red-enemy-bullet/bullet-grade-1.svg', fallback: 'redEnemyBullet0', required: false },
+    { key: 'redEnemyBullet1_2', path: '/red-enemy-bullet/bullet-grade-1.2.svg', fallback: 'redEnemyBullet1', required: false },
+    { key: 'redEnemyBullet2', path: '/red-enemy-bullet/bullet-grade-2.svg', fallback: 'redEnemyBullet1', required: false },
+    { key: 'redEnemyBullet2_9', path: '/red-enemy-bullet/bullet-grade-2.9.svg', fallback: 'redEnemyBullet2', required: false },
+    { key: 'redEnemyBullet3', path: '/red-enemy-bullet/bullet-grade-3.svg', fallback: 'redEnemyBullet2', required: false },
+    { key: 'redEnemyBullet4', path: '/red-enemy-bullet/bullet-grade-4.svg', fallback: 'redEnemyBullet3', required: false },
+    { key: 'redEnemyBullet5', path: '/red-enemy-bullet/bullet-grade-5.svg', fallback: 'redEnemyBullet4', required: false },
+    { key: 'redEnemyBullet6', path: '/red-enemy-bullet/bullet-grade-6.svg', fallback: 'redEnemyBullet5', required: false },
+    { key: 'redEnemyBulletExplosion', path: '/red-enemy-bullet/explosion.svg', fallback: 'heroBulletExplosion', required: false },
+    
+    // Flame red enemy bullets - from /flame-red-enemy-bullet/
+    { key: 'flameRedEnemyBullet0', path: '/flame-red-enemy-bullet/bullet-grade-0.svg', fallback: 'redEnemyBullet0', required: false },
+    { key: 'flameRedEnemyBullet0_1', path: '/flame-red-enemy-bullet/bullet-grade-0.1.svg', fallback: 'flameRedEnemyBullet0', required: false },
+    { key: 'flameRedEnemyBullet1', path: '/flame-red-enemy-bullet/bullet-grade-1.svg', fallback: 'flameRedEnemyBullet0', required: false },
+    { key: 'flameRedEnemyBullet2', path: '/flame-red-enemy-bullet/bullet-grade-2.svg', fallback: 'flameRedEnemyBullet1', required: false },
+    { key: 'flameRedEnemyBullet3', path: '/flame-red-enemy-bullet/bullet-grade-3.svg', fallback: 'flameRedEnemyBullet2', required: false },
+    { key: 'flameRedEnemyBullet4', path: '/flame-red-enemy-bullet/bullet-grade-4.svg', fallback: 'flameRedEnemyBullet3', required: false },
+    { key: 'flameRedEnemyBullet5', path: '/flame-red-enemy-bullet/bullet-grade-5.svg', fallback: 'flameRedEnemyBullet4', required: false },
+    { key: 'flameRedEnemyBullet5_1', path: '/flame-red-enemy-bullet/bullet-grade-5.1.svg', fallback: 'flameRedEnemyBullet5', required: false },
+    { key: 'flameRedEnemyBullet6', path: '/flame-red-enemy-bullet/bullet-grade-6.svg', fallback: 'flameRedEnemyBullet5', required: false },
+    { key: 'flameRedEnemyBulletExplosion', path: '/flame-red-enemy-bullet/explosion.svg', fallback: 'redEnemyBulletExplosion', required: false },
+    { key: 'flameRedEnemyBulletFire', path: '/flame-red-enemy-bullet/fire.svg', fallback: 'flameRedEnemyBullet6', required: false },
 ];
 
 /**
