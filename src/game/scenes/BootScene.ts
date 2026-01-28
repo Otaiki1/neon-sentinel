@@ -1,9 +1,27 @@
 import Phaser from 'phaser';
+import {
+    ALL_ASSETS,
+    AVATAR_ASSETS,
+    ENEMY_ASSETS,
+    FINAL_BOSS_ASSETS,
+    MINI_ME_ASSETS,
+    BULLET_ASSETS,
+    POWERUP_ASSETS,
+    EXPLOSION_ASSETS,
+    UI_ASSETS,
+    LAYER_BACKGROUND_ASSETS,
+    BADGE_ASSETS,
+    getFallbackAsset,
+    isAssetRequired,
+} from '../assets/assetMap';
 
 export class BootScene extends Phaser.Scene {
-  constructor() {
-    super({ key: 'BootScene' });
-  }
+    private loadedAssets: Set<string> = new Set();
+    private failedAssets: Map<string, string> = new Map(); // key -> fallback used
+    
+    constructor() {
+        super({ key: 'BootScene' });
+    }
 
   preload() {
     const width = this.cameras.main.width;
@@ -61,53 +79,133 @@ export class BootScene extends Phaser.Scene {
       assetText.setText('Loading: ' + file.key);
     });
 
-    this.load.on('complete', () => {
-      progressBar.destroy();
-      progressBox.destroy();
-      loadingText.destroy();
-      percentText.destroy();
-      assetText.destroy();
+    this.load.on('filecomplete', (key: string) => {
+        this.loadedAssets.add(key);
+    });
+    
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+        const key = file.key;
+        const fallback = getFallbackAsset(key);
+        const required = isAssetRequired(key);
+        
+        if (fallback) {
+            console.warn(`Asset load failed: ${key}, using fallback: ${fallback}`);
+            this.failedAssets.set(key, fallback);
+            // Try to load fallback if not already loaded
+            if (!this.loadedAssets.has(fallback)) {
+                const fallbackAsset = ALL_ASSETS.find(a => a.key === fallback);
+                if (fallbackAsset) {
+                    // Phaser will skip if already in queue
+                    this.load.image(fallback, fallbackAsset.path);
+                }
+            }
+        } else if (required) {
+            console.error(`Required asset failed to load: ${key} (no fallback available)`);
+        } else {
+            console.warn(`Optional asset failed to load: ${key} (no fallback available)`);
+        }
     });
 
-    // Load sprites from public folder
-    this.load.image('hero', '/sprites/hero.svg');
-    this.load.image('heroVanguard', '/sprites/hero_2.svg');
-    this.load.image('heroGhost', '/sprites/hero_3.svg');
-    this.load.image('heroDrone', '/sprites/hero_sidekick_2.svg');
-    this.load.image('heroGodMode', '/sprites/hero-god-mode.svg');
+    this.load.on('complete', () => {
+        // Log summary of failed assets
+        if (this.failedAssets.size > 0) {
+            console.warn(`Asset loading complete. ${this.failedAssets.size} assets used fallbacks:`);
+            this.failedAssets.forEach((fallback, key) => {
+                console.warn(`  ${key} -> ${fallback}`);
+            });
+        }
+        
+        progressBar.destroy();
+        progressBox.destroy();
+        loadingText.destroy();
+        percentText.destroy();
+        assetText.destroy();
+    });
+
+    // Load avatar/hero sprites using asset mapping
+    this.loadAssets(AVATAR_ASSETS);
     
-    // Enemy sprites
-    this.load.image('enemyGreen', '/sprites/enemy_green.svg');
-    this.load.image('enemyYellow', '/sprites/enemy_yellow.svg');
-    this.load.image('enemyBlue', '/sprites/enemy_blue.svg');
-    this.load.image('enemyPurple', '/sprites/enemy_purple.svg');
-    this.load.image('enemyPurpleBoss', '/sprites/enemy_purple_boss.svg');
-    this.load.image('miniFinalBoss', '/sprites/mini_final_boss.svg');
-    this.load.image('mediumFinalBoss', '/sprites/medium_final_boss.svg');
-    this.load.image('finalBoss', '/sprites/final_boss.svg');
+    // Load enemy sprites using asset mapping
+    this.loadAssets(ENEMY_ASSETS);
     
-    // Bullet sprites
-    this.load.image('greenBullet1', '/sprites/green_bullet_1.svg');
-    this.load.image('greenBullet2', '/sprites/green_bullet_2.svg');
-    this.load.image('yellowBullet', '/sprites/yellow_bullet.svg');
-    this.load.image('blueBullet', '/sprites/blue_bullet.svg');
+    // Load final boss sprites
+    this.loadAssets(FINAL_BOSS_ASSETS);
     
-    // Explosion sprites
-    this.load.image('smallFire', '/sprites/small_fire.svg');
-    this.load.image('mediumFire', '/sprites/medium_fire.svg');
-    this.load.image('bigFire', '/sprites/big_fire.svg');
-    this.load.image('greenFire', '/sprites/green_fire.svg');
+    // Load bullet sprites
+    this.loadAssets(BULLET_ASSETS);
     
-    // Power-up sprites
-    this.load.image('power_up', '/sprites/power_up.svg');
-    this.load.image('power_up_2', '/sprites/power_up_2.svg');
-    this.load.image('orb', '/sprites/orb.svg');
+    // Load mini-me sprites
+    this.loadAssets(MINI_ME_ASSETS);
+    
+    // Load power-up sprites
+    this.loadAssets(POWERUP_ASSETS);
+    
+    // Load explosion/fire sprites
+    this.loadAssets(EXPLOSION_ASSETS);
+    
+    // Load UI/icon sprites
+    this.loadAssets(UI_ASSETS);
+    
+    // Load rank badges
+    this.loadAssets(BADGE_ASSETS);
+    
+    // Load layer background images
+    this.loadAssets(LAYER_BACKGROUND_ASSETS);
+  }
+
+  /**
+   * Load assets from asset mapping array
+   */
+  private loadAssets(assets: typeof ALL_ASSETS): void {
+    for (const asset of assets) {
+      // Skip if already loaded
+      if (this.loadedAssets.has(asset.key)) {
+        continue;
+      }
+      
+      // Load the asset (Phaser will skip if already in queue)
+      if (asset.path.endsWith('.png')) {
+        this.load.image(asset.key, asset.path);
+      } else if (asset.path.endsWith('.svg')) {
+        this.load.image(asset.key, asset.path);
+      } else {
+        // Default to image loader
+        this.load.image(asset.key, asset.path);
+      }
+    }
   }
 
   create() {
+    // Log asset loading summary
+    const totalAssets = ALL_ASSETS.length;
+    const loadedCount = this.loadedAssets.size;
+    const failedCount = this.failedAssets.size;
+    
+    console.log(`Asset loading complete: ${loadedCount}/${totalAssets} loaded, ${failedCount} used fallbacks`);
+    
     // Start the game scene
     this.scene.start('GameScene');
     // Start UI scene in parallel
     this.scene.launch('UIScene');
+  }
+  
+  /**
+   * Get fallback asset key for a given asset key
+   * Used by game code to handle missing assets gracefully
+   */
+  public getFallbackKey(key: string): string {
+    // Check if asset failed and has a fallback
+    if (this.failedAssets.has(key)) {
+      return this.failedAssets.get(key)!;
+    }
+    
+    // Check asset mapping for fallback
+    const fallback = getFallbackAsset(key);
+    if (fallback) {
+      return fallback;
+    }
+    
+    // Return original key if no fallback
+    return key;
   }
 }

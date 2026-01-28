@@ -8,6 +8,7 @@ export interface ScoreEntry {
   week: number;
   deepestLayer?: number;
   prestigeLevel?: number;
+  currentRank?: string; // Rank name at time of score submission
   modifierKey?: string;
   survivalTime?: number;
   maxCorruptionReached?: number;
@@ -137,7 +138,8 @@ export function submitScore(
   deepestLayer?: number,
   prestigeLevel?: number,
   runMetrics?: RunMetrics,
-  modifierKey?: string
+  modifierKey?: string,
+  currentRank?: string
 ): void {
   // Check if we need to reset leaderboard
   if (shouldResetLeaderboard()) {
@@ -163,6 +165,7 @@ export function submitScore(
     week: currentWeek,
     deepestLayer: safeDeepestLayer,
     prestigeLevel: safePrestigeLevel,
+    currentRank: currentRank || 'Initiate Sentinel',
     modifierKey,
     survivalTime: runMetrics?.survivalTime,
     maxCorruptionReached: runMetrics?.maxCorruptionReached,

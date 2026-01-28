@@ -33,21 +33,77 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 
 ## 📖 The Story
 
-### The Grid
+### The Neon Terminal
 
-Inside a collapsing digital megasystem called **The Grid**, autonomous security programs—**Neon Sentinels**—fight to contain a spreading corruption known as **The Swarm**.
+You are a **Sentinel**—an autonomous security program assigned by the **White Sentinel** (mission commander) to liberate the corrupted **Neon Terminal**. This massive system has been plagued by **The Swarm** for 50 aeons, a parasitic corruption spreading through all terminal layers.
 
-### The Infection
+### The Swarm
 
-Each enemy color represents a deeper layer of system corruption. You don't "beat levels"—you push deeper into infected layers of the system until you hit a system collapse (death). The deeper you go, the more dangerous the corruption becomes.
+The Swarm is a parasitic corruption that has infected the Neon Terminal. Each enemy color represents a deeper layer of system corruption:
+- **Green enemies**: Corrupted data fragments—the weakest form of corruption
+- **Yellow enemies**: Upgraded corruption with defensive capabilities
+- **Blue enemies**: Intelligent corruption that can coordinate attacks
+- **Purple enemies**: Direct manifestations of Zrechostikal's influence
+- **Bosses**: Major corruption nodes that must be defeated to progress
 
 ### Your Mission
 
 As a Neon Sentinel, your mission is to:
-- **Survive** as long as possible
-- **Push deeper** into corrupted system layers
-- **Defeat graduation bosses** to unlock new layers
-- **Climb the leaderboards** and become a Grid Defender
+- **Ascend** from basic Sentinel → Prime Sentinel by defeating Zrechostikal
+- **Progress** through 8 prestige levels, each with 6 layers (48 total progression steps)
+- **Defeat** prestige bosses at Layer 6 of each prestige
+- **Confront** Zrechostikal (Swarm Overlord) at Prestige 8, Layer 6
+- **Become** Prime Sentinel upon victory
+
+### Story Arc Progression
+
+**Prestige 0-1: "The Entry"**
+- White Sentinel assigns you the mission
+- Initial infiltration into terminal defenses
+- First encounters with corrupted data fragments (green enemies)
+- Avatar Unlock: Default Sentinel (Azure Core)
+
+**Prestige 2-3: "The Awakening"**
+- Terminal shows signs of resistance
+- Upgraded enemy types appear (yellow, blue)
+- Higher-level intelligence detected
+- Prime Sentinel makes first contact
+- Avatar Unlock: Intermediate Sentinel
+
+**Prestige 4-5: "The Revelation"**
+- Discovery of Zrechostikal's presence
+- Swarm coordination becomes evident
+- Purple entities emerge
+- Avatar Unlock: Advanced Sentinel
+
+**Prestige 6-7: "The Confrontation"**
+- Direct opposition from the Swarm
+- Prestige bosses show increased power
+- Prime Sentinel guidance intensifies
+- Avatar Unlock: Elite Sentinel
+
+**Prestige 8: "Prime Sentinel"**
+- Final confrontation with Zrechostikal (Swarm Overlord)
+- Multi-phase final boss battle
+- Upon victory: Promotion to Prime Sentinel rank
+- Avatar Unlock: Prime Sentinel (legendary)
+
+### Characters
+
+**White Sentinel**
+- Role: Mission commander and mentor
+- Voice: Strategic, encouraging, mission-focused
+- Appears: Game start, layer completions, prestige milestones
+
+**Prime Sentinel**
+- Role: Advanced form of security intelligence
+- Voice: Wise, cryptic, supportive
+- Appears: Prestige 3+ interactions, daily coin delivery, final boss briefing
+
+**Zrechostikal (Swarm Overlord)**
+- Role: Final antagonist, entity controlling the swarm
+- Voice: Ancient, corrupting, menacing
+- Appearance: Prestige 8, Layer 6 final boss fight
 
 ---
 

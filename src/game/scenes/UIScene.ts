@@ -15,15 +15,23 @@ import {
 } from '../../services/achievementService';
 import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
+import { getTierProgress } from '../../services/bulletUpgradeService';
 import { GameScene } from './GameScene';
 import { TooltipManager } from './TooltipManager';
+import { DialogueManager } from '../dialogue/DialogueManager';
 
 export class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private layerText!: Phaser.GameObjects.Text;
   private prestigeText!: Phaser.GameObjects.Text;
+  private rankText!: Phaser.GameObjects.Text;
   private livesOrb!: Phaser.GameObjects.Graphics;
+  private healthBarLabel!: Phaser.GameObjects.Text;
+  private miniMeCountText!: Phaser.GameObjects.Text;
+  private bulletTierText!: Phaser.GameObjects.Text;
+  private coinBalanceText!: Phaser.GameObjects.Text;
+  private coinIcon!: Phaser.GameObjects.Image;
   // Shock bomb meter (red/orange)
   private shockBombBarBg!: Phaser.GameObjects.Graphics;
   private shockBombBarFill!: Phaser.GameObjects.Graphics;
@@ -43,6 +51,7 @@ export class UIScene extends Phaser.Scene {
   private gameOverText!: Phaser.GameObjects.Text;
   private finalScoreText!: Phaser.GameObjects.Text;
   private prestigeBadgeText!: Phaser.GameObjects.Text;
+  private rankTextGameOver!: Phaser.GameObjects.Text;
   private pauseContainer!: Phaser.GameObjects.Container;
   private pauseText!: Phaser.GameObjects.Text;
   private leaderboardPanel!: Phaser.GameObjects.Container;
@@ -54,6 +63,7 @@ export class UIScene extends Phaser.Scene {
   private achievementTexts: Phaser.GameObjects.Text[] = [];
   private failureFeedbackLines: Phaser.GameObjects.Text[] = [];
   private celebrationLines: Phaser.GameObjects.Text[] = [];
+  private currentRankPauseText!: Phaser.GameObjects.Text;
   private uiTextColor = UI_CONFIG.neonGreen as string;
   private uiOpacityMultiplier = 1;
   private uiMenuFont = UI_CONFIG.menuFont as string;
@@ -84,6 +94,7 @@ export class UIScene extends Phaser.Scene {
   private revivePromptButton!: Phaser.GameObjects.Container;
   private revivePromptTimer?: Phaser.Time.TimerEvent;
   private tooltipManager!: TooltipManager;
+  private dialogueManager!: DialogueManager;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -94,6 +105,9 @@ export class UIScene extends Phaser.Scene {
     this.tooltipManager = new TooltipManager(this);
     // Allow GameScene to request tooltip hide
     this.events.on('hide-tooltips', () => this.tooltipManager.skipAll());
+    
+    // Initialize dialogue manager
+    this.dialogueManager = new DialogueManager(this);
 
     // Mobile UI scaling - reduce sizes on mobile
     const settingsScale = (this.registry.get('uiScale') as number) || 1;
@@ -157,7 +171,7 @@ export class UIScene extends Phaser.Scene {
         id: 'game-combo',
         targetX: baseX + 100,
         targetY: baseY + lineSpacing * 2 + 15,
-        content: 'COMBO - Multiplier that increases when you destroy enemies without taking damage. Build combos for massive scores!',
+        content: "I'm tracking your combo multiplier. It increases when you destroy enemies without taking damage. Build combos for massive scores!",
         position: 'right',
         width: 280,
       },
@@ -183,21 +197,23 @@ export class UIScene extends Phaser.Scene {
         id: 'game-layer',
         targetX: baseX + 100,
         targetY: baseY + lineSpacing * 3 + 10,
-        content: "LAYER - Current system layer you're in. Deeper layers = tougher enemies and higher scores. Defeat graduation bosses to advance!",
+        content: "You're currently in the Boot Sector. Deeper layers mean tougher enemies and higher scores. Defeat graduation bosses to advance!",
         position: 'right',
         width: 280,
       },
       3000
     );
 
-    // Prestige display
-    this.prestigeText = this.add.text(baseX, baseY + lineSpacing * 4, 'PRESTIGE: 0', {
+    // Prestige/Layer display (top-center) - Combined display
+    const prestigeLayerX = this.scale.width / 2;
+    this.prestigeText = this.add.text(prestigeLayerX, baseY, 'PRESTIGE 0 - LAYER 1', {
       fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small * uiScale,
       color: this.uiTextColor,
       stroke: '#000000',
       strokeThickness: 3 * uiScale,
     });
+    this.prestigeText.setOrigin(0.5, 0); // Center horizontally
     if (MOBILE_SCALE < 1.0) {
       this.prestigeText.setAlpha(0.85);
     }
@@ -209,39 +225,137 @@ export class UIScene extends Phaser.Scene {
         id: 'game-prestige',
         targetX: baseX + 100,
         targetY: baseY + lineSpacing * 4 + 10,
-        content: 'PRESTIGE - After completing Layer 6, you can prestige to loop back with increased difficulty and score multipliers!',
+        content: 'After completing Layer 6, you can prestige to loop back with increased difficulty and score multipliers. This is how true Sentinels progress!',
         position: 'right',
         width: 280,
       },
       4000
     );
 
+    // Rank display
+    this.rankText = this.add.text(baseX, baseY + lineSpacing * 5, 'RANK: Initiate Sentinel', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    if (MOBILE_SCALE < 1.0) {
+      this.rankText.setAlpha(0.85);
+    }
+    this.rankText.setAlpha(this.rankText.alpha * this.uiOpacityMultiplier);
+
     this.registerUiGlitchTargets([
       this.scoreText,
       this.comboText,
       this.layerText,
       this.prestigeText,
+      this.rankText,
     ]);
 
-    // Lives display (orb indicators only)
-    const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
+    // Health bars display
+    const healthX = baseX + 10 * uiScale;
+    const healthY = baseY + lineSpacing * 5 + 8 * uiScale;
     this.livesOrb = this.add.graphics();
-    this.renderLivesOrbs(1, livesX, livesY, uiScale);
+    this.healthBarLabel = this.add.text(healthX - 5 * uiScale, healthY - 2 * uiScale, 'HEALTH: 5/5', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2 * uiScale,
+    });
+    this.healthBarLabel.setAlpha(this.uiOpacityMultiplier);
+    this.renderHealthBars(5, healthX, healthY, uiScale);
     this.livesOrb.setAlpha(this.uiOpacityMultiplier);
 
-    // Show tooltip for lives (first time only)
+    // Show tooltip for health bars (first time only)
     this.tooltipManager.enqueueTooltip(
       {
-        id: 'game-lives',
-        targetX: livesX + 40,
-        targetY: livesY + 20,
-        content: 'LIVES - Each orb = 2 lives. Collect purple Life Orbs to gain more lives (max 20). Lose a life when enemies touch you!',
+        id: 'game-health',
+        targetX: healthX + 40,
+        targetY: healthY + 20,
+        content: 'You have 5 health bars. Each enemy collision or bullet hit removes health bars. Collect Life Orbs to restore health. Game over when all health bars are depleted!',
         position: 'right',
         width: 280,
       },
       5000
     );
+
+    // Coin balance display (top-right, below score area)
+    const coinX = this.scale.width - 150 * uiScale;
+    const coinY = baseY + lineSpacing * 2;
+    
+    // Try to load coin icon, fallback to text if missing
+    try {
+      this.coinIcon = this.add.image(coinX - 20 * uiScale, coinY + 8 * uiScale, 'powerupCoin');
+      this.coinIcon.setScale(0.3 * uiScale);
+      this.coinIcon.setAlpha(this.uiOpacityMultiplier);
+    } catch {
+      // Icon not loaded, will use text only
+    }
+    
+    this.coinBalanceText = this.add.text(coinX, coinY, 'COINS: 0', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    this.coinBalanceText.setOrigin(1, 0); // Right-aligned
+    if (MOBILE_SCALE < 1.0) {
+      this.coinBalanceText.setAlpha(0.85);
+    }
+    this.coinBalanceText.setAlpha(this.coinBalanceText.alpha * this.uiOpacityMultiplier);
+    
+    // Subscribe to coin balance changes
+    this.registry.events.on('changedata-coinBalance', this.updateCoinBalance, this);
+    this.updateCoinBalance(this.registry, this.registry.get('coinBalance') as number || 0);
+    
+    // Mini-me count display (top-right, below coins)
+    const miniMeX = coinX;
+    const miniMeY = coinY + lineSpacing;
+    this.miniMeCountText = this.add.text(miniMeX, miniMeY, 'MINI-MES: 0/7', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    this.miniMeCountText.setOrigin(1, 0); // Right-aligned
+    if (MOBILE_SCALE < 1.0) {
+      this.miniMeCountText.setAlpha(0.85);
+    }
+    this.miniMeCountText.setAlpha(this.miniMeCountText.alpha * this.uiOpacityMultiplier);
+    
+    // Bullet tier display (right side, below mini-mes)
+    const bulletTierX = coinX;
+    const bulletTierY = miniMeY + lineSpacing;
+    this.bulletTierText = this.add.text(bulletTierX, bulletTierY, 'BULLET TIER: 1/5', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small * uiScale,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 3 * uiScale,
+    });
+    this.bulletTierText.setOrigin(1, 0); // Right-aligned
+    if (MOBILE_SCALE < 1.0) {
+      this.bulletTierText.setAlpha(0.85);
+    }
+    this.bulletTierText.setAlpha(this.bulletTierText.alpha * this.uiOpacityMultiplier);
+    
+    // Subscribe to prestige level changes to update bullet tier
+    this.registry.events.on('changedata-prestigeLevel', this.updateBulletTier, this);
+    this.updateBulletTier(this.registry, this.registry.get('prestigeLevel') as number);
+    
+    this.registerUiGlitchTargets([
+      this.scoreText,
+      this.comboText,
+      this.layerText,
+      this.prestigeText,
+      this.rankText,
+      this.miniMeCountText,
+      this.bulletTierText,
+    ]);
 
     // Removed top-left run stats panel per UX request
 
@@ -259,7 +373,7 @@ export class UIScene extends Phaser.Scene {
           id: 'game-shockbomb',
           targetX: shockBombBarX + 6,
           targetY: shockBombBarY + 30,
-          content: 'SHOCK BOMB (B) - Meter fills over time. When ready, press B to instantly destroy 70% of enemies on screen! Unlocked at 10,000 lifetime score.',
+          content: 'Your Shock Bomb meter fills over time. When ready, press B to instantly destroy 70% of enemies on screen! This ability unlocks at 10,000 lifetime score.',
           position: 'left',
           width: 280,
         },
@@ -278,7 +392,7 @@ export class UIScene extends Phaser.Scene {
           id: 'game-godmode',
           targetX: godModeBarX + 6,
           targetY: godModeBarY + 30,
-          content: 'GOD MODE (Q) - Meter fills over time. When ready, press Q for 10 seconds of invincibility! Unlocked at 25,000 lifetime score.',
+          content: 'Your God Mode meter fills over time. When ready, press Q for 10 seconds of invincibility! This powerful ability unlocks at 25,000 lifetime score.',
           position: 'left',
           width: 280,
         },
@@ -307,6 +421,9 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-comboMultiplier', this.updateCombo, this);
     this.registry.events.on('changedata-layerName', this.updateLayer, this);
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
+    this.registry.events.on('changedata-currentLayer', this.updatePrestigeLayer, this);
+    this.registry.events.on('changedata-currentRank', this.updateRank, this);
+    this.registry.events.on('changedata-activeMiniMes', this.updateMiniMeCount, this);
     this.registry.events.on('changedata-shockBombProgress', this.updateShockBomb, this);
     this.registry.events.on('changedata-shockBombReady', this.updateShockBombReady, this);
     this.registry.events.on('changedata-godModeProgress', this.updateGodMode, this);
@@ -316,7 +433,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-challengeTitle', this.updateChallengeTitle, this);
     this.registry.events.on('changedata-challengeDescription', this.updateChallengeDescription, this);
     this.registry.events.on('changedata-challengeProgress', this.updateChallengeProgress, this);
-    this.registry.events.on('changedata-lives', this.updateLives, this);
+    this.registry.events.on('changedata-healthBars', this.updateHealthBars, this);
     this.registry.events.on('changedata-gameOver', this.onGameOver, this);
     // Run stats UI is hidden (summary shown on game over only)
     this.registry.events.on('changedata-isPaused', this.onPauseChanged, this);
@@ -437,6 +554,16 @@ export class UIScene extends Phaser.Scene {
     });
     this.finalScoreText.setOrigin(0.5, 0.5);
 
+    // Rank display
+    this.rankTextGameOver = this.add.text(width / 2, height / 2 - 20, 'RANK: Initiate Sentinel', {
+      fontFamily: this.uiMenuFont,
+      fontSize: 18,
+      color: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    this.rankTextGameOver.setOrigin(0.5, 0.5);
+
     this.prestigeBadgeText = this.add.text(width / 2, height / 2 - 10, 'BADGE UNLOCKED: PRESTIGE CHAMPION', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: 18,
@@ -554,6 +681,7 @@ export class UIScene extends Phaser.Scene {
     this.summaryContainer = this.add.container(0, 0, [
       this.gameOverText,
       this.finalScoreText,
+      this.rankTextGameOver,
       this.prestigeBadgeText,
       ...this.runSummaryTexts,
       this.progressStatementText,
@@ -727,7 +855,32 @@ export class UIScene extends Phaser.Scene {
       this.toggleSettings();
     });
 
-    const achievementsTitle = this.add.text(width / 2, height / 2 + 170, 'ACHIEVEMENTS', {
+    // Current rank display in pause menu
+    const rankTitle = this.add.text(width / 2, height / 2 + 230, 'CURRENT RANK', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: UI_CONFIG.neonGreen,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    rankTitle.setOrigin(0.5, 0.5);
+    
+    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 255, '', {
+      fontFamily: UI_CONFIG.menuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    this.currentRankPauseText.setOrigin(0.5, 0.5);
+    
+    // Update rank display when it changes
+    this.registry.events.on('changedata-currentRank', () => {
+      const rank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      this.currentRankPauseText.setText(rank);
+    });
+    
+    const achievementsTitle = this.add.text(width / 2, height / 2 + 280, 'ACHIEVEMENTS', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -740,7 +893,7 @@ export class UIScene extends Phaser.Scene {
     for (let i = 0; i < 4; i += 1) {
       const line = this.add.text(
         width / 2,
-        height / 2 + 195 + i * 18,
+        height / 2 + 305 + i * 18,
         '',
         {
           fontFamily: UI_CONFIG.bodyFont,
@@ -754,13 +907,66 @@ export class UIScene extends Phaser.Scene {
       this.achievementTexts.push(line);
     }
 
+    // Inventory button (for pause menu) - opens inventory modal
+    const pauseInventoryButton = this.createButton(
+      width / 2,
+      height / 2 + 110,
+      'INVENTORY',
+      180,
+      45,
+      18
+    );
+    const pauseInventoryBg = pauseInventoryButton.list[0] as Phaser.GameObjects.Rectangle;
+    pauseInventoryBg.on('pointerdown', () => {
+      // Emit event to open inventory modal in React
+      this.events.emit('open-inventory');
+    });
+    
+    // Coin balance display in pause menu
+    const pauseCoinText = this.add.text(width / 2, height / 2 + 170, '', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    pauseCoinText.setOrigin(0.5, 0.5);
+    
+    // Active mini-mes display in pause menu
+    const pauseMiniMeText = this.add.text(width / 2, height / 2 + 200, '', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    pauseMiniMeText.setOrigin(0.5, 0.5);
+    
+    // Current avatar stats display in pause menu
+    const pauseAvatarText = this.add.text(width / 2, height / 2 + 230, '', {
+      fontFamily: this.uiMenuFont,
+      fontSize: UI_CONFIG.fontSize.small,
+      color: this.uiTextColor,
+      stroke: '#000000',
+      strokeThickness: 2,
+    });
+    pauseAvatarText.setOrigin(0.5, 0.5);
+
     // Create container and hide it initially
+    // Store references for updating pause menu stats
+    (this as any).pauseCoinText = pauseCoinText;
+    (this as any).pauseMiniMeText = pauseMiniMeText;
+    (this as any).pauseAvatarText = pauseAvatarText;
+    
     this.pauseContainer = this.add.container(0, 0, [
       overlay,
       this.pauseText,
       this.resumeButton,
       pauseMenuButton,
       settingsButton,
+      pauseInventoryButton,
+      rankTitle,
+      this.currentRankPauseText,
       achievementsTitle,
       ...this.achievementTexts,
     ]);
@@ -1035,7 +1241,7 @@ export class UIScene extends Phaser.Scene {
         id: 'game-pause',
         targetX: width - 40 * uiScale,
         targetY: 40 * uiScale,
-        content: 'PAUSE (ESC) - Click this button or press ESC to pause the game. Access settings, leaderboard, and more from the pause menu!',
+        content: 'Click this button or press ESC to pause the game. From the pause menu, you can access settings, leaderboard, and more!',
         position: 'left',
         width: 280,
       });
@@ -1080,7 +1286,53 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updatePrestige(_parent: Phaser.Data.DataManager, value: number) {
-    this.prestigeText.setText(`PRESTIGE: ${value}`);
+    const currentLayer = this.registry.get('currentLayer') as number || 1;
+    this.prestigeText.setText(`PRESTIGE ${value} - LAYER ${currentLayer}`);
+    
+    // Color-code based on prestige level
+    const prestigeColors: Record<number, string> = {
+      0: '#00ff00', // Green
+      1: '#00ff00', // Green
+      2: '#00aaff', // Blue
+      3: '#00aaff', // Blue
+      4: '#aa00ff', // Purple
+      5: '#aa00ff', // Purple
+      6: '#ff00ff', // Magenta
+      7: '#ff00ff', // Magenta
+      8: '#ffff00', // Yellow/Gold for Prime Sentinel
+    };
+    const color = prestigeColors[value] || '#00ff00';
+    this.prestigeText.setColor(color);
+    
+    this.updateBulletTier(_parent, value);
+  }
+  
+  private updateCoinBalance(_parent: Phaser.Data.DataManager, value: number) {
+    this.coinBalanceText.setText(`COINS: ${value}`);
+  }
+  
+  private updateBulletTier(_parent: Phaser.Data.DataManager, prestige: number) {
+    const tierProgress = getTierProgress(prestige);
+    
+    let tierText = `BULLET TIER: ${tierProgress.currentTier}/${tierProgress.maxTier}`;
+    if (tierProgress.nextTier) {
+      tierText += ` (Next: P${tierProgress.nextTier.unlockPrestige})`;
+    }
+    
+    this.bulletTierText.setText(tierText);
+  }
+
+  private updateRank(_parent: Phaser.Data.DataManager, rankName: string) {
+    this.rankText.setText(`RANK: ${rankName}`);
+  }
+
+  private updateMiniMeCount(_parent: Phaser.Data.DataManager, count: number) {
+    this.miniMeCountText.setText(`MINI-MES: ${count}/7`);
+  }
+  
+  private updatePrestigeLayer(_parent: Phaser.Data.DataManager, _layer: number) {
+    const prestige = this.registry.get('prestigeLevel') as number || 0;
+    this.updatePrestige(_parent, prestige);
   }
 
 
@@ -1477,75 +1729,107 @@ export class UIScene extends Phaser.Scene {
     this.godModeBarBg.setAlpha(clamped > 0 ? 1 : 0.4);
   }
 
-  private updateLives(_parent: Phaser.Data.DataManager, value: number) {
+  private updateHealthBars(_parent: Phaser.Data.DataManager, value: number) {
     const uiScale = MOBILE_SCALE < 1.0 ? 0.6 : 1.0;
     const baseX = MOBILE_SCALE < 1.0 ? 15 : 30;
     const baseY = MOBILE_SCALE < 1.0 ? 15 : 30;
     const lineSpacing = MOBILE_SCALE < 1.0 ? 20 : 30;
-    const livesX = baseX + 10 * uiScale;
-    const livesY = baseY + lineSpacing * 5 + 8 * uiScale;
+    const healthX = baseX + 10 * uiScale;
+    const healthY = baseY + lineSpacing * 5 + 8 * uiScale;
 
-    this.renderLivesOrbs(value, livesX, livesY, uiScale);
+    this.renderHealthBars(value, healthX, healthY, uiScale);
   }
 
-  private renderLivesOrbs(lives: number, x: number, y: number, uiScale: number) {
-    const radius = 10 * uiScale;
-    const spacing = 26 * uiScale;
-    const maxOrbs = 4;
-    const clampedLives = Math.max(0, Math.min(lives, maxOrbs * 5));
+  private renderHealthBars(healthBars: number, x: number, y: number, uiScale: number) {
+    const barWidth = 20 * uiScale;
+    const barHeight = 8 * uiScale;
+    const spacing = 4 * uiScale;
+    const maxBars = 5;
+    const clampedBars = Math.max(0, Math.min(healthBars, maxBars));
 
     this.livesOrb.clear();
-    for (let i = 0; i < maxOrbs; i += 1) {
-      const segment = clampedLives - i * 5;
-      if (segment <= 0) {
-        break;
+    
+    // Update health bar label
+    if (this.healthBarLabel) {
+      this.healthBarLabel.setText(`HEALTH: ${clampedBars}/5`);
+    }
+    
+    // Draw health bars
+    const startY = y + 15 * uiScale;
+    for (let i = 0; i < maxBars; i += 1) {
+      const barX = x + i * (barWidth + spacing);
+      const isFilled = i < clampedBars;
+      
+      // Background (empty bar)
+      this.livesOrb.fillStyle(0x333333, 0.5);
+      this.livesOrb.fillRect(barX, startY, barWidth, barHeight);
+      this.livesOrb.lineStyle(1 * uiScale, 0x666666, 0.8);
+      this.livesOrb.strokeRect(barX, startY, barWidth, barHeight);
+      
+      // Filled bar
+      if (isFilled) {
+        // Color based on health level (green when full, red when low)
+        let color = 0x00ff00; // Green
+        if (clampedBars === 1) {
+          color = 0xff0000; // Red when at 1 health
+        } else if (clampedBars <= 2) {
+          color = 0xff6600; // Orange when at 2 health
+        }
+        
+        this.livesOrb.fillStyle(color, 1);
+        this.livesOrb.fillRect(barX, startY, barWidth, barHeight);
+        this.livesOrb.lineStyle(1 * uiScale, color, 1);
+        this.livesOrb.strokeRect(barX, startY, barWidth, barHeight);
       }
-      const progress = Math.min(segment, 5);
-      const orbX = x + i * spacing;
-      const color = this.getOrbColor(progress);
-
-      this.livesOrb.fillStyle(color, 1);
-      this.livesOrb.fillCircle(orbX, y, radius);
-      this.livesOrb.lineStyle(2 * uiScale, 0x001100, 0.8);
-      this.livesOrb.strokeCircle(orbX, y, radius);
+    }
+    
+    // Pulsing red warning effect when at 1 health
+    if (clampedBars === 1) {
+      this.tweens.add({
+        targets: [this.livesOrb, this.healthBarLabel],
+        alpha: { from: 1, to: 0.5 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+      });
+    } else {
+      this.livesOrb.setAlpha(this.uiOpacityMultiplier);
+      if (this.healthBarLabel) {
+        this.healthBarLabel.setAlpha(this.uiOpacityMultiplier);
+      }
     }
   }
 
-  private getOrbColor(progress: number): number {
-    const palette = [
-      0xff1a1a, // red
-      0xff7a00, // orange
-      0xffff00, // yellow
-      0x00ff66, // green
-    ];
-    const clamped = Math.max(0, Math.min(progress, 5));
-    const t = clamped / 5;
-
-    const start = Phaser.Display.Color.ValueToColor(palette[0]);
-    const end = Phaser.Display.Color.ValueToColor(palette[palette.length - 1]);
-    const blended = Phaser.Display.Color.Interpolate.ColorWithColor(start, end, 100, Math.round(t * 100));
-    const blendedObj = blended as { r: number; g: number; b: number };
-    return Phaser.Display.Color.GetColor(blendedObj.r, blendedObj.g, blendedObj.b);
-  }
 
   private onGameOver(_parent: Phaser.Data.DataManager, value: boolean) {
     if (value) {
       const finalScore = this.registry.get('finalScore') || 0;
       this.finalScoreText.setText(`FINAL SCORE: ${finalScore.toLocaleString()}`);
+      
+      // Display current rank
+      const currentRank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      this.rankTextGameOver.setText(`RANK: ${currentRank}`);
+      this.rankTextGameOver.setVisible(true);
+      
       const prestigeChampion = !!this.registry.get('prestigeChampion');
       this.prestigeBadgeText.setVisible(prestigeChampion);
-      const coins = (this.registry.get('coins') as number) || 0;
-      const reviveCount = (this.registry.get('reviveCount') as number) || 0;
-      const reviveCost = reviveCount + 1;
-      this.updateRunSummary(finalScore);
-      this.updateProgressStatement(finalScore);
-      this.runSummaryTexts.forEach((line) => line.setVisible(true));
-      this.gameOverContainer.setVisible(true);
-      this.pauseContainer.setVisible(false);
-      this.pauseButton.setVisible(false); // Hide pause button when game over
-      this.settingsContainer.setVisible(false);
-      this.settingsVisible = false;
-      this.showRevivePrompt(coins, reviveCost);
+      
+      // Import coin service and calculate revive cost
+      import('../../services/coinService').then(({ getAvailableCoins, getReviveCost }) => {
+        const coins = getAvailableCoins();
+        const reviveCount = (this.registry.get('reviveCount') as number) || 0;
+        const reviveCost = getReviveCost(reviveCount);
+        this.registry.set('coinBalance', coins);
+        this.updateRunSummary(finalScore);
+        this.updateProgressStatement(finalScore);
+        this.runSummaryTexts.forEach((line) => line.setVisible(true));
+        this.gameOverContainer.setVisible(true);
+        this.pauseContainer.setVisible(false);
+        this.pauseButton.setVisible(false); // Hide pause button when game over
+        this.settingsContainer.setVisible(false);
+        this.settingsVisible = false;
+        this.showRevivePrompt(coins, reviveCost);
+      });
     } else {
       this.gameOverContainer.setVisible(false);
       this.prestigeBadgeText.setVisible(false);
@@ -1557,20 +1841,36 @@ export class UIScene extends Phaser.Scene {
     }
   }
 
-  private updateRunSummary(_finalScore: number) {
+  private updateRunSummary(finalScore: number) {
     const stats = (this.registry.get('runStats') as {
       survivalTimeMs?: number;
+      enemiesDefeated?: number;
     }) || {};
     const minutes = Math.floor((stats.survivalTimeMs ?? 0) / 60000);
     const seconds = Math.floor(((stats.survivalTimeMs ?? 0) % 60000) / 1000);
-    const lines = [
-      `SURVIVAL TIME: ${minutes}m ${seconds}s`,
-    ];
-    this.runSummaryTexts.forEach((text, index) => {
-      if (lines[index]) {
-        text.setText(lines[index]);
-        text.setOrigin(0.5, 0);
-      }
+    const currentPrestige = this.registry.get('currentPrestige') as number || 0;
+    const currentLayer = this.registry.get('currentLayer') as number || 1;
+    
+    // Calculate coin rewards earned
+    import('../../services/coinService').then(({ getPrestigeReward }) => {
+      const prestigeReward = getPrestigeReward(currentPrestige);
+      
+      const lines = [
+        `SURVIVAL TIME: ${minutes}m ${seconds}s`,
+        `PRESTIGE/LAYER: P${currentPrestige} - L${currentLayer}`,
+        `ENEMIES DEFEATED: ${(stats.enemiesDefeated || 0).toLocaleString()}`,
+        `COIN REWARDS: ${prestigeReward} coins`,
+        `FINAL SCORE: ${finalScore.toLocaleString()}`,
+      ];
+      
+      this.runSummaryTexts.forEach((text, index) => {
+        if (lines[index]) {
+          text.setText(lines[index]);
+          text.setOrigin(0.5, 0);
+        } else {
+          text.setText('');
+        }
+      });
     });
   }
 
@@ -1707,6 +2007,25 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updateProgressStatement(finalScore: number) {
+    // Show rank progression information
+    const currentPrestige = this.registry.get('currentPrestige') as number || 0;
+    const currentLayer = this.registry.get('currentLayer') as number || 1;
+    const currentRank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+    
+    // Import rank service to get next rank info
+    import('../../services/rankService').then(({ getRankNumber, getRankProgress }) => {
+      const currentRankNumber = getRankNumber(currentPrestige, currentLayer);
+      const rankProgress = getRankProgress(currentPrestige, currentLayer);
+      
+      if (rankProgress && rankProgress.nextRank) {
+        const progressText = `Current: ${currentRank} (Rank ${currentRankNumber})\nNext: ${rankProgress.nextRank.name} (Rank ${rankProgress.nextRank.number})`;
+        this.progressStatementText.setText(progressText);
+      } else {
+        // At max rank
+        this.progressStatementText.setText(`MAX RANK ACHIEVED: ${currentRank}`);
+      }
+    });
+    
     const nextLayerEntry = Object.values(LAYER_CONFIG).find(
       (layer) => layer.scoreThreshold > finalScore
     );
@@ -1777,6 +2096,40 @@ export class UIScene extends Phaser.Scene {
       this.pauseContainer.setVisible(true);
       this.pauseButton.setVisible(false); // Hide pause button when paused
       this.refreshAchievementProgress();
+      
+      // Update rank display in pause menu
+      const rank = this.registry.get('currentRank') as string || 'Initiate Sentinel';
+      if (this.currentRankPauseText) {
+        this.currentRankPauseText.setText(`RANK: ${rank}`);
+      }
+      
+      // Update coin balance in pause menu
+      const pauseCoinText = (this as any).pauseCoinText as Phaser.GameObjects.Text | undefined;
+      if (pauseCoinText) {
+        import('../../services/coinService').then(({ getAvailableCoins }) => {
+          const coins = getAvailableCoins();
+          pauseCoinText.setText(`COINS: ${coins}`);
+        });
+      }
+      
+      // Update active mini-mes in pause menu
+      const pauseMiniMeText = (this as any).pauseMiniMeText as Phaser.GameObjects.Text | undefined;
+      if (pauseMiniMeText) {
+        const activeMiniMes = this.registry.get('activeMiniMes') as number || 0;
+        pauseMiniMeText.setText(`ACTIVE MINI-MES: ${activeMiniMes}/7`);
+      }
+      
+      // Update current avatar stats in pause menu
+      const pauseAvatarText = (this as any).pauseAvatarText as Phaser.GameObjects.Text | undefined;
+      if (pauseAvatarText) {
+        import('../../services/avatarService').then(({ getActiveAvatar, getAvatarStats }) => {
+          const activeAvatar = getActiveAvatar();
+          const stats = getAvatarStats(activeAvatar);
+          pauseAvatarText.setText(
+            `AVATAR: ${activeAvatar} | Speed: ${stats.speedMultiplier.toFixed(1)}x | Fire: ${stats.fireRateMultiplier.toFixed(1)}x | Health: ${stats.healthMultiplier.toFixed(1)}x`
+          );
+        });
+      }
     } else {
       this.pauseContainer.setVisible(false);
       this.settingsContainer.setVisible(false);
@@ -1804,11 +2157,13 @@ export class UIScene extends Phaser.Scene {
     deepestLayer?: number,
     prestigeLevel?: number,
     runMetrics?: any,
-    modifierKey?: string
+    modifierKey?: string,
+    currentRank?: string
   ) {
     // Import and call score service
     const { submitScore } = await import('../../services/scoreService');
-    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics, modifierKey);
+    const rank = currentRank || (this.registry.get('currentRank') as string) || 'Initiate Sentinel';
+    submitScore(score, walletAddress, deepestLayer, prestigeLevel, runMetrics, modifierKey, rank);
 
     const playerName = walletAddress
       ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
@@ -1919,6 +2274,10 @@ export class UIScene extends Phaser.Scene {
     // Cleanup tooltip manager
     if (this.tooltipManager) {
       this.tooltipManager.destroy();
+    }
+    // Cleanup dialogue manager
+    if (this.dialogueManager) {
+      this.dialogueManager.destroy();
     }
   }
 }

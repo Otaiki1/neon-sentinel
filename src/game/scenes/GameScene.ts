@@ -9,6 +9,8 @@ import {
     UI_CONFIG,
     MAX_LAYER,
     PRESTIGE_CONFIG,
+    getPrestigeTierConfig,
+    getPrestigeCoinReward,
     DIFFICULTY_EVOLUTION,
     ENEMY_BEHAVIOR_CONFIG,
     OVERCLOCK_CONFIG,
@@ -27,7 +29,6 @@ import {
     addLifetimeScore,
     getLifetimeStats,
     getSelectedCosmetic,
-    getSelectedHero,
     getSelectedSkin,
     recordProfileRunStats,
     setAchievementProgress,
@@ -44,8 +45,72 @@ import {
     getSelectedKernelKey,
     recordKernelRunStats,
 } from "../../services/kernelService";
-import { consumeCoins, getAvailableCoins } from "../../services/coinService";
+import {
+    getCurrentHeroGrade,
+    getHeroGradeConfig,
+    checkAndUnlockHeroGrades,
+} from "../../services/heroGradeService";
+import {
+    getAvailableCoins,
+    spendCoins,
+    grantPrestigeReward,
+    getReviveCost,
+    checkAndGrantPrimeSentinelBonus,
+} from "../../services/coinService";
+import {
+    activateMiniMe,
+    type MiniMeType,
+} from "../../services/inventoryService";
+import {
+    getEnemySpriteKey,
+    getEnemyDisplayName,
+    getEnemyStats,
+    getEnemyColorFromType,
+    getGraduationBossName,
+    getGraduationBossSpriteKey,
+} from "../../services/enemyService";
+import { MINI_ME_CONFIG } from "../config";
 import { isShockBombUnlocked, isGodModeUnlocked } from "../../services/abilityService";
+import {
+    getMilestoneForProgress,
+    shouldTriggerMilestone,
+    completeMilestone,
+    updateStoryState,
+} from "../../services/storyService";
+import {
+    getActiveAvatar,
+    getActiveAvatarStats,
+    getAvatarConfig,
+} from "../../services/avatarService";
+import {
+    getRankName,
+    updateCurrentRank,
+    calculateRankMilestone,
+} from "../../services/rankService";
+import { markFinalBossDefeated } from "../../services/avatarService";
+import {
+    getDialogueForTrigger,
+    type DialogueState,
+} from "../lore/dialogues";
+import {
+    markDialogueAsViewed,
+    hasViewedDialogue,
+    isFirstRun,
+} from "../../services/dialogueService";
+import {
+    getCurrentBulletTier,
+    getBulletStats,
+    type BulletTier,
+} from "../../services/bulletUpgradeService";
+import {
+    getFinalBossHealthP8,
+    getCurrentPhase,
+    shouldSpawnFinalBoss,
+    getFinalBossDialogue,
+    getFinalDefeatDialogue,
+    shouldUnlockPrimeSentinel,
+    type FinalBossPhase,
+} from "../../services/finalBossService";
 
 export class GameScene extends Phaser.Scene {
     private player!: Phaser.Physics.Arcade.Sprite;
@@ -61,9 +126,11 @@ export class GameScene extends Phaser.Scene {
     private gameOver = false;
     private score = 0;
     private comboMultiplier = 1;
-    private lives: number = PLAYER_CONFIG.initialLives;
+    private healthBars: number = PLAYER_CONFIG.initialHealthBars;
     private lastHitTime = 0;
     private backgroundGrid!: Phaser.GameObjects.Graphics;
+    private layerBackgroundImage!: Phaser.GameObjects.Image;
+    private darkOverlay!: Phaser.GameObjects.Graphics;
     private currentLayer = 1;
     private deepestLayer = 1;
     private prestigeLevel = 0;
@@ -71,6 +138,7 @@ export class GameScene extends Phaser.Scene {
     private prestigeScoreMultiplier = 1;
     private prestigeFlashTimer: Phaser.Time.TimerEvent | null = null;
     private prestigeGlitchTimer: Phaser.Time.TimerEvent | null = null;
+    // @ts-ignore - Used in enterPrestigeMode but TypeScript doesn't detect it
     private prestigeResetAvailable = true;
     private overclockKey!: Phaser.Input.Keyboard.Key;
     private overclockActive = false;
@@ -159,6 +227,15 @@ export class GameScene extends Phaser.Scene {
     private kernelHealthMultiplier = 1;
     private kernelBulletPiercing = false;
     private kernelDamageAccumulator = 0;
+    private heroGradeSpeedMultiplier = 1;
+    private heroGradeFireRateMultiplier = 1;
+    // Health bars are always 5, not affected by hero grade
+    private heroGradeDamageMultiplier = 1;
+    private heroGradeBulletPiercing = false;
+    private avatarSpeedMultiplier = 1;
+    private avatarFireRateMultiplier = 1;
+    private avatarHealthMultiplier = 1;
+    private avatarDamageMultiplier = 1;
     private shotsFiredThisRun = 0;
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
@@ -175,7 +252,7 @@ export class GameScene extends Phaser.Scene {
     private comboShakeCooldown = 0;
     private powerUpsCollected = 0;
     private totalBulletsDodged = 0;
-    private totalLivesLost = 0;
+    private totalHealthBarsLost = 0;
     private lastRunStatsUpdate = 0;
     private settingsEnemySpeedMultiplier = 1;
     private settingsSpawnRateMultiplier = 1;
@@ -201,8 +278,14 @@ export class GameScene extends Phaser.Scene {
     private enemyBullets!: Phaser.Physics.Arcade.Group;
     private isPaused = false;
     private graduationBossActive = false; // Track if graduation boss is active
+    private finalBossActive = false; // Track if final boss (Zrechostikal) is active
+    private finalBossPhase: FinalBossPhase | null = null; // Current final boss phase
+    private finalBossPhaseStartTime = 0; // When current phase started
+    private finalBossAssaultActive = false; // Whether in assault or rest phase
+    private finalBossLastEnemySpawn = 0; // Last time enemies were spawned during final boss
     private pendingLayer = 1; // Layer waiting to be unlocked after boss defeat
     private powerUps!: Phaser.Physics.Arcade.Group;
+    private miniMes!: Phaser.Physics.Arcade.Group;
     private speedMultiplier = 1;
     private fireRateMultiplier = 1;
     private layerFireRateMultiplier = 1; // Increases slightly with each layer
@@ -244,6 +327,51 @@ export class GameScene extends Phaser.Scene {
         // Draw background grid
         this.drawBackgroundGrid();
         this.createSensoryOverlays();
+        
+        // White Sentinel introduction sequence
+        this.time.delayedCall(500, () => {
+            this.introduceWhiteSentinel();
+        });
+        
+        // Trigger dialogue on game start
+        this.time.delayedCall(1000, () => {
+            this.triggerDialogue('game_start');
+        });
+        
+        // Trigger layer start dialogue
+        this.time.delayedCall(1500, () => {
+            this.triggerDialogue('layer_start');
+        });
+        
+        // Update story state
+        updateStoryState(this.prestigeLevel, this.currentLayer);
+        
+        // Apply avatar stats
+        this.applyAvatarStats();
+        
+        // Initialize rank display
+        const initialRankName = getRankName(this.prestigeLevel, this.currentLayer);
+        this.registry.set("currentRank", initialRankName);
+        
+        // Initialize coin balance in registry
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Initialize health bars in registry
+        this.registry.set("healthBars", this.healthBars);
+        
+        // Initialize mini-me active count
+        this.registry.set("activeMiniMes", 0);
+        
+        // Check and grant Prime Sentinel bonus if eligible
+        if (checkAndGrantPrimeSentinelBonus(this.prestigeLevel)) {
+            this.time.delayedCall(2000, () => {
+                this.showAnnouncement(
+                    "PRIME SENTINEL BONUS",
+                    "Prime Sentinel has sent you 3 coins!",
+                    0x00ffff
+                );
+            });
+        }
 
         // Create player at dynamic position based on screen size
         const gameWidth = this.scale.width;
@@ -254,6 +382,8 @@ export class GameScene extends Phaser.Scene {
         this.player = this.physics.add.sprite(startX, startY, heroTexture);
         this.player.setCollideWorldBounds(true);
         this.player.setScale(0.5 * MOBILE_SCALE);
+        this.player.setDepth(100); // Ensure player is above all backgrounds
+        this.player.setAlpha(1); // Ensure player is fully opaque
         this.originalPlayerTexture = heroTexture; // Store original texture
         this.applySelectedAppearance();
         
@@ -278,6 +408,10 @@ export class GameScene extends Phaser.Scene {
         this.explosions = this.add.group();
 
         this.powerUps = this.physics.add.group();
+        this.miniMes = this.physics.add.group({
+            defaultKey: 'power_up', // Use power-up sprite as placeholder
+            maxSize: MINI_ME_CONFIG.maxActive,
+        });
 
         // Shockwaves group (for blue zigzag lines from bosses)
         this.shockwaves = this.physics.add.group();
@@ -387,6 +521,15 @@ export class GameScene extends Phaser.Scene {
             undefined,
             this
         );
+        
+        // Collision between enemies and mini-mes
+        this.physics.add.overlap(
+            this.enemies,
+            this.miniMes,
+            this.handleEnemyMiniMeCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+            undefined,
+            this
+        );
 
         // Collision between player and shockwaves
         this.physics.add.overlap(
@@ -413,6 +556,16 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("isPaused", false);
         this.registry.set("prestigeChampion", false);
         this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set("currentPrestige", this.prestigeLevel);
+        this.registry.set("previousPrestige", -1);
+        this.registry.set("prestigeCompleted", new Array(9).fill(false));
+        this.registry.set("isPrimeSentinel", false);
+        
+        // Initialize rank (already set in create method)
+        
+        // Initialize coin balance
+        this.registry.set("coinBalance", getAvailableCoins());
+        
         this.registry.set(
             "prestigeScoreMultiplier",
             this.prestigeScoreMultiplier
@@ -490,7 +643,7 @@ export class GameScene extends Phaser.Scene {
         this.enemyUidCounter = 0;
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
-        this.totalLivesLost = 0;
+        this.totalHealthBarsLost = 0;
         this.lastRunStatsUpdate = this.runStartTime;
         this.reviveCount = 0;
         this.reviveCount = 0;
@@ -566,9 +719,115 @@ export class GameScene extends Phaser.Scene {
         }
 
         this.backgroundGrid.setAlpha(this.gridOpacityMultiplier);
+        
+        // Update layer background image
+        this.updateLayerBackground();
 
         // Draw faint progress bar at the bottom
         this.drawProgressBar();
+    }
+    
+    private updateLayerBackground() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        // Map layer number to background image key
+        const layerImageMap: Record<number, string> = {
+            1: '', // Boot Sector - no image, use default grid
+            2: 'layerFirewall',
+            3: 'layerSecurityCore',
+            4: 'layerCorruptedAI',
+            5: 'layerKernelBreach',
+            6: 'layerSystemCollapse',
+        };
+        
+        const imageKey = layerImageMap[this.currentLayer];
+        
+        // If no image for this layer, hide the background image and overlay
+        if (!imageKey) {
+            if (this.layerBackgroundImage) {
+                this.layerBackgroundImage.setVisible(false);
+            }
+            if (this.darkOverlay) {
+                this.darkOverlay.setVisible(false);
+            }
+            // Ensure player is always fully opaque
+            if (this.player && this.player.active) {
+                this.player.setAlpha(1);
+                this.player.setDepth(100);
+            }
+            return;
+        }
+        
+        // Create or update the background image
+        if (!this.layerBackgroundImage) {
+            this.layerBackgroundImage = this.add.image(width / 2, height / 2, imageKey);
+            this.layerBackgroundImage.setDepth(-1000); // Behind everything
+            this.layerBackgroundImage.setAlpha(0.3); // Reduced opacity for background image
+            this.layerBackgroundImage.setDisplaySize(width, height);
+            this.layerBackgroundImage.setBlendMode(Phaser.BlendModes.NORMAL); // Ensure normal blend mode
+            this.layerBackgroundImage.setScrollFactor(0); // Fixed position
+            
+            // Add dark overlay on top of background image to make it darker
+            this.darkOverlay = this.add.graphics();
+            this.darkOverlay.fillStyle(0x000000, 0.7); // 70% black overlay for darker effect
+            this.darkOverlay.fillRect(0, 0, width, height);
+            this.darkOverlay.setDepth(-999); // Just above background image, below grid
+            this.darkOverlay.setScrollFactor(0); // Fixed position
+            this.darkOverlay.setBlendMode(Phaser.BlendModes.NORMAL); // Ensure normal blend mode
+        } else {
+            // Update existing image
+            this.layerBackgroundImage.setTexture(imageKey);
+            this.layerBackgroundImage.setVisible(true);
+            this.layerBackgroundImage.setDisplaySize(width, height);
+            
+            // Update dark overlay size if it exists
+            if (this.darkOverlay) {
+                this.darkOverlay.clear();
+                this.darkOverlay.fillStyle(0x000000, 0.7); // 70% black overlay for darker effect
+                this.darkOverlay.fillRect(0, 0, width, height);
+            }
+        }
+        
+        // Ensure player is always fully opaque and at correct depth
+        if (this.player && this.player.active) {
+            this.player.setAlpha(1);
+            this.player.setDepth(100);
+        }
+    }
+    
+    private showPrestigeLayerBriefly() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        // Create prestige layer image overlay
+        const prestigeImage = this.add.image(width / 2, height / 2, 'layerPrestige');
+        prestigeImage.setDepth(-999); // Just above regular background
+        prestigeImage.setAlpha(0);
+        prestigeImage.setDisplaySize(width, height);
+        
+        // Fade in
+        this.tweens.add({
+            targets: prestigeImage,
+            alpha: 0.6,
+            duration: 500,
+            ease: 'Power2',
+            onComplete: () => {
+                // Hold for 2 seconds
+                this.time.delayedCall(2000, () => {
+                    // Fade out
+                    this.tweens.add({
+                        targets: prestigeImage,
+                        alpha: 0,
+                        duration: 500,
+                        ease: 'Power2',
+                        onComplete: () => {
+                            prestigeImage.destroy();
+                        }
+                    });
+                });
+            }
+        });
     }
 
     private drawProgressBar() {
@@ -771,7 +1030,7 @@ export class GameScene extends Phaser.Scene {
             accuracy,
             bulletsDodged: this.totalBulletsDodged,
             powerUpsCollected: this.powerUpsCollected,
-            livesUsed: this.totalLivesLost,
+            livesUsed: this.totalHealthBarsLost,
             deaths: this.hitsTakenThisRun,
             bestCombo: this.peakComboMultiplier,
         });
@@ -781,20 +1040,23 @@ export class GameScene extends Phaser.Scene {
         if (!this.gameOver) {
             return false;
         }
-        const cost = this.reviveCount + 1;
-        if (!consumeCoins(cost)) {
+        const cost = getReviveCost(this.reviveCount);
+        if (!spendCoins(cost, 'revive')) {
             return false;
         }
         this.reviveCount += 1;
         this.gameOver = false;
         this.registry.set("gameOver", false);
-        this.registry.set("coins", getAvailableCoins());
+        
+        // Clean up mini-mes on restart
+        this.cleanupMiniMes();
+        this.registry.set("coinBalance", getAvailableCoins());
         this.registry.set("reviveCount", this.reviveCount);
         this.isPaused = false;
         this.player.setVelocity(0, 0);
-        const reviveLives = Math.max(PLAYER_CONFIG.initialLives, 5);
-        this.lives = reviveLives;
-        this.registry.set("lives", this.lives);
+        // Restore all 5 health bars on revival
+        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        this.registry.set("healthBars", this.healthBars);
         this.lastHitTime = this.time.now;
 
         this.enemyBullets.clear(true, true);
@@ -958,6 +1220,17 @@ export class GameScene extends Phaser.Scene {
         // GameScene update continues to run even when paused so UIScene can handle input
 
         if (this.gameOver || this.isPaused) return;
+        
+        // Ensure player is always fully opaque and at correct depth (safeguard against background effects)
+        // This is especially important when background images are active (layer 2+)
+        if (this.player && this.player.active && this.currentLayer >= 2) {
+            if (this.player.alpha !== 1) {
+                this.player.setAlpha(1);
+            }
+            if (this.player.depth !== 100) {
+                this.player.setDepth(100);
+            }
+        }
 
         this.updateDifficultyPhase(time);
         this.samplePlayerMovement(time);
@@ -976,14 +1249,21 @@ export class GameScene extends Phaser.Scene {
 
         // Player movement
         this.handlePlayerMovement();
+        
+        // Update mini-mes
+        if (!this.gameOver) {
+            this.updateMiniMes(time);
+        }
 
         // Shooting - manual or auto-shoot power-up
         const currentFireRate =
             PLAYER_CONFIG.fireRate *
+            this.avatarFireRateMultiplier *
             this.fireRateMultiplier *
             this.overclockFireRateMultiplier *
             this.challengeFireRateMultiplier *
             this.kernelFireRateMultiplier *
+            this.heroGradeFireRateMultiplier *
             this.layerFireRateMultiplier;
 
         // Check stun status
@@ -1018,18 +1298,48 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Remove bullets that are off screen (right edge)
+        // Also cleanup trail timers for bullets
         const gameWidth = this.scale.width;
         const gameHeight = this.scale.height;
         this.bullets.children.entries.forEach((bullet) => {
             const b = bullet as Phaser.Physics.Arcade.Sprite;
             if (b.x > gameWidth + 50 || b.x < -50) {
+                // Cleanup trail timer if exists
+                const trailTimer = b.getData('trailTimer') as Phaser.Time.TimerEvent | undefined;
+                if (trailTimer) {
+                    trailTimer.remove();
+                }
                 b.destroy();
             }
         });
 
         // Remove enemy bullets that are off screen
+        // Also update homing bullets
         this.enemyBullets.children.entries.forEach((bullet) => {
             const b = bullet as Phaser.Physics.Arcade.Sprite;
+            
+            // Update homing bullets (final boss)
+            const isHoming = b.getData("isHoming") as boolean || false;
+            if (isHoming && b.active) {
+                const targetX = b.getData("targetX") as number || this.player.x;
+                const targetY = b.getData("targetY") as number || this.player.y;
+                
+                // Update target periodically
+                if (this.time.now % 200 < 16) { // Every ~200ms
+                    b.setData("targetX", this.player.x);
+                    b.setData("targetY", this.player.y);
+                }
+                
+                // Adjust velocity toward target
+                const angle = Phaser.Math.Angle.Between(b.x, b.y, targetX, targetY);
+                if (b.body) {
+                    const speed = Math.sqrt(b.body.velocity.x ** 2 + b.body.velocity.y ** 2);
+                    const newVelX = Math.cos(angle) * speed;
+                    const newVelY = Math.sin(angle) * speed;
+                    b.setVelocity(newVelX, newVelY);
+                }
+            }
+            
             if (
                 b.x < -50 ||
                 b.x > gameWidth + 50 ||
@@ -1063,6 +1373,14 @@ export class GameScene extends Phaser.Scene {
         // Handle blue enemy shooting and wall bouncing
         this.enemies.children.entries.forEach((enemyObj) => {
             const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            // Check if enemy is stunned
+            const isStunned = enemy.getData('stunned') as boolean || false;
+            const stunEndTime = enemy.getData('stunEndTime') as number || 0;
+            if (isStunned && time < stunEndTime) {
+                // Enemy is stunned - don't update movement or shooting
+                enemy.setVelocity(0, 0);
+                return;
+            }
             const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
             const behaviors =
                 (enemy.getData("behaviors") as string[] | undefined) || [];
@@ -1083,6 +1401,13 @@ export class GameScene extends Phaser.Scene {
                 }
             }
 
+            // Final boss has special update logic
+            const isFinalBoss = enemy.getData("isFinalBoss") || false;
+            if (isFinalBoss) {
+                this.updateFinalBoss(enemy, time);
+                return; // Skip normal graduation boss logic
+            }
+            
             // Graduation bosses track player movement to maintain line of sight
             if (isGraduationBoss) {
                 // Boss tracks player's Y position to maintain line of sight
@@ -1264,8 +1589,8 @@ export class GameScene extends Phaser.Scene {
 
             // Fire shockwaves for graduation bosses and final bosses
             const bossKey = enemy.getData("bossKey") as string | undefined;
-            const isFinalBoss = bossKey === "finalBoss";
-            if ((isGraduationBoss || isFinalBoss) && enemy.active) {
+            const isFinalBossByKey = bossKey === "finalBoss";
+            if ((isGraduationBoss || isFinalBossByKey) && enemy.active) {
                 const lastShockwave = enemy.getData("lastShockwave") || 0;
                 const shockwaveInterval = 8000; // Fire shockwave every 8 seconds
                 if (time - lastShockwave >= shockwaveInterval) {
@@ -1317,12 +1642,14 @@ export class GameScene extends Phaser.Scene {
         let velocityX = 0;
         let velocityY = 0;
 
-        // Calculate speed with power-up multiplier
+        // Calculate speed with power-up multiplier (avatar stats applied first)
         const currentSpeed =
             PLAYER_CONFIG.speed *
+            this.avatarSpeedMultiplier *
             this.speedMultiplier *
             this.overclockSpeedMultiplier *
             this.kernelSpeedMultiplier *
+            this.heroGradeSpeedMultiplier *
             this.modifierSpeedCap;
 
         // Mobile joystick controls
@@ -1570,6 +1897,13 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        // Get current bullet tier based on prestige
+        const bulletTier = getCurrentBulletTier(this.prestigeLevel);
+        const bulletStats = getBulletStats(bulletTier.tier);
+        if (!bulletStats) {
+            return; // Fallback to default if stats not found
+        }
+
         // Base firepower: single bullet
         if (this.firepowerLevel === 0) {
             const bullet = this.bullets.get(
@@ -1579,10 +1913,27 @@ export class GameScene extends Phaser.Scene {
             if (bullet) {
                 bullet.setActive(true);
                 bullet.setVisible(true);
-                bullet.setScale(0.5 * MOBILE_SCALE);
-                bullet.setTexture("greenBullet1"); // Normal green bullet
-                bullet.setVelocityX(PLAYER_CONFIG.bulletSpeed);
+                
+                // Apply bullet tier sprite and scale
+                const baseScale = 0.5 * MOBILE_SCALE;
+                const tierScale = baseScale * (0.8 + (bulletTier.tier - 1) * 0.1); // Slightly larger per tier
+                bullet.setScale(tierScale);
+                bullet.setTexture(bulletStats.spriteKey);
+                
+                // Apply bullet tier speed multiplier
+                const bulletSpeed = PLAYER_CONFIG.bulletSpeed * bulletStats.speedMultiplier;
+                bullet.setVelocityX(bulletSpeed);
                 bullet.setVelocityY(0);
+                
+                // Store bullet tier data for collision handling
+                bullet.setData('bulletTier', bulletTier.tier);
+                bullet.setData('damageMultiplier', bulletStats.damageMultiplier);
+                bullet.setData('piercing', bulletStats.effects.piercing);
+                bullet.setData('pierceCount', 0); // Track how many enemies pierced
+                
+                // Add visual effects
+                this.addBulletVisualEffects(bullet, bulletTier);
+                
                 this.shotsFiredThisRun += 1;
             }
         } else {
@@ -1600,17 +1951,12 @@ export class GameScene extends Phaser.Scene {
                 if (bullet) {
                     bullet.setActive(true);
                     bullet.setVisible(true);
-                    bullet.setScale(0.6 * MOBILE_SCALE); // Slightly larger for visual impact
-
-                    // Use different bullet sprites based on firepower level
-                    if (firepowerLevelInt === 1) {
-                        bullet.setTexture("greenBullet2"); // Upgraded green bullet
-                    } else if (firepowerLevelInt >= 2) {
-                        bullet.setTexture("yellowBullet"); // Yellow bullet for high firepower
-                        bullet.setScale(0.7 * MOBILE_SCALE); // Even larger
-                    } else {
-                        bullet.setTexture("greenBullet1");
-                    }
+                    
+                    // Apply bullet tier sprite and scale
+                    const baseScale = 0.6 * MOBILE_SCALE;
+                    const tierScale = baseScale * (0.9 + (bulletTier.tier - 1) * 0.1); // Slightly larger per tier
+                    bullet.setScale(tierScale);
+                    bullet.setTexture(bulletStats.spriteKey);
 
                     // Calculate spread angle
                     const angleOffset =
@@ -1618,33 +1964,116 @@ export class GameScene extends Phaser.Scene {
                         (spreadAngle / (bulletCount - 1 || 1));
                     const angle = Phaser.Math.DegToRad(angleOffset);
 
-                    // Set velocity with spread
-                    const velocityX =
-                        Math.cos(angle) * PLAYER_CONFIG.bulletSpeed;
-                    const velocityY =
-                        Math.sin(angle) * PLAYER_CONFIG.bulletSpeed;
+                    // Apply bullet tier speed multiplier
+                    const bulletSpeed = PLAYER_CONFIG.bulletSpeed * bulletStats.speedMultiplier;
+                    const velocityX = Math.cos(angle) * bulletSpeed;
+                    const velocityY = Math.sin(angle) * bulletSpeed;
                     bullet.setVelocity(velocityX, velocityY);
+                    
+                    // Store bullet tier data for collision handling
+                    bullet.setData('bulletTier', bulletTier.tier);
+                    bullet.setData('damageMultiplier', bulletStats.damageMultiplier);
+                    bullet.setData('piercing', bulletStats.effects.piercing);
+                    bullet.setData('pierceCount', 0); // Track how many enemies pierced
+                    
+                    // Add visual effects
+                    this.addBulletVisualEffects(bullet, bulletTier);
+                    
                     this.shotsFiredThisRun += 1;
                 }
             }
         }
     }
+    
+    /**
+     * Add visual effects to bullet based on tier
+     */
+    private addBulletVisualEffects(bullet: Phaser.Physics.Arcade.Sprite, tier: BulletTier): void {
+        // Add glow effect for tiers 2+
+        if (tier.effects.glow) {
+            bullet.setTint(0xffffff);
+            this.tweens.add({
+                targets: bullet,
+                alpha: { from: 1, to: 0.7 },
+                duration: 200,
+                yoyo: true,
+                repeat: -1,
+            });
+        }
+        
+        // Add trail effect for tiers 2+
+        if (tier.effects.trail) {
+            // Create a trail particle effect
+            const trailColor = tier.tier >= 5 ? 0x00ffff : tier.tier >= 4 ? 0x0088ff : 0x00ff00;
+            const trailTimer = this.time.addEvent({
+                delay: 50,
+                callback: () => {
+                    if (!bullet.active) {
+                        trailTimer.remove();
+                        return;
+                    }
+                    const trail = this.add.circle(bullet.x, bullet.y, 3, trailColor, 0.5);
+                    this.tweens.add({
+                        targets: trail,
+                        alpha: 0,
+                        scale: 0,
+                        duration: 200,
+                        onComplete: () => trail.destroy(),
+                    });
+                },
+                loop: true,
+            });
+            bullet.setData('trailTimer', trailTimer);
+        }
+    }
 
     private getSelectedHeroTextureKey() {
-        const heroKey = getSelectedHero();
-        switch (heroKey) {
-            case "sentinel_vanguard":
-                return "heroVanguard";
-            case "sentinel_ghost":
-                return "heroGhost";
-            case "sentinel_drone":
-                return "heroDrone";
+        // Avatar system takes priority:
+        // - Avatar selection determines sprite and stats
+        // - Falls back to kernel/grade system if no avatar selected
+        
+        const activeAvatar = getActiveAvatar();
+        const avatarConfig = getAvatarConfig(activeAvatar);
+        
+        if (avatarConfig && avatarConfig.spriteKey) {
+            return avatarConfig.spriteKey;
+        }
+        
+        // Fallback to kernel/grade system
+        const kernelKey = getSelectedKernelKey();
+        const currentGrade = getCurrentHeroGrade();
+        
+        // Get kernel config to determine colored variant
+        const kernelConfig = PLAYER_KERNELS[kernelKey];
+        const spriteVariant = (kernelConfig as any).spriteVariant || "default";
+        
+        // Map kernel variant to sprite key
+        // Grade determines which base sprite, variant determines color
+        switch (currentGrade) {
+            case 1:
+                if (spriteVariant === "blue") return "heroGrade1Blue";
+                return "heroGrade1";
+            case 2:
+                if (spriteVariant === "purple") return "heroGrade2Purple";
+                return "heroGrade2";
+            case 3:
+                if (spriteVariant === "red") return "heroGrade3Red";
+                return "heroGrade3";
+            case 4:
+                if (spriteVariant === "orange") return "heroGrade4Orange";
+                return "heroGrade4";
+            case 5:
+                if (spriteVariant === "white") return "heroGrade5White";
+                return "heroGrade5";
             default:
-                return "hero";
+                return "heroGrade1";
         }
     }
 
     private getSkinTint(skinKey: string) {
+        // Colored variants are now determined by kernel selection, not skins
+        // Skins are kept for backward compatibility but don't affect sprite color
+        // Only apply tint for legacy skins that don't have kernel variants
         switch (skinKey) {
             case "skin_crimson":
                 return 0xff3366;
@@ -1655,6 +2084,24 @@ export class GameScene extends Phaser.Scene {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Apply avatar stats to player
+     */
+    private applyAvatarStats(): void {
+        const avatarStats = getActiveAvatarStats();
+        this.avatarSpeedMultiplier = avatarStats.speedMultiplier;
+        this.avatarFireRateMultiplier = avatarStats.fireRateMultiplier;
+        this.avatarHealthMultiplier = avatarStats.healthMultiplier;
+        this.avatarDamageMultiplier = avatarStats.damageMultiplier;
+        
+        // Store in registry for UI access
+        this.registry.set("avatarSpeedMultiplier", this.avatarSpeedMultiplier);
+        this.registry.set("avatarFireRateMultiplier", this.avatarFireRateMultiplier);
+        this.registry.set("avatarHealthMultiplier", this.avatarHealthMultiplier);
+        this.registry.set("avatarDamageMultiplier", this.avatarDamageMultiplier);
+        this.registry.set("activeAvatarId", getActiveAvatar());
     }
 
     private applySelectedAppearance() {
@@ -1859,6 +2306,35 @@ export class GameScene extends Phaser.Scene {
         return Phaser.Math.Between(50, gameHeight - 50);
     }
 
+    /**
+     * Get enemy sprite key using enemy service
+     * @deprecated Use getEnemySpriteKey from enemyService directly
+     */
+    private getEnemySpriteKey(
+        enemyType: keyof typeof ENEMY_CONFIG | "red",
+        isBoss: boolean = false,
+        layer: number = 1,
+        prestigeLevel?: number
+    ): string {
+        // Handle red bosses (final bosses) - use old sprite system as fallback
+        if (enemyType === "red") {
+            if (layer >= 6) {
+                return "finalBoss";
+            } else if (layer >= 5) {
+                return "mediumFinalBoss";
+            } else {
+                return "miniFinalBoss";
+            }
+        }
+        
+        // Get enemy color from type
+        const color = getEnemyColorFromType(enemyType);
+        const prestige = prestigeLevel !== undefined ? prestigeLevel : this.prestigeLevel;
+        
+        // Use enemy service to get sprite key
+        return getEnemySpriteKey(color, prestige, isBoss);
+    }
+
     private spawnEnemyOfType(
         selectedType: keyof typeof ENEMY_CONFIG,
         options?: {
@@ -1871,20 +2347,12 @@ export class GameScene extends Phaser.Scene {
             overrideHealth?: number;
             overridePoints?: number;
             isFragment?: boolean;
+            isBoss?: boolean;
         }
     ) {
         const config = ENEMY_CONFIG[selectedType];
-        const keyMap: Record<string, string> = {
-            green: "enemyGreen",
-            yellow: "enemyYellow",
-            yellowShield: "enemyYellow",
-            yellowEcho: "enemyYellow",
-            blue: "enemyBlue",
-            blueBuff: "enemyBlue",
-            purple: "enemyPurple",
-            purpleFragmenter: "enemyPurple",
-        };
-        const key = keyMap[selectedType] || "enemyGreen";
+        const isBoss = options?.isBoss || false;
+        const key = this.getEnemySpriteKey(selectedType, isBoss, this.currentLayer, this.prestigeLevel);
 
         const gameWidth = this.scale.width;
         const x =
@@ -1924,21 +2392,37 @@ export class GameScene extends Phaser.Scene {
             options?.overrideHealth !== undefined
                 ? options.overrideHealth
                 : config.health;
+        
+        // Use enemy service for stat scaling
+        const enemyColor = getEnemyColorFromType(selectedType);
+        const enemyStats = getEnemyStats(
+            baseHealth,
+            config.speed,
+            config.points,
+            this.prestigeLevel,
+            baseHealthMultiplier * extraHealthMultiplier
+        );
+        
+        // Apply additional multipliers
         const scaledHealth = Math.ceil(
-            baseHealth *
-                baseHealthMultiplier *
-                extraHealthMultiplier *
+            enemyStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
         );
 
         const baseSpeedMultiplier = options?.speedMultiplier || 1.0;
         const scaledSpeed = Math.round(
-            config.speed *
+            enemyStats.speed *
                 baseSpeedMultiplier *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier *
                 this.settingsEnemySpeedMultiplier
+        );
+        
+        // Use scaled points from enemy service
+        const scaledPoints = Math.round(
+            enemyStats.points *
+                this.prestigeScoreMultiplier
         );
 
         const behaviors = this.getBehaviorsForEnemy(
@@ -1956,8 +2440,12 @@ export class GameScene extends Phaser.Scene {
             "points",
             options?.overridePoints !== undefined
                 ? options.overridePoints
-                : config.points
+                : scaledPoints
         );
+        
+        // Store enemy display name for UI/debugging
+        const displayName = getEnemyDisplayName(enemyColor, this.prestigeLevel, isBoss);
+        enemy.setData("displayName", displayName);
         enemy.setData("speed", scaledSpeed);
         enemy.setData("health", scaledHealth);
         enemy.setData("maxHealth", scaledHealth);
@@ -3190,9 +3678,12 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("comboMultiplier", this.comboMultiplier);
         }
         if (reward.extraLife) {
-            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
-            this.lives = Math.min(this.lives + reward.extraLife, MAX_LIVES);
-            this.registry.set("lives", this.lives);
+            // Restore 1 health bar per life orb (max 5 health bars)
+            this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+            this.registry.set("healthBars", this.healthBars);
+            
+            // Show floating text for health restoration
+            this.createFloatingText(this.player.x, this.player.y - 20, "+1 Health", { color: "#00ff00" });
         }
 
         const duration = 10000;
@@ -3368,6 +3859,30 @@ export class GameScene extends Phaser.Scene {
         this.kernelHealthMultiplier = ("healthPerLife" in kernel && kernel.healthPerLife) ? kernel.healthPerLife : 1;
         this.kernelBulletPiercing = ("bulletPiercing" in kernel && kernel.bulletPiercing) ? kernel.bulletPiercing : false;
         this.kernelDamageAccumulator = 0;
+        
+        // Apply hero grade bonuses
+        this.applyHeroGradeBonuses();
+    }
+    
+    private applyHeroGradeBonuses() {
+        const currentGrade = getCurrentHeroGrade();
+        const gradeConfig = getHeroGradeConfig(currentGrade);
+        const feature = gradeConfig.specialFeature;
+        
+        // Apply speed bonus (additive with kernel)
+        this.heroGradeSpeedMultiplier = 1 + (feature.speedBonus || 0);
+        
+        // Apply fire rate bonus (additive with kernel)
+        this.heroGradeFireRateMultiplier = 1 + (feature.fireRateBonus || 0);
+        
+        // Apply health bonus (multiplicative with kernel)
+        // Health bars are always 5, not affected by hero grade
+        
+        // Apply damage bonus
+        this.heroGradeDamageMultiplier = feature.damageBonus || 1;
+        
+        // Apply special abilities
+        this.heroGradeBulletPiercing = feature.specialAbility === "Bullet piercing" || false;
     }
 
     private initRotatingModifier(time: number) {
@@ -3617,46 +4132,67 @@ export class GameScene extends Phaser.Scene {
         let health = 0;
         let speed = 0;
 
-        // Final boss should only appear in prestige mode (prestigeLevel > 0)
-        // For layer 6 without prestige, use medium boss instead
-        if (this.currentLayer >= 6 && this.prestigeLevel > 0 && Math.random() < 0.1) {
-            // Final boss (only in prestige mode)
-            bossKey = "finalBoss";
-            bossType = "red";
-            points = ENEMY_CONFIG.red.points;
-            health = ENEMY_CONFIG.red.health;
-            speed = ENEMY_CONFIG.red.speed;
-        } else if (this.currentLayer >= 6 && Math.random() < 0.1) {
-            // Use medium boss for layer 6 without prestige (final boss is prestige-only)
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500;
-            health = 15;
-            speed = 100;
-        } else if (this.currentLayer >= 5) {
-            // Medium or mini boss
-            if (Math.random() < 0.5) {
-                bossKey = "mediumFinalBoss";
+        // Use enemy service for boss selection
+        if (this.currentLayer >= 6) {
+            // Layer 6: Prestige boss (yellow) or final boss (Zrechostikal)
+            if (this.prestigeLevel === 8) {
+                // Final boss: Zrechostikal
+                bossKey = "zrechostikal"; // Special final boss sprite
                 bossType = "red";
-                points = 300;
-                health = 10; // Doubled from 5
-                speed = 80;
-            } else {
-                bossKey = "miniFinalBoss";
-                bossType = "red";
-                points = 200;
-                health = 6; // Doubled from 3
+                points = 1000;
+                health = 50;
                 speed = 100;
+            } else {
+                // Prestige boss: yellow variant
+                bossKey = getGraduationBossSpriteKey(6, this.prestigeLevel);
+                bossType = "yellow";
+                const baseStats = getEnemyStats(16, 130, 400, this.prestigeLevel, 10);
+                points = baseStats.points;
+                health = baseStats.health;
+                speed = baseStats.speed;
             }
+        } else if (this.currentLayer >= 5) {
+            // Layer 5: Green variant (wraps)
+            bossKey = getGraduationBossSpriteKey(5, this.prestigeLevel);
+            bossType = "green";
+            const baseStats = getEnemyStats(14, 140, 300, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
         } else if (this.currentLayer >= 4) {
-            // Purple boss
-            bossKey = "enemyPurpleBoss";
+            // Layer 4: Purple boss
+            bossKey = getGraduationBossSpriteKey(4, this.prestigeLevel);
             bossType = "purple";
-            points = 150;
-            health = 8; // Doubled from 4
-            speed = 150;
+            const baseStats = getEnemyStats(12, 150, 250, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 3) {
+            // Layer 3: Blue boss
+            bossKey = getGraduationBossSpriteKey(3, this.prestigeLevel);
+            bossType = "blue";
+            const baseStats = getEnemyStats(10, 120, 150, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 2) {
+            // Layer 2: Yellow boss
+            bossKey = getGraduationBossSpriteKey(2, this.prestigeLevel);
+            bossType = "yellow";
+            const baseStats = getEnemyStats(6, 150, 100, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
+        } else if (this.currentLayer >= 1) {
+            // Layer 1: Green boss
+            bossKey = getGraduationBossSpriteKey(1, this.prestigeLevel);
+            bossType = "green";
+            const baseStats = getEnemyStats(4, 100, 50, this.prestigeLevel, 10);
+            points = baseStats.points;
+            health = baseStats.health;
+            speed = baseStats.speed;
         } else {
-            return; // No boss for lower layers
+            return; // No boss for invalid layers
         }
 
         const gameWidth = this.scale.width;
@@ -3667,15 +4203,24 @@ export class GameScene extends Phaser.Scene {
         const boss = this.physics.add.sprite(x, y, bossKey);
         boss.setScale(0.6 * MOBILE_SCALE);
 
-        // Scale boss health and speed based on current layer
+        // Scale boss health and speed based on current layer using enemy service
         const layerConfig =
             LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
             1.0; // Corruption system removed
+        
+        // Use enemy service for stat scaling
+        const bossStats = getEnemyStats(
+            health,
+            speed,
+            points,
+            this.prestigeLevel,
+            healthMultiplier
+        );
+        
         const scaledHealth = Math.ceil(
-            health *
-                healthMultiplier *
+            bossStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
         );
@@ -3683,18 +4228,32 @@ export class GameScene extends Phaser.Scene {
         const scaledSpeed = Math.max(
             40,
             Math.round(
-                speed *
+                bossStats.speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
                     corruptionDifficultyMultiplier *
                     this.settingsEnemySpeedMultiplier
             )
         );
+        
+        // Use scaled points
+        const scaledPoints = Math.round(
+            bossStats.points *
+                this.prestigeScoreMultiplier
+        );
 
         boss.setData("type", bossType);
         boss.setData("uid", this.enemyUidCounter++);
         boss.setData("uid", this.enemyUidCounter++);
-        boss.setData("points", points);
+        boss.setData("points", scaledPoints);
+        
+        // Store boss display name
+        if (this.currentLayer === 6 && this.prestigeLevel === 8) {
+            boss.setData("displayName", "Zrechostikal - The Swarm Overlord");
+        } else {
+            const bossDisplayName = getGraduationBossName(this.currentLayer, this.prestigeLevel);
+            boss.setData("displayName", bossDisplayName);
+        }
         boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
@@ -3719,16 +4278,23 @@ export class GameScene extends Phaser.Scene {
         boss.setVelocity(0, 0);
 
         // Show announcement card for regular boss incoming
-        const layerName =
-            LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name;
+        const bossDisplayName = boss.getData("displayName") as string || "Boss";
         this.showAnnouncement(
             "BOSS INCOMING!",
-            `Elite enemy detected in ${layerName}`,
+            `${bossDisplayName} detected`,
             0xff8800 // Orange color for warning
         );
     }
 
     private spawnGraduationBoss(targetLayer: number) {
+        // Check if this is the final boss (Prestige 8, Layer 6)
+        const isFinalBoss = shouldSpawnFinalBoss(this.prestigeLevel, targetLayer);
+        
+        if (isFinalBoss) {
+            this.spawnFinalBoss();
+            return;
+        }
+        
         // Mark that a graduation boss is active
         this.graduationBossActive = true;
 
@@ -3738,57 +4304,50 @@ export class GameScene extends Phaser.Scene {
             this.spawnTimer = null;
         }
 
-        // Determine boss type based on target layer (exact match, not >=)
-        let bossKey = "";
+        // Determine boss type based on target layer
+        // Layer 1 = green, Layer 2 = yellow, Layer 3 = blue, Layer 4 = purple
+        // Layer 5 = green (wraps), Layer 6 = yellow (wraps)
         let bossType = "";
         let points = 0;
         let health = 0;
         let speed = 0;
 
-        // Final boss (layer 6) should only appear in prestige mode, not as graduation boss
-        // For layer 6, use medium boss instead
-        if (targetLayer === 6) {
-            // Use medium boss for layer 6 (final boss is prestige-only)
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500; // Higher points for graduation boss
-            health = 15; // More health
-            speed = 100;
-        } else if (targetLayer === 5) {
-            // Medium boss for layer 5
-            bossKey = "mediumFinalBoss";
-            bossType = "red";
-            points = 500; // Higher points for graduation boss
-            health = 15; // More health
-            speed = 100;
-        } else if (targetLayer === 4) {
-            // Purple boss for layer 4
-            bossKey = "enemyPurpleBoss";
-            bossType = "purple";
-            points = 250; // Higher points
-            health = 12; // More health
-            speed = 150;
-        } else if (targetLayer === 3) {
-            // Blue boss for layer 3 (use blue enemy sprite)
-            bossKey = "enemyBlue";
-            bossType = "blue";
-            points = 150;
-            health = 10;
-            speed = 120;
-        } else if (targetLayer === 2) {
-            // Yellow boss for layer 2
-            bossKey = "enemyYellow";
-            bossType = "yellow";
-            points = 100;
-            health = 6;
-            speed = 150;
-        } else {
-            // Green boss for layer 1 (shouldn't happen, but just in case)
-            bossKey = "enemyGreen";
-            bossType = "green";
+        const layerColorMap: Record<number, "green" | "yellow" | "blue" | "purple"> = {
+            1: "green",
+            2: "yellow",
+            3: "blue",
+            4: "purple",
+            5: "green",
+            6: "yellow",
+        };
+
+        bossType = layerColorMap[targetLayer] || "green";
+
+        // Base stats based on layer
+        if (targetLayer === 1) {
             points = 50;
             health = 4;
             speed = 100;
+        } else if (targetLayer === 2) {
+            points = 100;
+            health = 6;
+            speed = 150;
+        } else if (targetLayer === 3) {
+            points = 150;
+            health = 10;
+            speed = 120;
+        } else if (targetLayer === 4) {
+            points = 250;
+            health = 12;
+            speed = 150;
+        } else if (targetLayer === 5) {
+            points = 300;
+            health = 14;
+            speed = 140;
+        } else if (targetLayer === 6) {
+            points = 400;
+            health = 16;
+            speed = 130;
         }
 
         const gameWidth = this.scale.width;
@@ -3797,44 +4356,63 @@ export class GameScene extends Phaser.Scene {
         const x = gameWidth * 0.85; // 85% from left (near right edge)
         const y = gameHeight / 2; // Center vertically
 
-        const boss = this.physics.add.sprite(x, y, bossKey);
-        boss.setScale(0.7 * 3 * MOBILE_SCALE); // 3x larger for graduation bosses, scaled for mobile
+        // Use enemy service for graduation boss sprite and name
+        const bossSpriteKey = getGraduationBossSpriteKey(targetLayer, this.prestigeLevel);
+        const bossName = getGraduationBossName(targetLayer, this.prestigeLevel);
+        const boss = this.physics.add.sprite(x, y, bossSpriteKey);
+        // Reduced scaling: 1.5x instead of 3x for better visual balance
+        boss.setScale(0.7 * 1.5 * MOBILE_SCALE);
         boss.setImmovable(false); // Boss can move to maintain line of sight
 
-        // Scale boss health and speed based on target layer
+        // Scale boss health and speed based on target layer using enemy service
         const layerConfig =
             LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG];
         const healthMultiplier = layerConfig?.healthMultiplier || 1.0;
         const corruptionDifficultyMultiplier =
             1.0; // Corruption system removed
+        
+        // Use enemy service for stat scaling (10x toughness for graduation bosses)
+        const baseEnemyStats = getEnemyStats(
+            health,
+            speed,
+            points,
+            this.prestigeLevel,
+            healthMultiplier * 10 // 10x toughness for graduation bosses
+        );
+        
         const scaledHealth = Math.ceil(
-            health *
-                healthMultiplier *
-                10 *
+            baseEnemyStats.health *
                 this.prestigeDifficultyMultiplier *
                 corruptionDifficultyMultiplier
-        ); // 10x toughness for graduation bosses
+        );
         const speedMultiplier = layerConfig?.bossSpeedMultiplier || 1.0;
         const scaledSpeed = Math.max(
             40,
             Math.round(
-                speed *
+                baseEnemyStats.speed *
                     speedMultiplier *
                     this.prestigeDifficultyMultiplier *
                     corruptionDifficultyMultiplier *
                     this.settingsEnemySpeedMultiplier
             )
         );
+        
+        // Use scaled points from enemy service
+        const scaledPoints = Math.round(
+            baseEnemyStats.points *
+                this.prestigeScoreMultiplier
+        );
 
         boss.setData("type", bossType);
-        boss.setData("points", points);
+        boss.setData("points", scaledPoints);
+        boss.setData("displayName", bossName);
         boss.setData("speed", scaledSpeed);
         boss.setData("health", scaledHealth);
         boss.setData("maxHealth", scaledHealth);
         boss.setData("canShoot", true); // Graduation bosses can shoot
         boss.setData("isBoss", true);
         boss.setData("isGraduationBoss", true); // Mark as graduation boss
-        boss.setData("bossKey", bossKey); // Store boss key for identification
+        boss.setData("bossKey", bossSpriteKey); // Store boss sprite key for identification
         boss.setData("lastShockwave", 0); // Track last shockwave time
         // Varying damage levels based on layer (1-6)
         const bossDamage = Math.min(1 + (targetLayer * 0.5), 4); // 1.5, 2, 2.5, 3, 3.5, 4 damage
@@ -3870,14 +4448,19 @@ export class GameScene extends Phaser.Scene {
         this.applyCameraFlash(300, 255, 0, 0); // Red flash
         this.applyCameraShake(500, 0.02);
 
-        // Show announcement card for boss incoming
-        const bossName =
-            LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name;
+        // Show announcement card for boss incoming (using enemy service name)
         this.showAnnouncement(
             "GRADUATION BOSS INCOMING!",
-            `Defeat it to advance to ${bossName}`,
+            `Defeat ${bossName} to advance`,
             0xff0000 // Red color for warning
         );
+        
+        // Trigger boss encounter dialogue
+        if (targetLayer === 6 && this.prestigeLevel === 8) {
+            this.triggerDialogue('final_boss_encounter');
+        } else {
+            this.triggerDialogue('boss_encounter');
+        }
 
         // Show warning message (could be enhanced with UI text)
         console.log(
@@ -3885,6 +4468,473 @@ export class GameScene extends Phaser.Scene {
                 LAYER_CONFIG[targetLayer as keyof typeof LAYER_CONFIG].name
             }`
         );
+    }
+    
+    /**
+     * Spawn final boss (Zrechostikal) at Prestige 8, Layer 6
+     */
+    private spawnFinalBoss(): void {
+        // Mark that final boss is active
+        this.finalBossActive = true;
+        this.graduationBossActive = true; // Also mark as graduation boss for compatibility
+        
+        // Stop normal enemy spawning
+        if (this.spawnTimer) {
+            this.spawnTimer.remove();
+            this.spawnTimer = null;
+        }
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const x = gameWidth * 0.85;
+        const y = gameHeight / 2;
+        
+        // Create final boss sprite (3x normal boss size)
+        const boss = this.physics.add.sprite(x, y, 'zrechostikal');
+        boss.setScale(0.7 * 3.0 * MOBILE_SCALE); // 3x larger than normal boss
+        boss.setImmovable(false);
+        
+        // Calculate final boss health (5000 at P8)
+        const maxHealth = getFinalBossHealthP8();
+        const health = maxHealth;
+        
+        // Initialize phase 1
+        this.finalBossPhase = getCurrentPhase(health, maxHealth);
+        this.finalBossPhaseStartTime = this.time.now;
+        this.finalBossAssaultActive = true;
+        this.finalBossLastEnemySpawn = 0;
+        
+        // Set boss data
+        boss.setData("type", "zrechostikal");
+        boss.setData("uid", this.enemyUidCounter++);
+        boss.setData("points", 10000); // Massive points reward
+        boss.setData("speed", 80); // Slower but more dangerous
+        boss.setData("health", health);
+        boss.setData("maxHealth", maxHealth);
+        boss.setData("canShoot", true);
+        boss.setData("isBoss", true);
+        boss.setData("isGraduationBoss", true);
+        boss.setData("isFinalBoss", true); // Mark as final boss
+        boss.setData("bossKey", "zrechostikal");
+        boss.setData("displayName", "Zrechostikal - The Swarm Overlord");
+        boss.setData("damage", 2.5); // High damage
+        boss.setData("lastShot", 0);
+        boss.setData("baseShootInterval", 2000);
+        boss.setData("shootInterval", 2000);
+        boss.setData("lastShockwave", 0);
+        boss.setData("lastStunShockwave", 0);
+        boss.setData("phase", 1);
+        
+        // Create health bar for final boss
+        this.createEnemyHealthBar(boss);
+        
+        // Add corruption aura visual effect
+        this.createFinalBossAura(boss);
+        
+        this.enemies.add(boss);
+        boss.setVelocity(0, 0);
+        
+        // Epic visual effects
+        this.applyCameraFlash(500, 255, 0, 255); // Purple flash
+        this.applyCameraShake(1000, 0.05);
+        
+        // Show announcement
+        this.showAnnouncement(
+            "ZRECHOSTIKAL EMERGES!",
+            "The Swarm Overlord has manifested",
+            0xff00ff // Magenta color
+        );
+        
+        // Trigger final boss encounter dialogue
+        this.triggerDialogue('final_boss_encounter');
+        
+        // Show phase 1 dialogue
+        if (this.finalBossPhase) {
+            const dialogue = getFinalBossDialogue(this.finalBossPhase.phase);
+            if (dialogue) {
+                this.time.delayedCall(2000, () => {
+                    this.showAnnouncement(
+                        "ZRECHOSTIKAL",
+                        dialogue,
+                        0xff00ff
+                    );
+                });
+            }
+        }
+    }
+    
+    /**
+     * Create corruption aura for final boss
+     */
+    private createFinalBossAura(boss: Phaser.Physics.Arcade.Sprite): void {
+        const aura = this.add.graphics();
+        aura.setDepth(99); // Just below boss
+        
+        const updateAura = () => {
+            if (!boss.active) {
+                aura.destroy();
+                return;
+            }
+            
+            aura.clear();
+            const phase = boss.getData("phase") as number || 1;
+            const intensity = 0.3 + (phase - 1) * 0.2; // More intense in later phases
+            
+            // Draw pulsing corruption aura
+            aura.lineStyle(3, 0xff00ff, intensity);
+            aura.strokeCircle(boss.x, boss.y, 80 + Math.sin(this.time.now * 0.005) * 20);
+            aura.lineStyle(2, 0x00ffff, intensity * 0.5);
+            aura.strokeCircle(boss.x, boss.y, 100 + Math.sin(this.time.now * 0.003) * 30);
+        };
+        
+        // Update aura every frame
+        this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: updateAura,
+            loop: true,
+        });
+        
+        boss.setData("corruptionAura", aura);
+    }
+    
+    /**
+     * Update final boss phase and attacks
+     */
+    private updateFinalBoss(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        if (!this.finalBossActive || !boss.active) {
+            return;
+        }
+        
+        const currentHealth = boss.getData("health") as number;
+        const maxHealth = boss.getData("maxHealth") as number;
+        
+        // Update current phase based on health
+        const newPhase = getCurrentPhase(currentHealth, maxHealth);
+        if (newPhase && newPhase.phase !== (this.finalBossPhase?.phase || 1)) {
+            // Phase transition
+            this.finalBossPhase = newPhase;
+            this.finalBossPhaseStartTime = time;
+            boss.setData("phase", newPhase.phase);
+            
+            // Show phase transition dialogue
+            const dialogue = getFinalBossDialogue(newPhase.phase);
+            if (dialogue) {
+                this.showAnnouncement(
+                    `PHASE ${newPhase.phase}: ${newPhase.name.toUpperCase()}`,
+                    dialogue,
+                    0xff00ff
+                );
+            }
+            
+            // Visual effect on phase change
+            this.applyCameraFlash(300, 255, 0, 255);
+            this.applyCameraShake(500, 0.03);
+        }
+        
+        if (!this.finalBossPhase) {
+            return;
+        }
+        
+        // Manage assault/rest phases
+        const phaseElapsed = time - this.finalBossPhaseStartTime;
+        const cycleTime = this.finalBossPhase.assaultDuration + this.finalBossPhase.restDuration;
+        const cyclePosition = phaseElapsed % cycleTime;
+        
+        if (cyclePosition < this.finalBossPhase.assaultDuration) {
+            // Assault phase
+            if (!this.finalBossAssaultActive) {
+                this.finalBossAssaultActive = true;
+                boss.setData("assaultPhase", "assault");
+            }
+            
+            // Execute attacks based on phase
+            this.executeFinalBossAttacks(boss, time);
+            
+            // Spawn enemies if phase requires it
+            if (this.finalBossPhase.spawnEnemies && this.finalBossPhase.enemySpawnRate) {
+                const timeSinceLastSpawn = time - this.finalBossLastEnemySpawn;
+                const spawnInterval = 1000 / this.finalBossPhase.enemySpawnRate; // Convert rate to interval
+                if (timeSinceLastSpawn >= spawnInterval && Math.random() < this.finalBossPhase.enemySpawnRate) {
+                    this.spawnFinalBossReinforcements(boss);
+                    this.finalBossLastEnemySpawn = time;
+                }
+            }
+        } else {
+            // Rest phase
+            if (this.finalBossAssaultActive) {
+                this.finalBossAssaultActive = false;
+                boss.setData("assaultPhase", "rest");
+            }
+        }
+        
+        // Track player movement (same as graduation boss)
+        const bossSpeed = boss.getData("speed") || 80;
+        const targetY = this.player.y;
+        const currentY = boss.y;
+        const distanceY = targetY - currentY;
+        const moveSpeed = Math.min(Math.abs(distanceY), bossSpeed * 0.5);
+        if (Math.abs(distanceY) > 5) {
+            const directionY = distanceY > 0 ? 1 : -1;
+            boss.setVelocityY(moveSpeed * directionY);
+        } else {
+            boss.setVelocityY(0);
+        }
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const targetX = gameWidth * 0.85;
+        const currentX = boss.x;
+        const distanceX = targetX - currentX;
+        if (Math.abs(distanceX) > 5) {
+            boss.setVelocityX(distanceX * 0.1);
+        } else {
+            boss.setVelocityX(0);
+        }
+        
+        // Keep boss within bounds
+        if (boss.y < 50) {
+            boss.setY(50);
+            boss.setVelocityY(0);
+        }
+        if (boss.y > gameHeight - 50) {
+            boss.setY(gameHeight - 50);
+            boss.setVelocityY(0);
+        }
+    }
+    
+    /**
+     * Execute final boss attacks based on current phase
+     */
+    private executeFinalBossAttacks(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        if (!this.finalBossPhase) {
+            return;
+        }
+        
+        const lastShot = boss.getData("lastShot") as number || 0;
+        const shootInterval = boss.getData("shootInterval") as number || 2000;
+        const phase = this.finalBossPhase.phase;
+        
+        // Adjust shoot interval based on phase (faster in later phases)
+        const phaseSpeedMultiplier = 1.0 - ((phase - 1) * 0.15); // 1.0, 0.85, 0.70, 0.55
+        const adjustedInterval = shootInterval * phaseSpeedMultiplier;
+        
+        if (time - lastShot >= adjustedInterval) {
+            // Execute attacks based on phase
+            if (this.finalBossPhase.attacks.includes('projectile_spread')) {
+                this.finalBossProjectileSpread(boss);
+            }
+            if (this.finalBossPhase.attacks.includes('homing_projectiles') && phase >= 2) {
+                this.finalBossHomingProjectiles(boss);
+            }
+            if (this.finalBossPhase.attacks.includes('stun_shockwave') && phase >= 3) {
+                this.finalBossStunShockwave(boss, time);
+            }
+            if (this.finalBossPhase.attacks.includes('enhanced_attacks') && phase >= 4) {
+                // Enhanced versions of all attacks
+                this.finalBossProjectileSpread(boss, true);
+                if (Math.random() < 0.5) {
+                    this.finalBossHomingProjectiles(boss, true);
+                }
+            }
+            
+            boss.setData("lastShot", time);
+        }
+    }
+    
+    /**
+     * Final boss projectile spread attack
+     */
+    private finalBossProjectileSpread(boss: Phaser.Physics.Arcade.Sprite, enhanced: boolean = false): void {
+        const bulletCount = enhanced ? 7 : 5;
+        const spreadAngle = enhanced ? 60 : 45;
+        const bulletSpeed = enhanced ? 300 : 250;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const angleOffset = (i - (bulletCount - 1) / 2) * (spreadAngle / (bulletCount - 1 || 1));
+            const angle = Phaser.Math.DegToRad(angleOffset - 90); // Shoot left (toward player)
+            
+            const bullet = this.enemyBullets.get(boss.x, boss.y) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(0.8 * MOBILE_SCALE);
+                bullet.setTexture("blueBullet"); // Use blue bullet for final boss
+                bullet.setTint(0xff00ff); // Magenta tint
+                
+                const velocityX = Math.cos(angle) * bulletSpeed;
+                const velocityY = Math.sin(angle) * bulletSpeed;
+                bullet.setVelocity(velocityX, velocityY);
+                bullet.setData("damage", boss.getData("damage") as number || 2.5);
+            }
+        }
+    }
+    
+    /**
+     * Final boss homing projectiles attack
+     */
+    private finalBossHomingProjectiles(boss: Phaser.Physics.Arcade.Sprite, enhanced: boolean = false): void {
+        const bulletCount = enhanced ? 3 : 2;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const bullet = this.enemyBullets.get(boss.x, boss.y + (i - 1) * 30) as Phaser.Physics.Arcade.Sprite;
+            if (bullet) {
+                bullet.setActive(true);
+                bullet.setVisible(true);
+                bullet.setScale(0.6 * MOBILE_SCALE);
+                bullet.setTexture("blueBullet");
+                bullet.setTint(0x00ffff); // Cyan tint for homing
+                
+                // Calculate angle toward player
+                const angle = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+                const bulletSpeed = enhanced ? 200 : 180;
+                const velocityX = Math.cos(angle) * bulletSpeed;
+                const velocityY = Math.sin(angle) * bulletSpeed;
+                bullet.setVelocity(velocityX, velocityY);
+                bullet.setData("damage", boss.getData("damage") as number || 2.5);
+                bullet.setData("isHoming", true); // Mark as homing for update loop
+                bullet.setData("targetX", this.player.x);
+                bullet.setData("targetY", this.player.y);
+            }
+        }
+    }
+    
+    /**
+     * Final boss stun shockwave attack
+     */
+    private finalBossStunShockwave(boss: Phaser.Physics.Arcade.Sprite, time: number): void {
+        const lastStunShockwave = boss.getData("lastStunShockwave") as number || 0;
+        if (time - lastStunShockwave < 5000) { // 5 second cooldown
+            return;
+        }
+        
+        boss.setData("lastStunShockwave", time);
+        
+        // Create shockwave visual
+        const shockwave = this.add.circle(boss.x, boss.y, 0, 0xff00ff, 0.5);
+        shockwave.setDepth(98);
+        
+        this.tweens.add({
+            targets: shockwave,
+            radius: 400,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => {
+                shockwave.destroy();
+            },
+        });
+        
+        // Stun player if within range
+        const distance = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
+        if (distance <= 400) {
+            this.isStunned = true;
+            this.stunEndTime = time + 2000; // 2 second stun
+            this.createFloatingText(
+                this.player.x,
+                this.player.y - 30,
+                "STUNNED BY ZRECHOSTIKAL!",
+                { color: "#ff00ff", fontSize: 24 }
+            );
+        }
+        
+        // Visual effect
+        this.applyCameraFlash(200, 255, 0, 255);
+        this.applyCameraShake(300, 0.02);
+    }
+    
+    /**
+     * Spawn reinforcements during final boss fight
+     */
+    private spawnFinalBossReinforcements(_boss: Phaser.Physics.Arcade.Sprite): void {
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const phase = this.finalBossPhase?.phase || 1;
+        
+        // Spawn enemies based on phase
+        const enemyTypes: Array<keyof typeof ENEMY_CONFIG> = phase >= 3 
+            ? ['purple', 'blue', 'yellow'] 
+            : phase >= 2 
+            ? ['blue', 'yellow'] 
+            : ['green', 'yellow'];
+        
+        const spawnCount = phase >= 4 ? 2 : 1;
+        
+        for (let i = 0; i < spawnCount; i++) {
+            const enemyType = enemyTypes[Phaser.Math.Between(0, enemyTypes.length - 1)];
+            const spawnX = gameWidth + 50;
+            const spawnY = Phaser.Math.Between(50, gameHeight - 50);
+            
+            this.spawnEnemyOfType(enemyType, {
+                absoluteX: spawnX,
+                y: spawnY,
+                healthMultiplier: 0.7, // Weaker than normal
+                speedMultiplier: 1.2, // Faster
+            });
+        }
+    }
+    
+    /**
+     * Handle final boss defeat and Prime Sentinel promotion
+     */
+    private handleFinalBossDefeat(): void {
+        this.finalBossActive = false;
+        this.graduationBossActive = false;
+        
+        // Show final defeat dialogue
+        const defeatDialogue = getFinalDefeatDialogue();
+        this.showAnnouncement(
+            "ZRECHOSTIKAL DEFEATED",
+            defeatDialogue,
+            0x00ffff
+        );
+        
+        // Trigger final boss defeat dialogue
+        this.triggerDialogue('final_boss_defeat');
+        
+        // Unlock Prime Sentinel achievement
+        if (shouldUnlockPrimeSentinel(this.prestigeLevel, this.currentLayer, true)) {
+            unlockAchievement("prime_sentinel");
+            this.showAnnouncement(
+                "ACHIEVEMENT UNLOCKED",
+                "Prime Sentinel",
+                0x00ffff
+            );
+        }
+        
+        // Mark final boss as defeated (unlocks Transcendent Form avatar)
+        markFinalBossDefeated();
+        
+        // Update rank to Prime Sentinel (Rank 18)
+        updateCurrentRank(8, 6);
+        this.registry.set("currentRank", "Prime Sentinel");
+        this.registry.set("isPrimeSentinel", true);
+        
+        // Grant prestige reward (512 coins at P8)
+        grantPrestigeReward(this.prestigeLevel);
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Mark prestige 8 as completed
+        const prestigeCompleted = this.registry.get("prestigeCompleted") as boolean[];
+        if (prestigeCompleted) {
+            prestigeCompleted[8] = true;
+            this.registry.set("prestigeCompleted", prestigeCompleted);
+        }
+        
+        // Emit victory event to show victory screen
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+            uiScene.events.emit('final-boss-victory');
+        }
+        
+        // Screen fade to white
+        this.cameras.main.fadeOut(2000, 255, 255, 255);
+        
+        // After fade, trigger victory sequence
+        this.time.delayedCall(2000, () => {
+            // Game complete - can show victory screen via React component
+            this.gameOver = true;
+            this.registry.set("gameOver", true);
+            this.registry.set("finalBossVictory", true);
+        });
     }
 
     private handleBulletEnemyCollision(
@@ -3908,18 +4958,46 @@ export class GameScene extends Phaser.Scene {
             return; // Enemy hasn't appeared on screen yet, ignore collision
         }
 
-        if (this.kernelBulletPiercing) {
+        // Check piercing mechanics (bullet tier or kernel/hero grade)
+        const bulletPiercing = b.getData('piercing') as number || 0;
+        const pierceCount = b.getData('pierceCount') as number || 0;
+        const hasTierPiercing = bulletPiercing !== 0;
+        const hasOtherPiercing = this.kernelBulletPiercing || this.heroGradeBulletPiercing;
+        
+        // Handle piercing logic
+        if (hasTierPiercing || hasOtherPiercing) {
             const enemyUid = e.getData("uid");
             const lastHitEnemy = b.getData("lastHitEnemy");
             const lastHitTime = (b.getData("lastHitTime") as number) || 0;
+            
+            // Prevent hitting same enemy multiple times quickly
             if (enemyUid === lastHitEnemy && this.time.now - lastHitTime < 80) {
                 return;
             }
             b.setData("lastHitEnemy", enemyUid);
             b.setData("lastHitTime", this.time.now);
+            
+            // Check if bullet should continue piercing (tier-based)
+            if (hasTierPiercing) {
+                if (bulletPiercing === -1) {
+                    // Infinite piercing (Tier 5) - bullet never stops
+                    // Don't destroy bullet
+                } else if (bulletPiercing > 0) {
+                    // Limited piercing (Tier 4) - pierce through N enemies
+                    const newPierceCount = pierceCount + 1;
+                    b.setData('pierceCount', newPierceCount);
+                    
+                    if (newPierceCount >= bulletPiercing) {
+                        // Reached pierce limit, destroy bullet
+                        b.destroy();
+                    }
+                    // Otherwise, bullet continues
+                }
+            }
+            // If only other piercing (kernel/hero grade), keep existing behavior
         } else {
-        // Remove bullet
-        b.destroy();
+            // No piercing - remove bullet
+            b.destroy();
         }
 
         // Get enemy data
@@ -3931,7 +5009,10 @@ export class GameScene extends Phaser.Scene {
         // Deal damage (apply shield drone reduction if applicable)
         this.shotsHitThisRun += 1;
         const shieldReduction = this.getShieldDamageReduction(e);
-        const damage = 1 * (1 - shieldReduction);
+        
+        // Get bullet tier damage multiplier
+        const bulletDamageMultiplier = b.getData('damageMultiplier') as number || 1.0;
+        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier * bulletDamageMultiplier;
         const isCriticalHit = isBoss || this.comboMultiplier >= 3;
         const damageText = Number.isInteger(damage)
             ? `${damage}`
@@ -4061,8 +5142,42 @@ export class GameScene extends Phaser.Scene {
 
             // If graduation boss was defeated, advance to next layer
             if (isGraduationBoss) {
-                if (this.pendingLayer >= MAX_LAYER) {
-                    this.enterPrestigeMode(e.x, e.y);
+                // Trigger boss defeat story dialogue
+                const isFinalBoss = this.prestigeLevel === 8 && this.currentLayer === 6;
+                if (isFinalBoss) {
+                    this.triggerStoryDialogue('final_boss');
+                } else {
+                    this.triggerStoryDialogue('boss_defeat');
+                }
+                
+                // Check if this was the final boss
+                const isFinalBossDefeated = this.finalBossActive && this.prestigeLevel === 8 && this.currentLayer === 6;
+                if (isFinalBossDefeated) {
+                    // Final boss defeated - game complete!
+                    this.handleFinalBossDefeat();
+                    return; // Don't continue with normal boss defeat logic
+                }
+                
+                // Check if we should advance to next prestige or if we're at final boss
+                if (this.prestigeLevel === PRESTIGE_CONFIG.maxPrestige && this.currentLayer === MAX_LAYER) {
+                    // At max prestige and max layer - shouldn't happen if final boss is handled above
+                    this.showAnnouncement(
+                        "MAX PRESTIGE REACHED!",
+                        "You have reached the final prestige level",
+                        0xffff00
+                    );
+                } else if (this.pendingLayer >= MAX_LAYER) {
+                    // Advance to next prestige (if not at max)
+                    if (this.prestigeLevel < PRESTIGE_CONFIG.maxPrestige) {
+                        this.enterPrestigeMode(e.x, e.y);
+                    } else {
+                        // At max prestige, cannot advance further
+                        this.showAnnouncement(
+                            "MAX PRESTIGE REACHED!",
+                            "You have reached the final prestige level",
+                            0xffff00
+                        );
+                    }
                 } else {
                     // Advance to the pending layer
                     // Safety check: ensure pendingLayer is valid
@@ -4106,6 +5221,33 @@ export class GameScene extends Phaser.Scene {
                                 this.currentLayer as keyof typeof LAYER_CONFIG
                             ].name
                     );
+                    
+                    // Update story state and trigger layer complete dialogue
+                    updateStoryState(this.prestigeLevel, this.currentLayer);
+                    
+                    // Update rank and check for rank achievement
+                    const previousLayer = this.currentLayer - 1;
+                    const previousPrestige = this.prestigeLevel;
+                    const newRank = updateCurrentRank(this.prestigeLevel, this.currentLayer);
+                    const rankMilestone = calculateRankMilestone(
+                        this.prestigeLevel,
+                        this.currentLayer,
+                        previousPrestige,
+                        previousLayer
+                    );
+                    
+                    if (rankMilestone) {
+                        // New rank achieved!
+                        this.showRankAchievement(rankMilestone);
+                    }
+                    
+                    if (newRank) {
+                        this.registry.set("currentRank", newRank.name);
+                    }
+                    
+                    this.time.delayedCall(500, () => {
+                        this.triggerStoryDialogue('layer_complete');
+                    });
 
                     // Reset enemy count tracking for new layer
                     this.enemiesKilledThisLayer = 0;
@@ -4216,7 +5358,6 @@ export class GameScene extends Phaser.Scene {
         if (this.gameOver) return;
 
         const b = bullet as Phaser.Physics.Arcade.Sprite;
-        const damageMultiplier = (b.getData("damageMultiplier") as number) || 1;
 
         // Remove bullet
         b.destroy();
@@ -4230,8 +5371,24 @@ export class GameScene extends Phaser.Scene {
             this.enemyBulletHits = 0; // Reset counter
         }
 
-        // Take damage (lose a life)
-        this.takeDamage(damageMultiplier);
+        // Calculate damage based on bullet type
+        // Regular bullet: 1 health bar
+        // Boss/graduation boss bullet: 2 health bars
+        // Prestige 5+ boss bullet: 2.5 health bars
+        let bulletDamage = 1;
+        const isBossBullet = b.getData("isBossBullet") || false;
+        const isGraduationBossBullet = b.getData("isGraduationBossBullet") || false;
+        
+        if (isBossBullet || isGraduationBossBullet) {
+            if (this.prestigeLevel >= 5) {
+                bulletDamage = 2.5; // Prestige 5+ boss bullets deal 2.5 health bars
+            } else {
+                bulletDamage = 2; // Regular boss bullets deal 2 health bars
+            }
+        }
+        
+        // Take damage
+        this.takeDamage(bulletDamage);
     }
 
     private handlePlayerEnemyCollision(
@@ -4301,6 +5458,36 @@ export class GameScene extends Phaser.Scene {
         if (this.isInvisible) {
             return; // Invisible, no damage taken
         }
+        
+        // Check for shield mini-me (reduces damage by 1)
+        let hasShield = false;
+        let hasDecoy = false;
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (!miniMe.active) return;
+            const type = miniMe.getData('type') as MiniMeType;
+            if (type === 'shield') {
+                hasShield = true;
+            }
+            if (type === 'decoy') {
+                hasDecoy = true;
+            }
+        });
+        
+        // Apply shield damage reduction
+        if (hasShield) {
+            damageMultiplier = Math.max(0, damageMultiplier - MINI_ME_CONFIG.behaviors.shield.damageReduction);
+            if (damageMultiplier <= 0) {
+                // Shield absorbed all damage
+                this.createFloatingText(this.player.x, this.player.y - 20, "SHIELD BLOCKED", { color: "#00ffff" });
+                return;
+            }
+        }
+        
+        // Apply decoy damage reduction (30% less damage)
+        if (hasDecoy) {
+            damageMultiplier *= (1 - MINI_ME_CONFIG.behaviors.decoy.damageReduction);
+        }
 
         // Prevent multiple damage calls within invincibility period
         // This matches the visual flash duration and prevents rapid damage
@@ -4310,8 +5497,8 @@ export class GameScene extends Phaser.Scene {
             return; // Still in invincibility period, ignore damage
         }
 
-        // Safety check: ensure lives is a valid number
-        if (this.lives <= 0) {
+        // Safety check: ensure healthBars is a valid number
+        if (this.healthBars <= 0) {
             return; // Already dead, don't process damage
         }
 
@@ -4337,34 +5524,51 @@ export class GameScene extends Phaser.Scene {
         this.createExplosion(this.player.x, this.player.y, "medium");
         this.triggerHaptic(SENSORY_ESCALATION.hapticFeedback.onDamage);
 
-        // Reduce lives by exactly 1
-        const previousLives = this.lives;
-        let damage = 1;
-        if (damageMultiplier > 1) {
-            const bonusChance = Phaser.Math.Clamp(damageMultiplier - 1, 0, 1);
-            if (Math.random() < bonusChance) {
-                damage = 2;
+        // Calculate health bar damage based on damage multiplier
+        const previousHealthBars = this.healthBars;
+        let damageBars = 1; // Default: -1 health bar
+        
+        // Boss/graduation boss bullets: -2 health bars
+        if (damageMultiplier >= 2) {
+            damageBars = 2;
+        }
+        // Prestige 5+ boss bullets: -2.5 health bars (rounds down to 2, but can accumulate)
+        if (damageMultiplier >= 2.5 && this.prestigeLevel >= 5) {
+            // For prestige 5+, boss bullets deal 2.5 bars
+            // We'll track fractional damage and apply it as whole bars
+            this.kernelDamageAccumulator += 2.5 / this.kernelHealthMultiplier;
+            const accumulatedDamage = Math.floor(this.kernelDamageAccumulator);
+            if (accumulatedDamage > 0) {
+                damageBars = accumulatedDamage;
+                this.kernelDamageAccumulator -= accumulatedDamage;
+            } else {
+                damageBars = 2; // At least 2 bars for prestige 5+ boss bullets
             }
+        } else {
+            // Regular damage: just apply the damage multiplier as whole bars
+            damageBars = Math.floor(damageMultiplier);
         }
+        
         this.hitsTakenThisRun += 1;
-        this.kernelDamageAccumulator += damage / this.kernelHealthMultiplier;
-        const appliedDamage = Math.floor(this.kernelDamageAccumulator);
-        this.kernelDamageAccumulator -= appliedDamage;
-        if (appliedDamage > 0) {
-            this.totalLivesLost += appliedDamage;
+        if (damageBars > 0) {
+            this.totalHealthBarsLost += damageBars;
         }
-        this.lives = Math.max(0, this.lives - appliedDamage);
-        this.registry.set("lives", this.lives);
+        this.healthBars = Math.max(0, this.healthBars - damageBars);
+        this.healthBars = Math.min(this.healthBars, PLAYER_CONFIG.maxHealthBars); // Cap at max
+        this.registry.set("healthBars", this.healthBars);
 
-        // Debug: Log lives to help diagnose
+        // Debug: Log health bars to help diagnose
         console.log(
-            `Player took damage. Lives: ${previousLives} -> ${this.lives}`
+            `Player took damage. Health Bars: ${previousHealthBars} -> ${this.healthBars} (damage: ${damageBars} bars)`
         );
 
-        // Game over only when lives equals 0
-        if (this.lives === 0) {
+        // Game over only when health bars equals 0
+        if (this.healthBars === 0) {
             // Game over
             this.gameOver = true;
+            
+            // Clean up mini-mes on game over
+            this.cleanupMiniMes();
             this.registry.set("finalScore", this.score);
             this.registry.set("gameOver", true);
             this.registry.set("deepestLayer", this.deepestLayer);
@@ -4391,6 +5595,22 @@ export class GameScene extends Phaser.Scene {
             addLifetimeScore(this.score);
             addLifetimePlayMs(this.time.now - this.runStartTime);
             const lifetime = getLifetimeStats();
+            
+            // Check and unlock hero grades
+            const newlyUnlockedGrades = checkAndUnlockHeroGrades({
+                lifetimePlayMs: lifetime.lifetimePlayMs,
+                lifetimeEnemiesDefeated: lifetime.lifetimeEnemiesDefeated,
+                lifetimeScore: lifetime.lifetimeScore,
+                deepestLayer: this.deepestLayer,
+            });
+            newlyUnlockedGrades.forEach((grade) => {
+                const gradeConfig = getHeroGradeConfig(grade);
+                this.showAnnouncement(
+                    "HERO GRADE UNLOCKED",
+                    `${gradeConfig.name}: ${gradeConfig.specialFeature.name}`,
+                    0x00ff99
+                );
+            });
             this.updateAchievementProgress(
                 "1m_points",
                 lifetime.lifetimeScore,
@@ -4468,6 +5688,7 @@ export class GameScene extends Phaser.Scene {
                 // Communicate to UIScene via game events
                 const uiScene = this.scene.get("UIScene");
                 if (uiScene && uiScene.scene.isActive()) {
+                    const currentRank = this.registry.get("currentRank") as string || getRankName(this.prestigeLevel, this.currentLayer);
                     uiScene.events.emit(
                         "submitScore",
                         this.score,
@@ -4475,7 +5696,8 @@ export class GameScene extends Phaser.Scene {
                         this.deepestLayer,
                         this.prestigeLevel,
                         runMetrics,
-                        this.currentModifierKey
+                        this.currentModifierKey,
+                        currentRank
                     );
                 }
             });
@@ -4491,6 +5713,24 @@ export class GameScene extends Phaser.Scene {
                     this.player.setAlpha(1);
                 },
             });
+        }
+    }
+
+    /**
+     * Handle collision between enemies and mini-mes
+     */
+    private handleEnemyMiniMeCollision(
+        _enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+        _miniMe: Phaser.Types.Physics.Arcade.GameObjectWithBody
+    ) {
+        const miniMe = _miniMe as Phaser.Physics.Arcade.Sprite;
+        const hits = (miniMe.getData('hits') as number) || 0;
+        const newHits = hits + 1;
+        miniMe.setData('hits', newHits);
+        
+        if (newHits >= MINI_ME_CONFIG.maxHits) {
+            // Mini-me destroyed
+            this.destroyMiniMe(miniMe);
         }
     }
 
@@ -5442,12 +6682,13 @@ export class GameScene extends Phaser.Scene {
             });
             this.powerUpTimers.set("autoShoot", timer);
         } else if (powerUpType === "lives") {
-            // Grant lives (capped at 20 lives = 4 orbs)
-            const MAX_LIVES = 20; // 4 orbs * 5 lives per orb
-            const livesToAdd = config.livesGranted;
-            this.lives = Math.min(this.lives + livesToAdd, MAX_LIVES);
-            this.registry.set("lives", this.lives);
-            this.runLifeOrbs += 1;
+            // Restore 1 health bar (max 5)
+            if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
+                this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+                this.registry.set("healthBars", this.healthBars);
+                this.createFloatingText(this.player.x, this.player.y - 20, "+1 Health", { color: "#00ff00" });
+            }
+            // Health restoration already handled above
             this.updateAchievementProgress(
                 "collect_5_lives",
                 this.runLifeOrbs,
@@ -5794,6 +7035,12 @@ export class GameScene extends Phaser.Scene {
         this.prestigeDifficultyMultiplier = 1;
         this.prestigeScoreMultiplier = 1;
         this.prestigeResetAvailable = true;
+        
+        // Initialize prestige state in registry
+        this.registry.set("currentPrestige", 0);
+        this.registry.set("previousPrestige", -1);
+        this.registry.set("prestigeCompleted", new Array(9).fill(false));
+        this.registry.set("isPrimeSentinel", false);
         // Corruption system removed
         // this.lastNoHitRewardTime = 0; // Unused
         // this.lastRiskyKillTime = 0; // Unused
@@ -5809,15 +7056,20 @@ export class GameScene extends Phaser.Scene {
         this.lastMovementSampleTime = 0;
         this.lastEdgeSampleTime = 0;
         this.lastCoordinatedFireTime = 0;
-        this.lives = PLAYER_CONFIG.initialLives;
+        // Health bars are always 5 (not affected by hero grade multiplier)
+        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        this.registry.set("healthBars", this.healthBars);
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
-        this.totalLivesLost = 0;
+        this.totalHealthBarsLost = 0;
         this.lastRunStatsUpdate = 0;
         this.graduationBossActive = false;
         this.pendingLayer = 1;
         this.applyGameplaySettings();
         this.reviveCount = 0;
+        
+        // Apply kernel and hero grade bonuses
+        this.applySelectedKernel();
 
         // Reset player to dynamic position
         const gameWidth = this.scale.width;
@@ -5868,7 +7120,7 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("currentLayer", 1);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
         this.registry.set("isPaused", false);
-        this.registry.set("lives", this.lives);
+        this.registry.set("healthBars", this.healthBars);
         this.registry.set("reviveCount", 0);
         this.registry.set("prestigeChampion", false);
         this.registry.set("prestigeLevel", this.prestigeLevel);
@@ -5919,19 +7171,41 @@ export class GameScene extends Phaser.Scene {
     }
 
     private enterPrestigeMode(originX: number, originY: number) {
+        const previousPrestige = this.prestigeLevel;
+        
+        // Cap prestige at 8 (final prestige)
+        if (this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige) {
+            // Already at max prestige, cannot advance further
+            return;
+        }
+        
         this.prestigeLevel += 1;
         this.applyPrestigeLevel(this.prestigeLevel);
 
-        if (
-            this.prestigeResetAvailable &&
-            this.score >= PRESTIGE_CONFIG.prestigeResetThreshold
-        ) {
-            this.score = 0;
-            this.comboMultiplier = 1;
-            this.registry.set("score", this.score);
-            this.registry.set("comboMultiplier", this.comboMultiplier);
-            this.prestigeResetAvailable = false;
+        // Award coins for completing previous prestige
+        if (previousPrestige >= 0) {
+            const coinReward = getPrestigeCoinReward(previousPrestige);
+            grantPrestigeReward(this.prestigeLevel);
+            this.registry.set("coinBalance", getAvailableCoins());
+            this.showAnnouncement(
+                "PRESTIGE COMPLETE!",
+                `Earned ${coinReward} coins`,
+                0x00ff00
+            );
+            
+            // Mark prestige as completed
+            const completed = this.registry.get("prestigeCompleted") as boolean[] || new Array(9).fill(false);
+            if (previousPrestige < completed.length) {
+                completed[previousPrestige] = true;
+                this.registry.set("prestigeCompleted", completed);
+            }
         }
+
+        // Reset score and combo for new prestige (optional - can be removed if you want to keep score)
+        this.score = 0;
+        this.comboMultiplier = 1;
+        this.registry.set("score", this.score);
+        this.registry.set("comboMultiplier", this.comboMultiplier);
 
         this.currentLayer = 1;
         this.pendingLayer = 1;
@@ -5941,13 +7215,18 @@ export class GameScene extends Phaser.Scene {
         }
         this.registry.set("currentLayer", this.currentLayer);
         this.registry.set("layerName", LAYER_CONFIG[1].name);
+        this.registry.set("currentPrestige", this.prestigeLevel);
+        this.registry.set("previousPrestige", previousPrestige);
 
-        const prestigeTier = this.getPrestigeTier(this.prestigeLevel);
+        const prestigeTier = getPrestigeTierConfig(this.prestigeLevel);
         this.showAnnouncement(
             "PRESTIGE UNLOCKED!",
-            `Cycle ${this.prestigeLevel} · ${prestigeTier.label}`,
+            `Prestige ${this.prestigeLevel} · ${prestigeTier.name}`,
             0xff00ff
         );
+
+        // Show prestige layer image briefly
+        this.showPrestigeLayerBriefly();
 
         this.drawBackgroundGrid();
         this.updateSpawnTimer();
@@ -5964,15 +7243,174 @@ export class GameScene extends Phaser.Scene {
                 );
             });
         }
+        
+        // Update story state and trigger prestige milestone dialogue
+        updateStoryState(this.prestigeLevel, this.currentLayer);
+        
+        // Update rank after prestige advancement
+        const newRank = updateCurrentRank(this.prestigeLevel, this.currentLayer);
+        if (newRank) {
+            this.registry.set("currentRank", newRank.name);
+        }
+        
+        // Trigger prestige completion dialogue
+        this.time.delayedCall(1000, () => {
+            this.triggerDialogue('prestige_complete');
+        });
+        
+        // Trigger prestige milestone dialogue if applicable (legacy system)
+        this.time.delayedCall(1500, () => {
+            this.triggerStoryDialogue('prestige_milestone');
+        });
+        
+        // Trigger layer start dialogue for new prestige
+        this.time.delayedCall(2000, () => {
+            this.triggerDialogue('layer_start');
+        });
+    }
+    
+    /**
+     * Show rank achievement notification
+     */
+    private showRankAchievement(rank: { number: number; name: string; badge: string }): void {
+        this.showAnnouncement(
+            "RANK ACHIEVED!",
+            `${rank.name} - Rank ${rank.number}`,
+            0x00ffff
+        );
+        
+        // Store achievement for later display
+        this.registry.set("lastRankAchievement", {
+            number: rank.number,
+            name: rank.name,
+            badge: rank.badge,
+        });
+    }
+    
+    /**
+     * Trigger story dialogue based on milestone type (legacy system)
+     */
+    private triggerStoryDialogue(type: 'game_start' | 'layer_complete' | 'prestige_milestone' | 'boss_defeat' | 'final_boss'): void {
+        const milestone = getMilestoneForProgress(this.prestigeLevel, this.currentLayer, type);
+        if (!milestone) {
+            return;
+        }
+        
+        if (!shouldTriggerMilestone(this.prestigeLevel, this.currentLayer, type)) {
+            return;
+        }
+        
+        // Get UIScene to show dialogue
+        const uiScene = this.scene.get('UIScene');
+        if (!uiScene) return;
+        
+        const dialogueManager = (uiScene as any).dialogueManager;
+        if (!dialogueManager) return;
+        
+        // Show dialogue
+        const shown = dialogueManager.showDialogue(milestone.dialogueId, {
+            skipOnClick: true,
+            priority: milestone.type === 'final_boss' ? 'critical' : 'high',
+            onComplete: () => {
+                // Mark milestone as completed
+                completeMilestone(milestone.id);
+            },
+        });
+        
+        if (shown) {
+            console.log(`[Story] Triggered dialogue: ${milestone.dialogueId} for milestone ${milestone.id}`);
+        }
+    }
+    
+    /**
+     * Trigger new dialogue system based on trigger type
+     */
+    private triggerDialogue(trigger: string): void {
+        const state: DialogueState = {
+            prestige: this.prestigeLevel,
+            layer: this.currentLayer,
+            isFirstRun: isFirstRun(),
+            bossDefeated: false,
+            prestigeCompleted: false,
+            finalBossEncountered: this.prestigeLevel === 8 && this.currentLayer === 6 && this.graduationBossActive,
+            finalBossDefeated: false,
+        };
+        
+        const dialogue = getDialogueForTrigger(trigger, state);
+        if (!dialogue) {
+            return;
+        }
+        
+        // Check if already viewed (for non-critical dialogues)
+        if (trigger !== 'final_boss_encounter' && trigger !== 'final_boss_defeat' && hasViewedDialogue(dialogue.id)) {
+            return;
+        }
+        
+        // Replace [Boss Name] placeholder with actual boss name if needed
+        let dialogueText = dialogue.text;
+        if (dialogueText.includes('[Boss Name]')) {
+            const bossName = this.getCurrentBossName();
+            dialogueText = dialogueText.replace('[Boss Name]', bossName);
+        }
+        
+        // Emit dialogue event to UIScene
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+            uiScene.events.emit('show-dialogue', {
+                id: dialogue.id,
+                speaker: dialogue.speaker,
+                text: dialogueText,
+                speakerColor: this.getSpeakerColor(dialogue.speaker),
+            });
+            
+            // Mark as viewed
+            markDialogueAsViewed(dialogue.id);
+        }
+    }
+    
+    /**
+     * Get current boss name for dialogue replacement
+     */
+    private getCurrentBossName(): string {
+        // Find active graduation boss
+        const activeBoss = this.enemies.children.entries.find((enemy: any) => 
+            enemy.getData && enemy.getData('isGraduationBoss')
+        ) as Phaser.Physics.Arcade.Sprite | undefined;
+        
+        if (activeBoss) {
+            const displayName = activeBoss.getData('displayName') as string;
+            if (displayName) {
+                return displayName;
+            }
+        }
+        
+        // Fallback: use enemy service to get boss name
+        if (this.currentLayer === 6 && this.prestigeLevel === 8) {
+            return 'Zrechostikal - The Swarm Overlord';
+        }
+        
+        return getGraduationBossName(this.currentLayer, this.prestigeLevel);
+    }
+    
+    /**
+     * Get speaker color based on speaker name
+     */
+    private getSpeakerColor(speaker: string): string {
+        if (speaker.includes('White Sentinel')) return '#ffffff';
+        if (speaker.includes('Prime Sentinel')) return '#00ffff';
+        if (speaker.includes('Zrechostikal')) return '#ff00ff';
+        if (speaker.includes('Boss')) return '#ff8800';
+        return '#00ff00'; // Default green
     }
 
     private applyPrestigeLevel(level: number) {
-        const prestigeTier = this.getPrestigeTier(level);
+        const prestigeTier = getPrestigeTierConfig(level);
         this.prestigeDifficultyMultiplier = prestigeTier.difficultyMultiplier;
         this.prestigeScoreMultiplier = prestigeTier.scoreMultiplier;
         this.prestigeResetAvailable = true;
 
         this.registry.set("prestigeLevel", this.prestigeLevel);
+        this.registry.set("currentPrestige", this.prestigeLevel);
         this.registry.set(
             "prestigeScoreMultiplier",
             this.prestigeScoreMultiplier
@@ -5982,7 +7420,8 @@ export class GameScene extends Phaser.Scene {
             this.prestigeDifficultyMultiplier
         );
 
-        const prestigeChampion = this.prestigeLevel >= 10;
+        // Prestige champion achievement (for reaching prestige 8)
+        const prestigeChampion = this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige;
         this.registry.set("prestigeChampion", prestigeChampion);
         if (this.prestigeLevel >= 1) {
             this.unlockAchievementWithAnnouncement("prestige_1");
@@ -5990,28 +7429,15 @@ export class GameScene extends Phaser.Scene {
         if (this.prestigeLevel >= 5) {
             this.unlockAchievementWithAnnouncement("prestige_5");
         }
-        if (this.prestigeLevel >= 10) {
-            this.unlockAchievementWithAnnouncement("prestige_10");
+        if (this.prestigeLevel >= PRESTIGE_CONFIG.maxPrestige) {
+            this.unlockAchievementWithAnnouncement("prestige_8");
         }
     }
 
-    private getPrestigeTier(level: number) {
-        const tier = PRESTIGE_CONFIG.prestigeLevels.find(
-            (entry) => entry.level === level
-        );
-        if (tier) {
-            return { ...tier, label: `Tier ${tier.level}` };
-        }
+    // getPrestigeTier removed - use getPrestigeTierConfig from config.ts instead
 
-        const difficultyMultiplier = 1.5 + (level - 1) * 0.5;
-        const scoreMultiplier = 1.0 + (level - 1) * 0.5;
-        return {
-            level,
-            difficultyMultiplier,
-            scoreMultiplier,
-            label: `Tier ${level}`,
-        };
-    }
+    // Note: handleFinalBossDefeat is defined earlier in the file (line 4877)
+    // This duplicate was removed to fix compilation error
 
     private getPrestigeGridColor(baseColor: number) {
         if (this.prestigeLevel <= 0) {
@@ -6027,6 +7453,363 @@ export class GameScene extends Phaser.Scene {
             Math.min(1, hsl.v + 0.1)
         ) as { r: number; g: number; b: number };
         return Phaser.Display.Color.GetColor(shifted.r, shifted.g, shifted.b);
+    }
+
+    private introduceWhiteSentinel(): void {
+        // Get UIScene to show introduction tooltip
+        const uiScene = this.scene.get('UIScene');
+        if (!uiScene) return;
+        
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        
+        // Show introduction tooltip from White Sentinel
+        const tooltipManager = (uiScene as any).tooltipManager;
+        if (tooltipManager) {
+            tooltipManager.enqueueTooltip({
+                id: 'white-sentinel-intro',
+                targetX: gameWidth / 2,
+                targetY: gameHeight / 2,
+                content: "Greetings, Sentinel. I am your White Sentinel guide. I'll be with you throughout this mission, teaching you everything you need to know. Let's begin your journey!",
+                position: 'top',
+                width: 350,
+            }, 0);
+        }
+        
+        // Create floating text for dramatic effect
+        this.createFloatingText(
+            gameWidth / 2,
+            gameHeight / 2 - 100,
+            "WHITE SENTINEL ONLINE",
+            { color: "#ffffff", fontSize: 24 }
+        );
+    }
+
+    /**
+     * Spawn a mini-me companion
+     */
+    public spawnMiniMe(type: MiniMeType): boolean {
+        const activeCount = this.miniMes.children.size;
+        if (activeCount >= MINI_ME_CONFIG.maxActive) {
+            // Show warning
+            this.showAnnouncement(
+                "MAX MINI-MES",
+                `Cannot spawn more than ${MINI_ME_CONFIG.maxActive} mini-mes`,
+                0xff0000
+            );
+            return false;
+        }
+        
+        const coins = getAvailableCoins();
+        const result = activateMiniMe(type, coins);
+        
+        if (!result.success) {
+            return false;
+        }
+        
+        // Deduct coins
+        spendCoins(result.coinsSpent, `mini_me_${type}`);
+        this.registry.set("coinBalance", getAvailableCoins());
+        
+        // Create mini-me sprite
+        const offsetX = Phaser.Math.Between(-30, 30);
+        const offsetY = Phaser.Math.Between(-30, 30);
+        const miniMe = this.miniMes.create(
+            this.player.x + offsetX,
+            this.player.y + offsetY,
+            'power_up' // Placeholder sprite
+        ) as Phaser.Physics.Arcade.Sprite;
+        
+        // Set mini-me properties
+        miniMe.setScale(0.3 * MOBILE_SCALE);
+        miniMe.setDepth(99); // Just below player
+        miniMe.setData('type', type);
+        miniMe.setData('spawnTime', this.time.now);
+        miniMe.setData('hits', 0);
+        miniMe.setData('lastHealTime', this.time.now);
+        miniMe.setData('lastStunPulse', this.time.now);
+        
+        // Set duration (10-15 seconds)
+        const duration = Phaser.Math.Between(
+            MINI_ME_CONFIG.duration.min,
+            MINI_ME_CONFIG.duration.max
+        );
+        miniMe.setData('expireTime', this.time.now + duration);
+        
+        // Type-specific setup
+        this.setupMiniMeBehavior(miniMe, type);
+        
+        // Update active count
+        this.registry.set("activeMiniMes", this.miniMes.children.size);
+        
+        // Show announcement
+        import('../../services/inventoryService').then(({ getMiniMeName }) => {
+            this.showAnnouncement(
+                "MINI-ME DEPLOYED",
+                `${getMiniMeName(type)} activated!`,
+                0x00ffff
+            );
+        });
+        
+        return true;
+    }
+    
+    /**
+     * Setup mini-me behavior based on type
+     */
+    private setupMiniMeBehavior(miniMe: Phaser.Physics.Arcade.Sprite, type: MiniMeType): void {
+        switch (type) {
+            case 'scout':
+                // Scout: Add scanning effect
+                miniMe.setTint(0x00ffff); // Cyan tint
+                break;
+            case 'gunner':
+                // Gunner: Add shooting capability
+                miniMe.setTint(0xff0000); // Red tint
+                miniMe.setData('lastShotTime', 0);
+                break;
+            case 'shield':
+                // Shield: Create barrier effect
+                miniMe.setTint(0x00ff00); // Green tint
+                miniMe.setAlpha(0.5); // Semi-transparent
+                break;
+            case 'decoy':
+                // Decoy: Holographic effect
+                miniMe.setTint(0xffff00); // Yellow tint
+                miniMe.setAlpha(0.7);
+                break;
+            case 'collector':
+                // Collector: Vacuum effect
+                miniMe.setTint(0xff00ff); // Magenta tint
+                break;
+            case 'stun':
+                // Stun: Sparking effect
+                miniMe.setTint(0xffffff); // White tint
+                break;
+            case 'healer':
+                // Healer: Healing aura
+                miniMe.setTint(0x00ff99); // Light green tint
+                break;
+        }
+    }
+    
+    /**
+     * Update all active mini-mes
+     */
+    private updateMiniMes(time: number): void {
+        if (this.gameOver || this.isPaused) {
+            return;
+        }
+        
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (!miniMe.active) {
+                return;
+            }
+            
+            const type = miniMe.getData('type') as MiniMeType;
+            const expireTime = miniMe.getData('expireTime') as number;
+            
+            // Check if expired
+            if (time >= expireTime) {
+                this.destroyMiniMe(miniMe);
+                return;
+            }
+            
+            // Follow player with offset
+            const offsetX = Phaser.Math.Between(-20, 20);
+            const offsetY = Phaser.Math.Between(-20, 20);
+            const targetX = this.player.x + offsetX;
+            const targetY = this.player.y + offsetY;
+            
+            // Smooth movement toward player
+            const lerpSpeed = 0.1;
+            const newX = Phaser.Math.Linear(miniMe.x, targetX, lerpSpeed);
+            const newY = Phaser.Math.Linear(miniMe.y, targetY, lerpSpeed);
+            miniMe.setPosition(newX, newY);
+            
+            // Execute type-specific behavior
+            this.executeMiniMeBehavior(miniMe, type, time);
+        });
+        
+        // Update active count
+        this.registry.set("activeMiniMes", this.miniMes.children.size);
+    }
+    
+    /**
+     * Execute mini-me type-specific behavior
+     */
+    private executeMiniMeBehavior(miniMe: Phaser.Physics.Arcade.Sprite, type: MiniMeType, time: number): void {
+        switch (type) {
+            case 'scout':
+                // Scout: Reveal enemies (visual effect only for now)
+                // Could add enemy highlighting here
+                break;
+            case 'gunner':
+                // Gunner: Shoot alongside player
+                const lastShotTime = miniMe.getData('lastShotTime') as number || 0;
+                const gunnerFireRate = PLAYER_CONFIG.fireRate * MINI_ME_CONFIG.behaviors.gunner.fireRate;
+                if (time - lastShotTime >= gunnerFireRate) {
+                    this.shootMiniMeBullet(miniMe);
+                    miniMe.setData('lastShotTime', time);
+                }
+                break;
+            case 'shield':
+                // Shield: Damage reduction handled in takeDamage()
+                break;
+            case 'decoy':
+                // Decoy: Damage reduction handled in takeDamage()
+                break;
+            case 'collector':
+                // Collector: Gather nearby power-ups
+                this.collectNearbyPowerUps(miniMe);
+                break;
+            case 'stun':
+                // Stun: Emit stun pulses
+                const lastStunPulse = miniMe.getData('lastStunPulse') as number || 0;
+                if (time - lastStunPulse >= MINI_ME_CONFIG.behaviors.stun.pulseInterval) {
+                    this.emitStunPulse(miniMe);
+                    miniMe.setData('lastStunPulse', time);
+                }
+                break;
+            case 'healer':
+                // Healer: Restore health periodically
+                const lastHealTime = miniMe.getData('lastHealTime') as number || 0;
+                if (time - lastHealTime >= MINI_ME_CONFIG.behaviors.healer.healInterval) {
+                    this.healPlayer(miniMe);
+                    miniMe.setData('lastHealTime', time);
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Shoot bullet from gunner mini-me
+     */
+    private shootMiniMeBullet(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        // Use player's bullet sprite or create a simple one
+        let bullet: Phaser.Physics.Arcade.Sprite;
+        if (this.textures.exists('bullet')) {
+            bullet = this.bullets.create(miniMe.x, miniMe.y, 'bullet') as Phaser.Physics.Arcade.Sprite;
+        } else {
+            // Create a simple bullet graphic if texture doesn't exist
+            if (!this.textures.exists('miniMeBullet')) {
+                const graphics = this.add.graphics();
+                graphics.fillStyle(0x00ff00, 1);
+                graphics.fillCircle(0, 0, 4);
+                graphics.generateTexture('miniMeBullet', 8, 8);
+                graphics.destroy();
+            }
+            bullet = this.bullets.create(miniMe.x, miniMe.y, 'miniMeBullet') as Phaser.Physics.Arcade.Sprite;
+        }
+        bullet.setVelocityY(-MINI_ME_CONFIG.behaviors.gunner.bulletSpeed);
+        bullet.setScale(0.5 * MOBILE_SCALE);
+        bullet.setDepth(50);
+        bullet.setData('isMiniMeBullet', true);
+    }
+    
+    /**
+     * Collect nearby power-ups (collector mini-me)
+     */
+    private collectNearbyPowerUps(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        const radius = MINI_ME_CONFIG.behaviors.collector.collectionRadius;
+        this.powerUps.children.entries.forEach((powerUpObj) => {
+            const powerUp = powerUpObj as Phaser.Physics.Arcade.Sprite;
+            const distance = Phaser.Math.Distance.Between(
+                miniMe.x, miniMe.y,
+                powerUp.x, powerUp.y
+            );
+            if (distance <= radius) {
+                // Move power-up toward player
+                const angle = Phaser.Math.Angle.Between(
+                    powerUp.x, powerUp.y,
+                    this.player.x, this.player.y
+                );
+                const speed = 400;
+                powerUp.setVelocity(
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed
+                );
+            }
+        });
+    }
+    
+    /**
+     * Emit stun pulse (stun mini-me)
+     */
+    private emitStunPulse(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        const radius = MINI_ME_CONFIG.behaviors.stun.stunRadius;
+        const stunDuration = MINI_ME_CONFIG.behaviors.stun.stunDuration;
+        
+        // Visual effect
+        const circle = this.add.circle(miniMe.x, miniMe.y, radius, 0xffffff, 0.3);
+        this.tweens.add({
+            targets: circle,
+            radius: radius * 2,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => circle.destroy(),
+        });
+        
+        // Stun nearby enemies
+        this.enemies.children.entries.forEach((enemyObj) => {
+            const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+            if (!enemy.active) return;
+            const distance = Phaser.Math.Distance.Between(
+                miniMe.x, miniMe.y,
+                enemy.x, enemy.y
+            );
+            if (distance <= radius) {
+                enemy.setData('stunned', true);
+                enemy.setData('stunEndTime', this.time.now + stunDuration);
+                // Visual: Make enemy gray
+                enemy.setTint(0x888888);
+                // Stop enemy movement when stunned
+                enemy.setVelocity(0, 0);
+                this.time.delayedCall(stunDuration, () => {
+                    if (enemy.active) {
+                        enemy.setData('stunned', false);
+                        enemy.clearTint();
+                        // Restore enemy velocity (will be updated in enemy update loop)
+                    }
+                });
+            }
+        });
+    }
+    
+    /**
+     * Heal player (healer mini-me)
+     */
+    private healPlayer(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
+            this.healthBars = Math.min(this.healthBars + MINI_ME_CONFIG.behaviors.healer.healAmount, PLAYER_CONFIG.maxHealthBars);
+            this.registry.set("healthBars", this.healthBars);
+            this.createFloatingText(miniMe.x, miniMe.y - 20, "+1 Health", { color: "#00ff00" });
+        }
+    }
+    
+    /**
+     * Destroy mini-me
+     */
+    private destroyMiniMe(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        // Create explosion
+        this.createExplosion(miniMe.x, miniMe.y, "small");
+        miniMe.destroy();
+        const newCount = this.miniMes.children.size;
+        this.registry.set("activeMiniMes", newCount);
+    }
+    
+    /**
+     * Clean up all mini-mes (on game over or restart)
+     */
+    private cleanupMiniMes(): void {
+        this.miniMes.children.entries.forEach((miniMeObj) => {
+            const miniMe = miniMeObj as Phaser.Physics.Arcade.Sprite;
+            if (miniMe.active) {
+                miniMe.destroy();
+            }
+        });
+        this.registry.set("activeMiniMes", 0);
     }
 
     private updatePrestigeEffects() {

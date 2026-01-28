@@ -4,7 +4,7 @@ import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreServ
 import { CUSTOMIZABLE_SETTINGS, PLAYER_KERNELS } from '../game/config';
 import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
 import { getGameplaySettings, saveGameplaySettings, type GameplaySettings } from '../services/settingsService';
-import { addCoins, getAvailableCoins, getDailyCoinCount } from '../services/coinService';
+import { addCoins, getAvailableCoins, getDailyCoins } from '../services/coinService';
 import { useState, useEffect } from 'react';
 import logoImage from '../assets/logo.png';
 import iconProfile from '../assets/icons/icon-profile.svg';
@@ -14,8 +14,12 @@ import iconMarketplace from '../assets/icons/icon-marketplace.svg';
 import iconLogin from '../assets/icons/icon-login.svg';
 import WalletConnectionModal from '../components/WalletConnectionModal';
 import StoryModal from '../components/StoryModal';
+import AvatarSelectionModal from '../components/AvatarSelectionModal';
+import { InventoryModal } from '../components/InventoryModal';
 import { FirstTimeTooltip } from '../components/Tooltip';
 import { KernelIcon } from '../components/KernelIcon';
+import { getActiveAvatar, getAvatarConfig } from '../services/avatarService';
+import { getCurrentRankFromStorage } from '../services/rankService';
 import './LandingPage.css';
 
 const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
@@ -55,17 +59,24 @@ function LandingPage() {
     ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
     : 'LOGIN';
   const [leaderboard, setLeaderboard] = useState<
-    Array<{ score: number; playerName: string; prestigeLevel?: number }>
+    Array<{ score: number; playerName: string; prestigeLevel?: number; currentRank?: string }>
   >([]);
   const [currentWeek, setCurrentWeek] = useState<number>(1);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
   const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
   const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
   const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
   const [coins, setCoins] = useState(getAvailableCoins());
+  const [currentRank, setCurrentRank] = useState(() => {
+    const stored = getCurrentRankFromStorage();
+    return stored ? stored.name : 'Initiate Sentinel';
+  });
   const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(() => {
     const unseen = TOOLTIP_KEYS.find(
       (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
@@ -82,6 +93,15 @@ function LandingPage() {
     setSelectedKernel(kernelState.selectedKernel);
     setSettings(getGameplaySettings());
     setCoins(getAvailableCoins());
+    
+    // Update rank display
+    const stored = getCurrentRankFromStorage();
+    if (stored) {
+      setCurrentRank(stored.name);
+    } else {
+      // Default to Initiate Sentinel - rank will update during gameplay
+      setCurrentRank('Initiate Sentinel');
+    }
   }, []);
 
   // Show wallet modal on first visit if wallet not connected
@@ -148,6 +168,20 @@ function LandingPage() {
   const handleBuyCoins = (amount: number) => {
     const next = addCoins(amount);
     setCoins(next);
+  };
+
+  const handleOpenAvatarModal = () => {
+    setCoins(getAvailableCoins());
+    setShowAvatarModal(true);
+  };
+
+  const handleCloseAvatarModal = () => {
+    setShowAvatarModal(false);
+  };
+
+  const handleAvatarChange = () => {
+    setActiveAvatar(getActiveAvatar());
+    setCoins(getAvailableCoins());
   };
 
   const advanceTooltip = () => {
@@ -319,6 +353,19 @@ function LandingPage() {
             </button>
           </FirstTimeTooltip>
           <FirstTimeTooltip
+            id="nav-inventory"
+            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
+            position="bottom"
+            activeId={currentTooltipId}
+            onNext={advanceTooltip}
+            onSkip={skipTour}
+          >
+            <button type="button" className="nav-icon-button" onClick={() => setShowInventoryModal(true)} aria-label="Inventory">
+              <span className="nav-icon-text" style={{ fontSize: '1.5rem' }}>📦</span>
+              <span className="nav-icon-label">INVENTORY</span>
+            </button>
+          </FirstTimeTooltip>
+          <FirstTimeTooltip
             id="nav-login"
             content="Connect your wallet or play anonymously. Wallet connection enables additional features."
             position="bottom"
@@ -352,6 +399,115 @@ function LandingPage() {
             <p className="text-sm md:text-base font-body text-neon-green opacity-70 mt-2" style={{ letterSpacing: '0.1em' }}>
               Week {currentWeek} • Grid Status: ACTIVE
             </p>
+          </div>
+        </div>
+
+        {/* Avatar Selection Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              AVATAR SELECTION
+            </h3>
+            <div className="flex items-center gap-4 justify-center">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 md:w-20 md:h-20 border-2 border-neon-green bg-black mb-2 flex items-center justify-center">
+                  <img 
+                    src={`/sprites/${getAvatarConfig(activeAvatar).spriteKey}.svg`}
+                    alt={getAvatarConfig(activeAvatar).displayName}
+                    className="max-w-full max-h-full object-contain"
+                    style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/sprites/hero.svg';
+                    }}
+                  />
+                </div>
+                <p className="font-menu text-xs text-neon-green">
+                  {getAvatarConfig(activeAvatar).displayName}
+                </p>
+                <div className="mt-1 text-xs font-body text-neon-green opacity-70">
+                  {getAvatarConfig(activeAvatar).description}
+                </div>
+                {/* Show stats */}
+                <div className="mt-2 text-xs font-body text-neon-green opacity-60">
+                  Speed: {getAvatarConfig(activeAvatar).stats.speedMult.toFixed(1)}x | 
+                  Fire: {getAvatarConfig(activeAvatar).stats.fireRateMult.toFixed(1)}x | 
+                  Health: {getAvatarConfig(activeAvatar).stats.healthMult.toFixed(1)}x
+                </div>
+              </div>
+              <button
+                className="retro-button font-menu text-sm px-4 py-2"
+                onClick={handleOpenAvatarModal}
+              >
+                CHANGE AVATAR
+              </button>
+            </div>
+            <div className="mt-3 text-xs font-body text-neon-green opacity-70 border-t border-neon-green border-opacity-30 pt-2">
+              Coins: {coins} | Prestige Required: {getAvatarConfig(activeAvatar).unlockPrestige}
+            </div>
+          </div>
+        </div>
+        
+        {/* Inventory Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              MINI-ME INVENTORY
+            </h3>
+            <button
+              className="retro-button font-menu text-sm px-4 py-2"
+              onClick={() => setShowInventoryModal(true)}
+            >
+              OPEN INVENTORY
+            </button>
+            <div className="mt-2 text-xs font-body text-neon-green opacity-70">
+              Manage your Mini-Me companions
+            </div>
+          </div>
+        </div>
+        
+        {/* Rank Display Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              CURRENT RANK
+            </h3>
+            <div className="flex items-center gap-4 justify-center">
+              <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
+                <div className="text-2xl font-menu text-neon-green">
+                  {currentRank ? '#' + (getCurrentRankFromStorage()?.number || 1) : '#'}
+                </div>
+              </div>
+              <div className="text-left">
+                <div className="font-menu text-base text-neon-green">{currentRank}</div>
+                <div className="font-body text-xs text-neon-green opacity-70 mt-1">
+                  {getCurrentRankFromStorage() ? 
+                    `Prestige ${getCurrentRankFromStorage()!.prestige}, Layer ${getCurrentRankFromStorage()!.layer}` : 
+                    'Progress to unlock ranks'}
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/profile"
+              className="mt-3 inline-block font-menu text-xs text-neon-green hover:text-red-500 transition-all duration-200"
+            >
+              View Rank History →
+            </Link>
+          </div>
+        </div>
+        
+        {/* Coin Display Section */}
+        <div className="text-center mb-6 md:mb-8">
+          <div className="retro-panel inline-block px-6 py-4">
+            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
+              COIN BALANCE
+            </h3>
+            <div className="text-2xl font-menu text-neon-green mb-2">
+              {coins} <span className="text-lg">coins</span>
+            </div>
+            <div className="text-xs font-body text-neon-green opacity-70 space-y-1">
+              <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
+              <div>Earn coins by completing prestiges</div>
+            </div>
           </div>
         </div>
 
@@ -450,6 +606,11 @@ function LandingPage() {
                       <span className="font-score text-xs md:text-sm text-red-500 ml-2">
                         P{entry.prestigeLevel ?? 0}
                       </span>
+                      {entry.currentRank && (
+                        <span className="font-score text-xs md:text-sm text-cyan-400 ml-2">
+                          {entry.currentRank}
+                        </span>
+                      )}
                       </span>
                       <span className="font-score text-base md:text-lg text-neon-green">
                         {entry.score.toLocaleString()}
@@ -473,7 +634,7 @@ function LandingPage() {
             </div>
           </FirstTimeTooltip>
 
-          {/* Middle Panel: System Depth */}
+          {/* Middle Panel: System Depth & Rank */}
           <FirstTimeTooltip
             id="system-depth"
             content="System Depth = Current Layer + (Prestige × 6). This measures how deep you've penetrated The Grid. Higher depth = more challenge and rewards!"
@@ -488,8 +649,11 @@ function LandingPage() {
               }}>
                 SYSTEM DEPTH
               </h2>
-            <div className="text-xs text-neon-green opacity-70 mb-4 font-body">
+            <div className="text-xs text-neon-green opacity-70 mb-2 font-body">
               Current Depth: <span className="text-red-500 font-semibold">LAYER {currentLayerIndex + 1}</span>
+            </div>
+            <div className="text-xs text-neon-green opacity-70 mb-4 font-body border-t border-neon-green border-opacity-30 pt-2 mt-2">
+              Current Rank: <span className="text-cyan-400 font-semibold">{currentRank}</span>
             </div>
             <div className="grid grid-cols-5 gap-2 mb-4">
               {layers.map((layer, index) => {
@@ -921,7 +1085,7 @@ function LandingPage() {
                 onNext={advanceTooltip}
                 onSkip={skipTour}
               >
-                <div>Daily Coins: {getDailyCoinCount()} (auto-refresh)</div>
+                <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
               </FirstTimeTooltip>
               <div>Available Coins: {coins}</div>
               <div className="opacity-70">Crypto purchases are simulated.</div>
@@ -955,6 +1119,19 @@ function LandingPage() {
         isOpen={showStoryModal}
         onClose={handleCloseStoryModal}
         storyText={storyText}
+      />
+      <AvatarSelectionModal
+        isOpen={showAvatarModal}
+        onClose={handleCloseAvatarModal}
+        onAvatarChange={handleAvatarChange}
+      />
+      <InventoryModal
+        isOpen={showInventoryModal}
+        onClose={() => setShowInventoryModal(false)}
+        onActivate={(type) => {
+          // Mini-me activation will be handled by GameScene when game is running
+          console.log('Mini-me activated:', type);
+        }}
       />
     </div>
   );
