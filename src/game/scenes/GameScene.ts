@@ -56,6 +56,7 @@ import {
     grantPrestigeReward,
     getReviveCost,
     checkAndGrantPrimeSentinelBonus,
+    addCoins,
 } from "../../services/coinService";
 import {
     activateMiniMe,
@@ -286,6 +287,7 @@ export class GameScene extends Phaser.Scene {
     private pendingLayer = 1; // Layer waiting to be unlocked after boss defeat
     private powerUps!: Phaser.Physics.Arcade.Group;
     private miniMes!: Phaser.Physics.Arcade.Group;
+    private primeSentinelHelpers!: Phaser.Physics.Arcade.Group;
     private speedMultiplier = 1;
     private fireRateMultiplier = 1;
     private layerFireRateMultiplier = 1; // Increases slightly with each layer
@@ -412,6 +414,9 @@ export class GameScene extends Phaser.Scene {
             defaultKey: 'power_up', // Use power-up sprite as placeholder
             maxSize: MINI_ME_CONFIG.maxActive,
         });
+        
+        // Prime Sentinel helper group (for prime sentinel powerup)
+        this.primeSentinelHelpers = this.physics.add.group();
 
         // Shockwaves group (for blue zigzag lines from bosses)
         this.shockwaves = this.physics.add.group();
@@ -1253,6 +1258,11 @@ export class GameScene extends Phaser.Scene {
         // Update mini-mes
         if (!this.gameOver) {
             this.updateMiniMes(time);
+        }
+        
+        // Update prime sentinel helpers
+        if (!this.gameOver) {
+            this.updatePrimeSentinelHelpers(time);
         }
 
         // Shooting - manual or auto-shoot power-up
@@ -3215,11 +3225,161 @@ export class GameScene extends Phaser.Scene {
                     
                     // If enemy dies, destroy it
                     if (health <= 0) {
-                        this.totalEnemiesDefeated += 1;
-                        // Clean up enemy effects (aura, echo timer, etc.)
-                        this.cleanupEnemyEffects(enemy);
-                        this.destroyEnemyHealthBar(enemy);
-                        enemy.destroy();
+                        // Check if this is a graduation boss BEFORE destroying
+                        const isGraduationBoss = enemy.getData("isGraduationBoss") || false;
+                        const isBoss = enemy.getData("isBoss") || false;
+                        const enemyType = enemy.getData("type") as string;
+                        const points = (enemy.getData("points") as number) || 10;
+                        
+                        // If it's a graduation boss, we need to handle it through the proper death handler
+                        // to ensure layer progression and enemy spawning continues
+                        if (isGraduationBoss) {
+                            // Use the same logic as handleBulletEnemyCollision for graduation boss
+                            // Set graduationBossActive to false BEFORE addScore (which calls updateLayer)
+                            this.graduationBossActive = false;
+                            
+                            // Track stats
+                            this.totalEnemiesDefeated += 1;
+                            this.runBossesDefeated += 1;
+                            
+                            // Clean up enemy effects
+                            this.cleanupEnemyEffects(enemy);
+                            const healthBarBg = enemy.getData("healthBarBg") as Phaser.GameObjects.Graphics | undefined;
+                            const healthBarFill = enemy.getData("healthBarFill") as Phaser.GameObjects.Graphics | undefined;
+                            if (healthBarBg) healthBarBg.destroy();
+                            if (healthBarFill) healthBarFill.destroy();
+                            
+                            // Create explosion
+                            const explosionSize = this.getExplosionSize(enemyType, isBoss);
+                            this.createExplosion(enemy.x, enemy.y, explosionSize);
+                            
+                            // Award score (this triggers layer updates)
+                            this.addScore(points * this.comboMultiplier);
+                            this.adaptationKillCount += 1;
+                            
+                            // Trigger haptics
+                            this.triggerHaptic(
+                                SENSORY_ESCALATION.hapticFeedback.onBossDefeat
+                            );
+                            
+                            // Handle graduation boss defeat logic (same as in handleBulletEnemyCollision)
+                            // Trigger boss defeat story dialogue
+                            const isFinalBoss = this.prestigeLevel === 8 && this.currentLayer === 6;
+                            if (isFinalBoss) {
+                                this.triggerStoryDialogue('final_boss');
+                            } else {
+                                this.triggerStoryDialogue('boss_defeat');
+                            }
+                            
+                            // Check if this was the final boss
+                            const isFinalBossDefeated = this.finalBossActive && this.prestigeLevel === 8 && this.currentLayer === 6;
+                            if (isFinalBossDefeated) {
+                                // Final boss defeated - game complete!
+                                this.handleFinalBossDefeat();
+                            } else if (this.pendingLayer >= MAX_LAYER) {
+                                // Advance to next prestige (if not at max)
+                                if (this.prestigeLevel < PRESTIGE_CONFIG.maxPrestige) {
+                                    this.enterPrestigeMode(enemy.x, enemy.y);
+                                } else {
+                                    // At max prestige, cannot advance further
+                                    this.showAnnouncement(
+                                        "MAX PRESTIGE REACHED!",
+                                        "You have reached the final prestige level",
+                                        0xffff00
+                                    );
+                                }
+                            } else {
+                                // Advance to the pending layer
+                                // Safety check: ensure pendingLayer is valid
+                                if (this.pendingLayer < 1 || this.pendingLayer > MAX_LAYER) {
+                                    console.error(`[Layer Progression] Invalid pendingLayer: ${this.pendingLayer}, resetting to currentLayer`);
+                                    this.pendingLayer = this.currentLayer;
+                                }
+                                this.currentLayer = this.pendingLayer;
+                                this.graduationBossActive = false; // Clear the flag so layer updates can continue
+                                if (this.pendingLayer > this.deepestLayer) {
+                                    this.deepestLayer = this.pendingLayer;
+                                }
+                                
+                                // Increase firepower slightly with each layer (5% per layer, up to 30% at layer 6)
+                                this.layerFireRateMultiplier = 1.0 + (this.currentLayer - 1) * 0.05;
+                                console.log(`[Firepower] Layer ${this.currentLayer} - Fire rate multiplier: ${this.layerFireRateMultiplier.toFixed(2)}`);
+                                
+                                // Update registry
+                                this.registry.set("currentLayer", this.currentLayer);
+                                this.registry.set("layerName", LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name);
+                                
+                                // Update story state and trigger layer complete dialogue
+                                updateStoryState(this.prestigeLevel, this.currentLayer);
+                                
+                                // Update rank and check for rank achievement
+                                const newRank = getRankName(this.prestigeLevel, this.currentLayer);
+                                updateCurrentRank(this.prestigeLevel, this.currentLayer);
+                                this.registry.set("currentRank", newRank);
+                                
+                                // Achievement unlocks
+                                if (this.currentLayer >= 2) {
+                                    this.unlockAchievementWithAnnouncement("layer_2");
+                                }
+                                if (this.currentLayer >= 5) {
+                                    this.unlockAchievementWithAnnouncement("layer_5");
+                                }
+                                if (this.currentLayer >= 3 && !this.tookDamageBeforeLayer3) {
+                                    this.unlockAchievementWithAnnouncement("clean_run_layer_3");
+                                }
+                                if (this.currentLayer >= MAX_LAYER && this.timeToReachLayer6 === null) {
+                                    this.timeToReachLayer6 = Math.round((this.time.now - this.runStartTime) / 1000);
+                                }
+                                
+                                // Show announcement
+                                this.showAnnouncement(
+                                    "LAYER ADVANCED!",
+                                    LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name,
+                                    0x00ff00
+                                );
+                            }
+                            
+                            // Destroy the enemy
+                            enemy.destroy();
+                        } else {
+                            // Regular enemy - destroy normally
+                            this.totalEnemiesDefeated += 1;
+                            // Track enemy kill for boss spawn requirement
+                            if (!isBoss) {
+                                this.enemiesKilledThisLayer += 1;
+                            }
+                            
+                            // Award score
+                            this.addScore(points * this.comboMultiplier);
+                            this.adaptationKillCount += 1;
+                            
+                            // Clean up enemy effects (aura, echo timer, etc.)
+                            this.cleanupEnemyEffects(enemy);
+                            this.destroyEnemyHealthBar(enemy);
+                            
+                            // Create explosion
+                            const explosionSize = this.getExplosionSize(enemyType, isBoss);
+                            this.createExplosion(enemy.x, enemy.y, explosionSize);
+                            
+                            // Handle boss defeat
+                            if (isBoss) {
+                                this.runBossesDefeated += 1;
+                                this.triggerHaptic(
+                                    SENSORY_ESCALATION.hapticFeedback.onBossDefeat
+                                );
+                                this.showAnnouncement(
+                                    "BOSS DEFEATED!",
+                                    `+${points} points`,
+                                    0x00ff00
+                                );
+                            } else {
+                                this.triggerHaptic(
+                                    SENSORY_ESCALATION.hapticFeedback.onEnemyKill
+                                );
+                            }
+                            
+                            enemy.destroy();
+                        }
                     } else {
                         // Update health bar for surviving enemies
                         this.updateEnemyHealthBar(enemy);
@@ -6114,6 +6274,95 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
+    /**
+     * Get enemy bullet sprite key based on enemy type and progression
+     */
+    private getEnemyBulletSpriteKey(enemyType: string, isBoss: boolean, layer: number, prestige: number): string {
+        // Calculate bullet grade based on layer and prestige progression
+        // Base grade increases with layer (1-6) and prestige (0-8)
+        let bulletGrade = Math.floor((layer - 1) / 2) + Math.floor(prestige / 2);
+        bulletGrade = Math.min(bulletGrade, 6); // Cap at grade 6
+        
+        // Boss bullets use higher grade
+        if (isBoss) {
+            bulletGrade = Math.min(bulletGrade + 1, 6);
+        }
+        
+        // Map enemy types to their bullet color directories
+        if (enemyType === "green" || enemyType === "yellowShield" || enemyType === "yellowEcho") {
+            // Green enemies use green enemy bullets
+            // Handle fractional grades first (based on layer progression)
+            if (bulletGrade === 0) {
+                if (layer >= 3) return "greenEnemyBullet0_5";
+                if (layer >= 2) return "greenEnemyBullet0_2";
+                return "greenEnemyBullet0";
+            }
+            const gradeKeys: Record<number, string> = {
+                1: "greenEnemyBullet1",
+                2: "greenEnemyBullet2",
+                3: "greenEnemyBullet2", // Grade 3 uses grade 2
+                4: "greenEnemyBullet4",
+                5: "greenEnemyBullet5",
+                6: "greenEnemyBullet6",
+            };
+            return gradeKeys[bulletGrade] || "greenEnemyBullet0";
+        } else if (enemyType === "yellow") {
+            // Yellow enemies use yellow enemy bullets
+            const gradeKeys: Record<number, string> = {
+                0: "yellowEnemyBullet0",
+                1: "yellowEnemyBullet1",
+                2: "yellowEnemyBullet2",
+                3: "yellowEnemyBullet3",
+                4: "yellowEnemyBullet4",
+                5: "yellowEnemyBullet5",
+                6: "yellowEnemyBullet5", // Grade 6 uses grade 5
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        } else if (enemyType === "blue" || enemyType === "blueBuff") {
+            // Blue enemies use blue enemy bullets
+            const gradeKeys: Record<number, string> = {
+                0: "blueEnemyBullet0",
+                1: "blueEnemyBullet1",
+                2: "blueEnemyBullet2",
+                3: "blueEnemyBullet2", // Grade 3 uses grade 2
+                4: "blueEnemyBullet4",
+                5: "blueEnemyBullet5",
+                6: "blueEnemyBullet5", // Grade 6 uses grade 5
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        } else if (enemyType === "purple" || enemyType === "purpleFragmenter") {
+            // Purple enemies use purple enemy bullets
+            const gradeKeys: Record<number, string> = {
+                0: "purpleEnemyBullet0",
+                1: "purpleEnemyBullet1",
+                2: "purpleEnemyBullet2",
+                3: "purpleEnemyBullet3",
+                4: "purpleEnemyBullet4",
+                5: "purpleEnemyBullet5",
+                6: "purpleEnemyBullet5", // Grade 6 uses grade 5
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        } else if (enemyType === "red") {
+            // Red enemies use red enemy bullets
+            // Handle fractional grades for red
+            if (bulletGrade === 1 && layer >= 4) return "redEnemyBullet1_2";
+            if (bulletGrade === 2 && layer >= 5) return "redEnemyBullet2_9";
+            const gradeKeys: Record<number, string> = {
+                0: "redEnemyBullet0",
+                1: "redEnemyBullet1",
+                2: "redEnemyBullet2",
+                3: "redEnemyBullet3",
+                4: "redEnemyBullet4",
+                5: "redEnemyBullet5",
+                6: "redEnemyBullet6",
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        }
+        
+        // Fallback to green enemy bullet
+        return "greenEnemyBullet0";
+    }
+
     private enemyShoot(
         enemy: Phaser.Physics.Arcade.Sprite,
         angleOffset: number = 0
@@ -6128,21 +6377,23 @@ export class GameScene extends Phaser.Scene {
             bullet.setVisible(true);
             bullet.setScale(0.4 * MOBILE_SCALE);
 
-            // Assign different bullet sprites based on enemy type for variety
-            const enemyType = enemy.getData("type") as keyof typeof ENEMY_CONFIG;
+            // Get enemy type and boss status
+            const enemyType = enemy.getData("type") as string;
             const enemyIsBoss = !!enemy.getData("isBoss");
             
-            // Use different sprites to showcase different impacts
+            // Get appropriate bullet sprite based on enemy type and progression
+            const bulletSpriteKey = this.getEnemyBulletSpriteKey(
+                enemyType,
+                enemyIsBoss,
+                this.currentLayer,
+                this.prestigeLevel
+            );
+            
+            bullet.setTexture(bulletSpriteKey);
+            
+            // Boss bullets are slightly larger
             if (enemyIsBoss) {
-                bullet.setTexture("yellowBullet");
                 bullet.setScale(0.6 * MOBILE_SCALE);
-            } else if (enemyType === "blue" || enemyType === "blueBuff") {
-                bullet.setTexture("blueBullet");
-            } else if (enemyType === "purple" || enemyType === "purpleFragmenter") {
-                bullet.setTexture("yellowBullet");
-            } else {
-                const bulletVariant = Math.random() < 0.5 ? "greenBullet1" : "greenBullet2";
-                bullet.setTexture(bulletVariant);
             }
 
             const behaviors =
@@ -6436,14 +6687,32 @@ export class GameScene extends Phaser.Scene {
 
     private spawnPowerUp(x: number, y: number) {
         // Random power-up type (excluding lives - lives are spawned separately)
-        const types = Object.keys(POWERUP_CONFIG.types).filter(
+        let types = Object.keys(POWERUP_CONFIG.types).filter(
             (type) => type !== "lives"
         ) as Array<keyof typeof POWERUP_CONFIG.types>;
+        
+        // Filter out prestige if player hasn't reached prestige level 1
+        if (this.prestigeLevel < 1) {
+            types = types.filter((type) => type !== "prestige");
+        }
+        
+        // Filter out crown unless at end game (final boss active or prestige 8, layer 6)
+        const isEndGame = this.finalBossActive || 
+            (this.prestigeLevel === PRESTIGE_CONFIG.maxPrestige && this.currentLayer === MAX_LAYER);
+        if (!isEndGame) {
+            types = types.filter((type) => type !== "crown");
+        }
+        
+        if (types.length === 0) {
+            // Fallback to basic powerups if no special ones available
+            types = ["speed", "fireRate", "score", "autoShoot", "firepower", "invisibility", "bomb", "miniMe", "comboRate"] as Array<keyof typeof POWERUP_CONFIG.types>;
+        }
+        
         const randomType = types[Phaser.Math.Between(0, types.length - 1)];
         const powerUpConfig = POWERUP_CONFIG.types[randomType];
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.4 * MOBILE_SCALE);
+        powerUp.setScale(0.16 * MOBILE_SCALE);
         powerUp.setData("type", randomType);
         powerUp.setData("config", powerUpConfig);
 
@@ -6484,7 +6753,7 @@ export class GameScene extends Phaser.Scene {
         const powerUpConfig = POWERUP_CONFIG.types.lives;
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.5 * MOBILE_SCALE); // Slightly larger for visibility
+        powerUp.setScale(0.2 * MOBILE_SCALE); // Slightly larger for visibility
         powerUp.setTint(0xff00ff); // Purple/magenta tint to distinguish from other power-ups
         powerUp.setData("type", "lives");
         powerUp.setData("config", powerUpConfig);
@@ -6526,7 +6795,7 @@ export class GameScene extends Phaser.Scene {
         const powerUpConfig = POWERUP_CONFIG.types.firepower;
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.5 * MOBILE_SCALE);
+        powerUp.setScale(0.2 * MOBILE_SCALE);
         powerUp.setTint(0xffff00); // Yellow tint to distinguish as firepower power-up
         powerUp.setData("type", "firepower");
         powerUp.setData("config", powerUpConfig);
@@ -6568,7 +6837,7 @@ export class GameScene extends Phaser.Scene {
         const powerUpConfig = POWERUP_CONFIG.types.invisibility;
 
         const powerUp = this.physics.add.sprite(x, y, powerUpConfig.key);
-        powerUp.setScale(0.5 * MOBILE_SCALE);
+        powerUp.setScale(0.2 * MOBILE_SCALE);
         powerUp.setTint(0x00ffff); // Cyan tint to distinguish as invisibility power-up
         powerUp.setData("type", "invisibility");
         powerUp.setData("config", powerUpConfig);
@@ -6760,6 +7029,194 @@ export class GameScene extends Phaser.Scene {
             // Visual feedback with larger explosion
             this.createExplosion(this.player.x, this.player.y, "medium");
             return; // Early return - no need for small explosion
+        } else if (powerUpType === "bomb") {
+            // Destroy all enemies on screen
+            let enemiesDestroyed = 0;
+            this.enemies.children.entries.forEach((enemy) => {
+                const e = enemy as Phaser.Physics.Arcade.Sprite;
+                if (e.active) {
+                    // Award score for destroyed enemies
+                    const enemyPoints = e.getData("points") || 10;
+                    this.addScore(enemyPoints);
+                    enemiesDestroyed++;
+                    
+                    // Create explosion effect
+                    this.createExplosion(e.x, e.y, "large");
+                    e.destroy();
+                }
+            });
+            
+            // Show announcement
+            this.showAnnouncement(
+                "BOMB POWERUP!",
+                `Destroyed ${enemiesDestroyed} enemies!`,
+                0xff0000
+            );
+            
+            // Visual feedback with large explosion
+            this.createExplosion(this.player.x, this.player.y, "large");
+            return;
+        } else if (powerUpType === "miniMe") {
+            // Spawn a mini-me for 15 seconds (gunner type to defend player)
+            const miniMeType: MiniMeType = "gunner";
+            const offsetX = Phaser.Math.Between(-30, 30);
+            const offsetY = Phaser.Math.Between(-30, 30);
+            const miniMe = this.miniMes.create(
+                this.player.x + offsetX,
+                this.player.y + offsetY,
+                'power_up' // Placeholder sprite
+            ) as Phaser.Physics.Arcade.Sprite;
+            
+            miniMe.setScale(0.3 * MOBILE_SCALE);
+            miniMe.setDepth(99);
+            miniMe.setData('type', miniMeType);
+            miniMe.setData('spawnTime', this.time.now);
+            miniMe.setData('hits', 0);
+            miniMe.setData('expireTime', this.time.now + config.duration);
+            
+            // Setup mini-me behavior
+            this.setupMiniMeBehavior(miniMe, miniMeType);
+            
+            // Auto-destroy after duration
+            this.time.delayedCall(config.duration, () => {
+                if (miniMe && miniMe.active) {
+                    miniMe.destroy();
+                }
+            });
+            
+            this.showAnnouncement(
+                "MINI-ME SPAWNED!",
+                "Defending you for 15 seconds",
+                0x00ffff
+            );
+            
+            // Visual feedback
+            this.createExplosion(this.player.x, this.player.y, "medium");
+            return;
+        } else if (powerUpType === "prestige") {
+            // Cancel existing prestige timer if any
+            if (this.powerUpTimers.has("prestige")) {
+                this.powerUpTimers.get("prestige")!.remove();
+            }
+            
+            // Apply score multiplier
+            this.scoreMultiplier *= config.scoreMultiplier;
+            
+            // Grant coins
+            if (config.coinBonus) {
+                addCoins(config.coinBonus, "prestige_powerup");
+                this.registry.set("coinBalance", getAvailableCoins());
+                this.createFloatingText(this.player.x, this.player.y - 20, `+${config.coinBonus} Coins`, { color: "#ffd700" });
+            }
+            
+            const timer = this.time.delayedCall(config.duration, () => {
+                this.scoreMultiplier /= config.scoreMultiplier;
+                this.powerUpTimers.delete("prestige");
+            });
+            this.powerUpTimers.set("prestige", timer);
+            
+            this.showAnnouncement(
+                "PRESTIGE POWERUP!",
+                `+${config.coinBonus} coins, ${config.scoreMultiplier}x score!`,
+                0xffd700
+            );
+            
+            // Visual feedback
+            this.createExplosion(this.player.x, this.player.y, "medium");
+            return;
+        } else if (powerUpType === "primeSentinel") {
+            // Spawn Prime Sentinel helper entity
+            const helper = this.primeSentinelHelpers.create(
+                this.player.x + 50,
+                this.player.y - 50,
+                'whiteSentinel' // Use white sentinel sprite as prime sentinel
+            ) as Phaser.Physics.Arcade.Sprite;
+            
+            helper.setScale(0.6 * MOBILE_SCALE);
+            helper.setDepth(98);
+            helper.setData('spawnTime', this.time.now);
+            helper.setData('expireTime', this.time.now + config.duration);
+            helper.setData('lastShotTime', 0);
+            helper.setData('fireRate', 500); // Shoot every 500ms
+            
+            // Add glow effect
+            helper.setTint(0x00ffff); // Cyan tint
+            
+            // Auto-destroy after duration
+            this.time.delayedCall(config.duration, () => {
+                if (helper && helper.active) {
+                    helper.destroy();
+                }
+            });
+            
+            this.showAnnouncement(
+                "PRIME SENTINEL ASSIST!",
+                "Prime Sentinel is helping you!",
+                0x00ffff
+            );
+            
+            // Visual feedback
+            this.createExplosion(this.player.x, this.player.y, "large");
+            return;
+        } else if (powerUpType === "comboRate") {
+            // Cancel existing comboRate timer if any
+            if (this.powerUpTimers.has("comboRate")) {
+                this.powerUpTimers.get("comboRate")!.remove();
+            }
+            
+            // Multiply combo by 10x
+            const previousCombo = this.comboMultiplier;
+            this.comboMultiplier *= config.comboMultiplier;
+            this.registry.set("comboMultiplier", this.comboMultiplier);
+            
+            const timer = this.time.delayedCall(config.duration, () => {
+                // Restore previous combo (divide by multiplier)
+                this.comboMultiplier = previousCombo;
+                this.registry.set("comboMultiplier", this.comboMultiplier);
+                this.powerUpTimers.delete("comboRate");
+            });
+            this.powerUpTimers.set("comboRate", timer);
+            
+            this.showAnnouncement(
+                "10X COMBO!",
+                `Combo multiplier: ${this.comboMultiplier.toFixed(1)}x`,
+                0xff00ff
+            );
+            
+            // Visual feedback
+            this.createExplosion(this.player.x, this.player.y, "medium");
+            return;
+        } else if (powerUpType === "crown") {
+            // Cancel existing crown timer if any
+            if (this.powerUpTimers.has("crown")) {
+                this.powerUpTimers.get("crown")!.remove();
+            }
+            
+            // Apply score multiplier
+            this.scoreMultiplier *= config.scoreMultiplier;
+            
+            // Grant coins
+            if (config.coinBonus) {
+                addCoins(config.coinBonus, "crown_powerup");
+                this.registry.set("coinBalance", getAvailableCoins());
+                this.createFloatingText(this.player.x, this.player.y - 20, `+${config.coinBonus} Coins`, { color: "#ffd700" });
+            }
+            
+            const timer = this.time.delayedCall(config.duration, () => {
+                this.scoreMultiplier /= config.scoreMultiplier;
+                this.powerUpTimers.delete("crown");
+            });
+            this.powerUpTimers.set("crown", timer);
+            
+            this.showAnnouncement(
+                "CROWN POWERUP!",
+                `+${config.coinBonus} coins, ${config.scoreMultiplier}x score!`,
+                0xffd700
+            );
+            
+            // Visual feedback with large explosion
+            this.createExplosion(this.player.x, this.player.y, "large");
+            return;
         }
 
         // Visual feedback
@@ -6878,13 +7335,16 @@ export class GameScene extends Phaser.Scene {
             // Require enemies before graduation boss can spawn
             const requiredEnemiesForGraduation = 30 + (15 * nextLayer);
             if (this.enemiesKilledThisLayer >= requiredEnemiesForGraduation) {
+                // The graduation boss is based on the CURRENT layer (the layer you're graduating FROM)
+                // Layer 1 graduation boss = green, Layer 2 = yellow, Layer 3 = blue, Layer 4 = purple
+                const graduationBossLayer = this.currentLayer;
                 if (nextLayer === MAX_LAYER) {
-                    console.log(`[Prestige] Spawning final graduation boss for layer ${nextLayer} - will trigger prestige when defeated`);
+                    console.log(`[Prestige] Spawning final graduation boss for layer ${graduationBossLayer} -> ${nextLayer} - will trigger prestige when defeated`);
                 } else {
-                    console.log(`[Graduation Boss] Spawning graduation boss for layer ${nextLayer}`);
+                    console.log(`[Graduation Boss] Spawning graduation boss for layer ${graduationBossLayer} -> ${nextLayer}`);
                 }
                 this.pendingLayer = nextLayer;
-                this.spawnGraduationBoss(nextLayer);
+                this.spawnGraduationBoss(graduationBossLayer);
                 // Reset counter after graduation boss spawn
                 this.enemiesKilledThisLayer = 0;
             } else {
@@ -7086,6 +7546,8 @@ export class GameScene extends Phaser.Scene {
         this.enemyBullets.clear(true, true);
         this.explosions.clear(true, true);
         this.powerUps.clear(true, true);
+        this.miniMes.clear(true, true);
+        this.primeSentinelHelpers.clear(true, true);
 
         // Reset power-up multipliers
         this.speedMultiplier = 1;
@@ -7687,9 +8149,16 @@ export class GameScene extends Phaser.Scene {
      * Shoot bullet from gunner mini-me
      */
     private shootMiniMeBullet(miniMe: Phaser.Physics.Arcade.Sprite): void {
-        // Use player's bullet sprite or create a simple one
+        // Use player's current bullet tier sprite
+        const bulletTier = getCurrentBulletTier(this.prestigeLevel);
+        const bulletStats = getBulletStats(bulletTier.tier);
+        
         let bullet: Phaser.Physics.Arcade.Sprite;
-        if (this.textures.exists('bullet')) {
+        if (bulletStats && this.textures.exists(bulletStats.spriteKey)) {
+            bullet = this.bullets.create(miniMe.x, miniMe.y, bulletStats.spriteKey) as Phaser.Physics.Arcade.Sprite;
+        } else if (this.textures.exists('bulletTier1')) {
+            bullet = this.bullets.create(miniMe.x, miniMe.y, 'bulletTier1') as Phaser.Physics.Arcade.Sprite;
+        } else if (this.textures.exists('bullet')) {
             bullet = this.bullets.create(miniMe.x, miniMe.y, 'bullet') as Phaser.Physics.Arcade.Sprite;
         } else {
             // Create a simple bullet graphic if texture doesn't exist
@@ -7864,5 +8333,79 @@ export class GameScene extends Phaser.Scene {
         //         },
         //     });
         // }
+    }
+    
+    /**
+     * Update prime sentinel helpers - make them shoot at enemies
+     */
+    private updatePrimeSentinelHelpers(time: number): void {
+        this.primeSentinelHelpers.children.entries.forEach((helperObj) => {
+            const helper = helperObj as Phaser.Physics.Arcade.Sprite;
+            if (!helper.active) return;
+            
+            const expireTime = helper.getData('expireTime') as number;
+            if (time >= expireTime) {
+                helper.destroy();
+                return;
+            }
+            
+            // Follow player but maintain distance
+            const targetX = this.player.x + 50;
+            const targetY = this.player.y - 50;
+            const distance = Phaser.Math.Distance.Between(helper.x, helper.y, targetX, targetY);
+            if (distance > 10) {
+                const angle = Phaser.Math.Angle.Between(helper.x, helper.y, targetX, targetY);
+                const speed = 200;
+                helper.setVelocity(
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed
+                );
+            } else {
+                helper.setVelocity(0, 0);
+            }
+            
+            // Shoot at nearest enemy
+            const lastShotTime = helper.getData('lastShotTime') as number || 0;
+            const fireRate = helper.getData('fireRate') as number || 500;
+            
+            if (time - lastShotTime >= fireRate) {
+                // Find nearest enemy
+                let nearestEnemy: Phaser.Physics.Arcade.Sprite | null = null;
+                let nearestDistance = Infinity;
+                
+                this.enemies.children.entries.forEach((enemyObj) => {
+                    const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
+                    if (!enemy.active) return;
+                    
+                    const dist = Phaser.Math.Distance.Between(helper.x, helper.y, enemy.x, enemy.y);
+                    if (dist < nearestDistance) {
+                        nearestDistance = dist;
+                        nearestEnemy = enemy;
+                    }
+                });
+                
+                if (nearestEnemy && nearestDistance < 600) {
+                    // Shoot at enemy using player's current bullet tier
+                    const bulletTier = getCurrentBulletTier(this.prestigeLevel);
+                    const bulletStats = getBulletStats(bulletTier.tier);
+                    
+                    const bulletSpriteKey = bulletStats?.spriteKey || 'bulletTier1';
+                    const bullet = this.bullets.create(helper.x, helper.y, bulletSpriteKey) as Phaser.Physics.Arcade.Sprite;
+                    const enemy = nearestEnemy as Phaser.Physics.Arcade.Sprite;
+                    const angle = Phaser.Math.Angle.Between(helper.x, helper.y, enemy.x, enemy.y);
+                    const bulletSpeed = 600;
+                    bullet.setVelocity(
+                        Math.cos(angle) * bulletSpeed,
+                        Math.sin(angle) * bulletSpeed
+                    );
+                    bullet.setScale(0.6 * MOBILE_SCALE);
+                    bullet.setDepth(50);
+                    bullet.setTint(0x00ffff); // Cyan tint for prime sentinel bullets
+                    bullet.setData('isPrimeSentinelBullet', true);
+                    
+                    helper.setData('lastShotTime', time);
+                }
+            }
+        });
     }
 }
