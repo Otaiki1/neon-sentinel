@@ -427,8 +427,11 @@ export class GameScene extends Phaser.Scene {
         // Prime Sentinel helper group (for prime sentinel powerup)
         this.primeSentinelHelpers = this.physics.add.group();
 
-        // Shockwaves group (for blue zigzag lines from bosses)
-        this.shockwaves = this.physics.add.group();
+        // Shockwaves group (stun bubble projectiles from graduation boss)
+        this.shockwaves = this.physics.add.group({
+            defaultKey: "blueBullet",
+            maxSize: 30,
+        });
 
         // Input setup
         this.cursors = this.input.keyboard!.createCursorKeys();
@@ -6466,109 +6469,32 @@ export class GameScene extends Phaser.Scene {
     }
 
     private fireShockwave(enemy: Phaser.Physics.Arcade.Sprite) {
-        // Create moving zigzag blue shockwave from boss to player
+        // Fire multiple fast-moving stun bubble projectiles that spread toward the player
         const startX = enemy.x;
         const startY = enemy.y;
         const targetX = this.player.x;
         const targetY = this.player.y;
-        
-        // Calculate angle and distance
-        const dx = targetX - startX;
-        const dy = targetY - startY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx);
-        
-        // Shockwave speed (fast but dodgeable)
-        const shockwaveSpeed = 400; // Fast but not instant
-        const travelTime = (distance / shockwaveSpeed) * 1000; // Time in ms
-        
-        // Create graphics object for zigzag visual
-        const graphics = this.add.graphics();
-        graphics.lineStyle(4, 0x00ffff, 0.9); // Bright cyan/blue
-        graphics.setBlendMode(Phaser.BlendModes.ADD);
-        graphics.setDepth(1000); // Render on top
-        
-        // Create physics sprite for collision (starts at boss position)
-        const shockwave = this.physics.add.sprite(startX, startY, "blueBullet");
-        shockwave.setScale(0.1); // Small invisible sprite for collision
-        shockwave.setAlpha(0); // Invisible
-        shockwave.setData("graphics", graphics);
-        shockwave.setData("targetX", targetX);
-        shockwave.setData("targetY", targetY);
-        shockwave.setData("startX", startX);
-        shockwave.setData("startY", startY);
-        shockwave.setData("startTime", this.time.now);
-        shockwave.setData("travelTime", travelTime);
-        shockwave.setData("angle", angle);
-        shockwave.setData("distance", distance);
-        this.shockwaves.add(shockwave);
-        
-        // Set velocity to move towards player
-        const velocityX = Math.cos(angle) * shockwaveSpeed;
-        const velocityY = Math.sin(angle) * shockwaveSpeed;
-        shockwave.setVelocity(velocityX, velocityY);
-        
-        // Update zigzag visual on each frame
-        const updateZigzag = () => {
-            if (!shockwave.active) {
-                graphics.destroy();
-                return;
-            }
-            
-            const currentX = shockwave.x;
-            const currentY = shockwave.y;
-            const elapsed = this.time.now - shockwave.getData("startTime");
-            const progress = Math.min(elapsed / travelTime, 1);
-            
-            // Clear previous frame
-            graphics.clear();
-            graphics.lineStyle(4, 0x00ffff, 0.9);
-            
-            // Calculate zigzag path from start to current position
-            const segments = 8;
-            const path: { x: number; y: number }[] = [];
-            path.push({ x: startX, y: startY });
-            
-            for (let i = 1; i < segments; i++) {
-                const t = i / segments;
-                const baseX = Phaser.Math.Linear(startX, currentX, t);
-                const baseY = Phaser.Math.Linear(startY, currentY, t);
-                // Add zigzag offset perpendicular to the line
-                const perpX = -Math.sin(angle);
-                const perpY = Math.cos(angle);
-                const zigzagAmount = 30 * Math.sin(i * Math.PI * 2 + progress * Math.PI * 4); // Animated zigzag
-                path.push({
-                    x: baseX + perpX * zigzagAmount,
-                    y: baseY + perpY * zigzagAmount
-                });
-            }
-            path.push({ x: currentX, y: currentY });
-            
-            // Draw the zigzag line
-            graphics.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                graphics.lineTo(path[i].x, path[i].y);
-            }
-            graphics.strokePath();
-        };
-        
-        // Update zigzag visual every frame
-        const updateEvent = this.time.addEvent({
-            delay: 16, // ~60fps
-            callback: updateZigzag,
-            repeat: Math.ceil(travelTime / 16)
-        });
-        shockwave.setData("updateEvent", updateEvent);
-        
-        // Clean up when shockwave reaches target or goes off screen
-        this.time.delayedCall(travelTime + 500, () => {
-            if (shockwave.active) {
-                graphics.destroy();
-                const updateEvt = shockwave.getData("updateEvent");
-                if (updateEvt) updateEvt.remove();
-                shockwave.destroy();
-            }
-        });
+        const baseAngle = Math.atan2(targetY - startY, targetX - startX);
+        const stunBubbleSpeed = 550;
+        const spreadDeg = 35;
+        const numProjectiles = 7;
+        const textureKey = this.textures.exists("stunBubble") ? "stunBubble" : "blueBullet";
+        const scale = textureKey === "stunBubble" ? 0.45 : 0.25;
+
+        for (let i = 0; i < numProjectiles; i++) {
+            const t = i / Math.max(numProjectiles - 1, 1);
+            const spread = Phaser.Math.DegToRad(-spreadDeg / 2 + t * spreadDeg);
+            const angle = baseAngle + spread;
+            const velocityX = Math.cos(angle) * stunBubbleSpeed;
+            const velocityY = Math.sin(angle) * stunBubbleSpeed;
+
+            // Create via group so the sprite is in the physics world and moves correctly
+            const bubble = this.shockwaves.create(startX, startY, textureKey) as Phaser.Physics.Arcade.Sprite;
+            bubble.setScale(scale * MOBILE_SCALE);
+            bubble.setDepth(1000);
+            bubble.setVelocity(velocityX, velocityY);
+            if (textureKey === "blueBullet") bubble.setAlpha(0.85);
+        }
     }
 
     private handlePlayerShockwaveCollision(

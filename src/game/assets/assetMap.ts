@@ -229,6 +229,7 @@ export const POWERUP_ASSETS: AssetMapping[] = [
     { key: 'powerupBulletDamage', path: '/powerups/increase-bullet-damage-powerup.svg', required: false },
     { key: 'powerupBulletFireRate', path: '/powerups/increase-bullet-firerate-powerip.svg', required: false },
     { key: 'powerupInvincibility', path: '/powerups/invincibitlity-poweup.svg', required: false },
+    { key: 'stunBubble', path: '/stun-bubbles.svg', required: false },
     
     // Legacy power-up sprites (from /sprites/) - fallbacks
     { key: 'power_up', path: '/sprites/power_up.svg', fallback: 'powerupShield', required: true },
