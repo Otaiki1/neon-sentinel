@@ -6,6 +6,7 @@ import {
     LAYER_CONFIG,
     POWERUP_CONFIG,
     MOBILE_SCALE,
+    CHARACTER_SCALE,
     UI_CONFIG,
     MAX_LAYER,
     PRESTIGE_CONFIG,
@@ -383,7 +384,7 @@ export class GameScene extends Phaser.Scene {
         const heroTexture = this.getSelectedHeroTextureKey();
         this.player = this.physics.add.sprite(startX, startY, heroTexture);
         this.player.setCollideWorldBounds(true);
-        this.player.setScale(0.5 * MOBILE_SCALE);
+        this.player.setScale(0.5 * MOBILE_SCALE * CHARACTER_SCALE);
         this.player.setDepth(100); // Ensure player is above all backgrounds
         this.player.setAlpha(1); // Ensure player is fully opaque
         this.originalPlayerTexture = heroTexture; // Store original texture
@@ -2372,7 +2373,7 @@ export class GameScene extends Phaser.Scene {
         const y = options?.y ?? this.getSpawnY();
 
         const enemy = this.physics.add.sprite(x, y, key);
-        enemy.setScale(0.5 * MOBILE_SCALE);
+        enemy.setScale(0.5 * MOBILE_SCALE * CHARACTER_SCALE);
 
         if (selectedType === "yellowShield") {
             enemy.setTint(0xffcc33);
@@ -4361,7 +4362,7 @@ export class GameScene extends Phaser.Scene {
         const y = gameHeight / 2;
 
         const boss = this.physics.add.sprite(x, y, bossKey);
-        boss.setScale(0.6 * MOBILE_SCALE);
+        boss.setScale(0.6 * MOBILE_SCALE * CHARACTER_SCALE);
 
         // Scale boss health and speed based on current layer using enemy service
         const layerConfig =
@@ -4521,7 +4522,7 @@ export class GameScene extends Phaser.Scene {
         const bossName = getGraduationBossName(targetLayer, this.prestigeLevel);
         const boss = this.physics.add.sprite(x, y, bossSpriteKey);
         // Reduced scaling: 1.5x instead of 3x for better visual balance
-        boss.setScale(0.7 * 1.5 * MOBILE_SCALE);
+        boss.setScale(0.7 * 1.5 * MOBILE_SCALE * CHARACTER_SCALE);
         boss.setImmovable(false); // Boss can move to maintain line of sight
 
         // Scale boss health and speed based on target layer using enemy service
@@ -4651,7 +4652,7 @@ export class GameScene extends Phaser.Scene {
         
         // Create final boss sprite (3x normal boss size)
         const boss = this.physics.add.sprite(x, y, 'zrechostikal');
-        boss.setScale(0.7 * 3.0 * MOBILE_SCALE); // 3x larger than normal boss
+        boss.setScale(0.7 * 3.0 * MOBILE_SCALE * CHARACTER_SCALE); // 3x larger than normal boss
         boss.setImmovable(false);
         
         // Calculate final boss health (5000 at P8)
@@ -7067,7 +7068,7 @@ export class GameScene extends Phaser.Scene {
                 'power_up' // Placeholder sprite
             ) as Phaser.Physics.Arcade.Sprite;
             
-            miniMe.setScale(0.3 * MOBILE_SCALE);
+            miniMe.setScale(0.3 * MOBILE_SCALE * CHARACTER_SCALE);
             miniMe.setDepth(99);
             miniMe.setData('type', miniMeType);
             miniMe.setData('spawnTime', this.time.now);
@@ -7132,7 +7133,7 @@ export class GameScene extends Phaser.Scene {
                 'whiteSentinel' // Use white sentinel sprite as prime sentinel
             ) as Phaser.Physics.Arcade.Sprite;
             
-            helper.setScale(0.6 * MOBILE_SCALE);
+            helper.setScale(0.6 * MOBILE_SCALE * CHARACTER_SCALE);
             helper.setDepth(98);
             helper.setData('spawnTime', this.time.now);
             helper.setData('expireTime', this.time.now + config.duration);
@@ -7983,7 +7984,7 @@ export class GameScene extends Phaser.Scene {
         ) as Phaser.Physics.Arcade.Sprite;
         
         // Set mini-me properties
-        miniMe.setScale(0.3 * MOBILE_SCALE);
+        miniMe.setScale(0.3 * MOBILE_SCALE * CHARACTER_SCALE);
         miniMe.setDepth(99); // Just below player
         miniMe.setData('type', type);
         miniMe.setData('spawnTime', this.time.now);

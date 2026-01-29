@@ -13,6 +13,9 @@ export function isMobileDevice(): boolean {
 // Mobile scale multiplier (50% size on mobile)
 export const MOBILE_SCALE = isMobileDevice() ? 0.5 : 1.0;
 
+// Character scale multiplier (80% = 20% smaller than original)
+export const CHARACTER_SCALE = 0.8;
+
 export const GAME_CONFIG = {
     width: 800,
     height: 600,
