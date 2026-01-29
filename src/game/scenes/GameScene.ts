@@ -3354,6 +3354,8 @@ export class GameScene extends Phaser.Scene {
                                     LAYER_CONFIG[this.currentLayer as keyof typeof LAYER_CONFIG].name,
                                     0x00ff00
                                 );
+                                // Restart spawn timer so new enemies spawn (it was stopped when graduation boss spawned)
+                                this.updateSpawnTimer();
                             }
                             
                             // Destroy the enemy
