@@ -375,3 +375,21 @@ export function isAssetRequired(key: string): boolean {
     const asset = ALL_ASSETS.find(a => a.key === key);
     return asset?.required || false;
 }
+
+/** Mini-me type to sprite key (from MINI_ME_ASSETS) */
+const MINI_ME_TYPE_TO_KEY: Record<string, string> = {
+    scout: 'miniMeScout',
+    gunner: 'miniMeGunner',
+    shield: 'miniMeShield',
+    decoy: 'miniMeDecoy',
+    collector: 'miniMeCollector',
+    stun: 'miniMeStun',
+    healer: 'miniMeHealer',
+};
+
+/**
+ * Get sprite key for a mini-me type. Returns key from MINI_ME_ASSETS or fallback.
+ */
+export function getMiniMeSpriteKey(type: string): string {
+    return MINI_ME_TYPE_TO_KEY[type] || 'miniMeDefault';
+}

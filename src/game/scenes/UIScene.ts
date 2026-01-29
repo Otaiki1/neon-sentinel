@@ -16,6 +16,7 @@ import {
 import { fetchWeeklyLeaderboard } from '../../services/scoreService';
 import { isShockBombUnlocked, isGodModeUnlocked } from '../../services/abilityService';
 import { getTierProgress } from '../../services/bulletUpgradeService';
+import { getMiniMeSessionsAvailable } from '../../services/miniMeSessionsService';
 import { GameScene } from './GameScene';
 import { TooltipManager } from './TooltipManager';
 import { DialogueManager } from '../dialogue/DialogueManager';
@@ -314,7 +315,9 @@ export class UIScene extends Phaser.Scene {
     // Mini-me count display (top-right, below coins)
     const miniMeX = coinX;
     const miniMeY = coinY + lineSpacing;
-    this.miniMeCountText = this.add.text(miniMeX, miniMeY, 'MINI-MES: 0/7', {
+    const initialSessions = this.registry.get('miniMeSessionsRemaining') as number | undefined;
+    const sessionsLabel = typeof initialSessions === 'number' ? initialSessions : getMiniMeSessionsAvailable();
+    this.miniMeCountText = this.add.text(miniMeX, miniMeY, `SESSIONS: ${sessionsLabel}`, {
       fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small * uiScale,
       color: this.uiTextColor,
@@ -423,7 +426,7 @@ export class UIScene extends Phaser.Scene {
     this.registry.events.on('changedata-prestigeLevel', this.updatePrestige, this);
     this.registry.events.on('changedata-currentLayer', this.updatePrestigeLayer, this);
     this.registry.events.on('changedata-currentRank', this.updateRank, this);
-    this.registry.events.on('changedata-activeMiniMes', this.updateMiniMeCount, this);
+    this.registry.events.on('changedata-miniMeSessionsRemaining', this.updateMiniMeSessions, this);
     this.registry.events.on('changedata-shockBombProgress', this.updateShockBomb, this);
     this.registry.events.on('changedata-shockBombReady', this.updateShockBombReady, this);
     this.registry.events.on('changedata-godModeProgress', this.updateGodMode, this);
@@ -448,8 +451,11 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    // Listen for return to menu (M key)
+    // Listen for return to menu (M key) - only when game is over and inventory modal not open (during play M activates mini-me session)
     this.input.keyboard!.on('keydown-M', () => {
+      if (this.registry.get('inventoryModalOpen')) return;
+      const gameOver = this.registry.get('gameOver');
+      if (!gameOver) return;
       const gameScene = this.scene.get('GameScene') as GameScene;
       if (gameScene) {
         gameScene.returnToMenu();
@@ -672,6 +678,7 @@ export class UIScene extends Phaser.Scene {
     );
     const menuBg = this.menuButton.list[0] as Phaser.GameObjects.Rectangle;
     menuBg.on('pointerdown', () => {
+      if (this.registry.get('inventoryModalOpen')) return;
       const gameScene = this.scene.get('GameScene') as GameScene;
       if (gameScene) {
         gameScene.returnToMenu();
@@ -835,6 +842,7 @@ export class UIScene extends Phaser.Scene {
     );
     const pauseMenuBg = pauseMenuButton.list[0] as Phaser.GameObjects.Rectangle;
     pauseMenuBg.on('pointerdown', () => {
+      if (this.registry.get('inventoryModalOpen')) return;
       const gameScene = this.scene.get('GameScene') as GameScene;
       if (gameScene) {
         gameScene.returnToMenu();
@@ -1326,8 +1334,8 @@ export class UIScene extends Phaser.Scene {
     this.rankText.setText(`RANK: ${rankName}`);
   }
 
-  private updateMiniMeCount(_parent: Phaser.Data.DataManager, count: number) {
-    this.miniMeCountText.setText(`MINI-MES: ${count}/7`);
+  private updateMiniMeSessions(_parent: Phaser.Data.DataManager, sessions: number) {
+    this.miniMeCountText.setText(`SESSIONS: ${sessions}`);
   }
   
   private updatePrestigeLayer(_parent: Phaser.Data.DataManager, _layer: number) {
@@ -2112,11 +2120,12 @@ export class UIScene extends Phaser.Scene {
         });
       }
       
-      // Update active mini-mes in pause menu
+      // Update mini-mes in pause menu (active count + sessions left)
       const pauseMiniMeText = (this as any).pauseMiniMeText as Phaser.GameObjects.Text | undefined;
       if (pauseMiniMeText) {
         const activeMiniMes = this.registry.get('activeMiniMes') as number || 0;
-        pauseMiniMeText.setText(`ACTIVE MINI-MES: ${activeMiniMes}/7`);
+        const sessionsLeft = this.registry.get('miniMeSessionsRemaining') as number ?? getMiniMeSessionsAvailable();
+        pauseMiniMeText.setText(`ACTIVE: ${activeMiniMes}/7 | SESSIONS LEFT: ${sessionsLeft}`);
       }
       
       // Update current avatar stats in pause menu

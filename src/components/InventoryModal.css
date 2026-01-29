@@ -8,8 +8,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 10000;
     backdrop-filter: blur(4px);
+    pointer-events: auto;
 }
 
 .inventory-modal {
@@ -83,6 +84,73 @@
     color: #00ff00;
     font-size: 1.2rem;
     font-weight: bold;
+}
+
+.inventory-sessions-section {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1rem 1.25rem;
+    background: rgba(0, 200, 255, 0.12);
+    border: 2px solid #00c8ff;
+}
+
+.inventory-sessions-title {
+    font-family: 'Rajdhani', sans-serif;
+    color: #00c8ff;
+    font-size: 1rem;
+    margin: 0 0 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.inventory-sessions-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.inventory-sessions-label {
+    font-family: 'Rajdhani', sans-serif;
+    color: #00c8ff;
+    font-size: 1rem;
+}
+
+.inventory-sessions-value {
+    font-family: 'Share Tech Mono', monospace;
+    color: #00c8ff;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.inventory-sessions-buy-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 200, 255, 0.2);
+    border: 2px solid #00c8ff;
+    color: #00c8ff;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.inventory-sessions-buy-btn:hover:not(.disabled) {
+    background: #00c8ff;
+    color: #000;
+}
+
+.inventory-sessions-buy-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.inventory-sessions-hint {
+    font-family: 'JetBrains Mono', monospace;
+    color: #00c8ff;
+    font-size: 0.8rem;
+    margin: 0;
+    opacity: 0.85;
 }
 
 .inventory-grid {

@@ -67,6 +67,7 @@ function GamePage() {
         // Listen for inventory open on game's global events (so it works from pause menu regardless of scene timing)
         game.events.on('open-inventory', () => {
             setShowInventoryModal(true);
+            game.registry.set('inventoryModalOpen', true);
         });
 
         // Listen for dialogue and other events from UIScene
@@ -134,8 +135,18 @@ function GamePage() {
             <div ref={gameContainerRef} className="game-container" />
             <InventoryModal
                 isOpen={showInventoryModal}
-                onClose={() => setShowInventoryModal(false)}
+                onClose={() => {
+                    setShowInventoryModal(false);
+                    if (gameInstanceRef.current) {
+                        gameInstanceRef.current.registry.set('inventoryModalOpen', false);
+                    }
+                }}
                 onActivate={handleMiniMeActivate}
+                onSessionsChanged={(newCount) => {
+                    if (gameInstanceRef.current) {
+                        gameInstanceRef.current.registry.set('miniMeSessionsRemaining', newCount);
+                    }
+                }}
             />
             {currentDialogue && (
                 <DialogueCard

@@ -60,9 +60,16 @@ import {
     addCoins,
 } from "../../services/coinService";
 import {
-    activateMiniMe,
     type MiniMeType,
+    getMiniMeCount,
+    getAllMiniMeTypes,
 } from "../../services/inventoryService";
+import {
+    getMiniMeSessionsAvailable,
+    useMiniMeSession,
+    addMiniMeSessions,
+} from "../../services/miniMeSessionsService";
+import { getMiniMeSpriteKey } from "../assets/assetMap";
 import {
     getEnemySpriteKey,
     getEnemyDisplayName,
@@ -362,8 +369,9 @@ export class GameScene extends Phaser.Scene {
         // Initialize health bars in registry
         this.registry.set("healthBars", this.healthBars);
         
-        // Initialize mini-me active count
+        // Initialize mini-me active count and sessions (from persistent service)
         this.registry.set("activeMiniMes", 0);
+        this.registry.set("miniMeSessionsRemaining", getMiniMeSessionsAvailable());
         
         // Check and grant Prime Sentinel bonus if eligible
         if (checkAndGrantPrimeSentinelBonus(this.prestigeLevel)) {
@@ -475,6 +483,14 @@ export class GameScene extends Phaser.Scene {
         );
         this.godModeKey.on("down", () => {
             this.tryActivateGodMode();
+        });
+
+        // Mini-me session key (M) - deploy all equipped mini-mes for 15s (1 session)
+        const miniMeKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes.M
+        );
+        miniMeKey.on("down", () => {
+            this.tryActivateMiniMeSession();
         });
 
         // Mobile touch controls: joystick + fire button
@@ -7688,6 +7704,10 @@ export class GameScene extends Phaser.Scene {
             0xff00ff
         );
 
+        // Grant +3 mini-me sessions on prestige
+        addMiniMeSessions(3);
+        this.registry.set("miniMeSessionsRemaining", getMiniMeSessionsAvailable());
+
         // Show prestige layer image briefly
         this.showPrestigeLayerBriefly();
 
@@ -7949,12 +7969,83 @@ export class GameScene extends Phaser.Scene {
     }
 
     /**
-     * Spawn a mini-me companion
+     * Spawn one mini-me on screen (no session deduction). Used by spawnMiniMe and tryActivateMiniMeSession.
+     */
+    private _spawnOneMiniMe(type: MiniMeType): boolean {
+        if (this.miniMes.children.size >= MINI_ME_CONFIG.maxActive) {
+            return false;
+        }
+        const spriteKey = getMiniMeSpriteKey(type);
+        const textureKey = this.textures.exists(spriteKey) ? spriteKey : "power_up";
+        const offsetX = Phaser.Math.Between(-80, 80);
+        const offsetY = Phaser.Math.Between(-80, 80);
+        const miniMe = this.miniMes.create(
+            this.player.x + offsetX,
+            this.player.y + offsetY,
+            textureKey
+        ) as Phaser.Physics.Arcade.Sprite;
+        miniMe.setScale(0.3 * MOBILE_SCALE * CHARACTER_SCALE);
+        miniMe.setDepth(99);
+        miniMe.setData("type", type);
+        miniMe.setData("spawnTime", this.time.now);
+        miniMe.setData("hits", 0);
+        miniMe.setData("lastHealTime", this.time.now);
+        miniMe.setData("lastStunPulse", this.time.now);
+        miniMe.setData("lastShotTime", 0); // Initialize shooting for all types
+        // Stable orbit offset (fixed per mini-me so movement is smooth, not erratic)
+        miniMe.setData("orbitOffsetX", offsetX);
+        miniMe.setData("orbitOffsetY", offsetY);
+        const durationMs = 15000;
+        miniMe.setData("expireTime", this.time.now + durationMs);
+        this.setupMiniMeBehavior(miniMe, type);
+        this.registry.set("activeMiniMes", this.miniMes.children.size);
+        return true;
+    }
+
+    /**
+     * Activate mini-me session on M key: use 1 session, deploy all equipped mini-me types for 15s.
+     */
+    private tryActivateMiniMeSession(): void {
+        if (this.isPaused || this.gameOver) return;
+        const sessionsRemaining = this.registry.get("miniMeSessionsRemaining") as number ?? 0;
+        if (sessionsRemaining <= 0) {
+            this.showAnnouncement(
+                "NO SESSIONS LEFT",
+                "Buy more or earn 3 by completing a prestige!",
+                0xff6600
+            );
+            return;
+        }
+        const types = getAllMiniMeTypes();
+        const equipped = types.filter((t) => getMiniMeCount(t) > 0);
+        if (equipped.length === 0) {
+            this.showAnnouncement(
+                "NO MINI-MES EQUIPPED",
+                "Purchase mini-mes in Inventory before battle!",
+                0xff6600
+            );
+            return;
+        }
+        if (!useMiniMeSession()) return;
+        this.registry.set("miniMeSessionsRemaining", getMiniMeSessionsAvailable());
+        let spawned = 0;
+        for (const type of equipped) {
+            if (this.miniMes.children.size >= MINI_ME_CONFIG.maxActive) break;
+            if (this._spawnOneMiniMe(type)) spawned++;
+        }
+        this.showAnnouncement(
+            "MINI-ME SESSION!",
+            `${spawned} deployed for 15s (1 session)`,
+            0x00ffff
+        );
+    }
+
+    /**
+     * Spawn a mini-me companion (uses 1 session; no coins or inventory deduction).
+     * Fixed 15s duration. Uses mini-me sprite from assetMap when available.
      */
     public spawnMiniMe(type: MiniMeType): boolean {
-        const activeCount = this.miniMes.children.size;
-        if (activeCount >= MINI_ME_CONFIG.maxActive) {
-            // Show warning
+        if (this.miniMes.children.size >= MINI_ME_CONFIG.maxActive) {
             this.showAnnouncement(
                 "MAX MINI-MES",
                 `Cannot spawn more than ${MINI_ME_CONFIG.maxActive} mini-mes`,
@@ -7962,58 +8053,25 @@ export class GameScene extends Phaser.Scene {
             );
             return false;
         }
-        
-        const coins = getAvailableCoins();
-        const result = activateMiniMe(type, coins);
-        
-        if (!result.success) {
+        const sessionsRemaining = this.registry.get("miniMeSessionsRemaining") as number ?? 0;
+        if (sessionsRemaining <= 0) {
+            this.showAnnouncement(
+                "NO SESSIONS LEFT",
+                "Buy more or earn 3 by completing a prestige!",
+                0xff6600
+            );
             return false;
         }
-        
-        // Deduct coins
-        spendCoins(result.coinsSpent, `mini_me_${type}`);
-        this.registry.set("coinBalance", getAvailableCoins());
-        
-        // Create mini-me sprite
-        const offsetX = Phaser.Math.Between(-30, 30);
-        const offsetY = Phaser.Math.Between(-30, 30);
-        const miniMe = this.miniMes.create(
-            this.player.x + offsetX,
-            this.player.y + offsetY,
-            'power_up' // Placeholder sprite
-        ) as Phaser.Physics.Arcade.Sprite;
-        
-        // Set mini-me properties
-        miniMe.setScale(0.3 * MOBILE_SCALE * CHARACTER_SCALE);
-        miniMe.setDepth(99); // Just below player
-        miniMe.setData('type', type);
-        miniMe.setData('spawnTime', this.time.now);
-        miniMe.setData('hits', 0);
-        miniMe.setData('lastHealTime', this.time.now);
-        miniMe.setData('lastStunPulse', this.time.now);
-        
-        // Set duration (10-15 seconds)
-        const duration = Phaser.Math.Between(
-            MINI_ME_CONFIG.duration.min,
-            MINI_ME_CONFIG.duration.max
-        );
-        miniMe.setData('expireTime', this.time.now + duration);
-        
-        // Type-specific setup
-        this.setupMiniMeBehavior(miniMe, type);
-        
-        // Update active count
-        this.registry.set("activeMiniMes", this.miniMes.children.size);
-        
-        // Show announcement
-        import('../../services/inventoryService').then(({ getMiniMeName }) => {
+        if (!useMiniMeSession()) return false;
+        this.registry.set("miniMeSessionsRemaining", getMiniMeSessionsAvailable());
+        if (!this._spawnOneMiniMe(type)) return false;
+        import("../../services/inventoryService").then(({ getMiniMeName }) => {
             this.showAnnouncement(
                 "MINI-ME DEPLOYED",
-                `${getMiniMeName(type)} activated!`,
+                `${getMiniMeName(type)} active for 15s (1 session used)`,
                 0x00ffff
             );
         });
-        
         return true;
     }
     
@@ -8027,9 +8085,8 @@ export class GameScene extends Phaser.Scene {
                 miniMe.setTint(0x00ffff); // Cyan tint
                 break;
             case 'gunner':
-                // Gunner: Add shooting capability
+                // Gunner: Add shooting capability (all types shoot now, but gunner keeps red tint)
                 miniMe.setTint(0xff0000); // Red tint
-                miniMe.setData('lastShotTime', 0);
                 break;
             case 'shield':
                 // Shield: Create barrier effect
@@ -8079,14 +8136,14 @@ export class GameScene extends Phaser.Scene {
                 return;
             }
             
-            // Follow player with offset
-            const offsetX = Phaser.Math.Between(-20, 20);
-            const offsetY = Phaser.Math.Between(-20, 20);
-            const targetX = this.player.x + offsetX;
-            const targetY = this.player.y + offsetY;
+            // Follow player using stable orbit offset (no random jitter)
+            const orbitOffsetX = miniMe.getData("orbitOffsetX") as number;
+            const orbitOffsetY = miniMe.getData("orbitOffsetY") as number;
+            const targetX = this.player.x + orbitOffsetX;
+            const targetY = this.player.y + orbitOffsetY;
             
-            // Smooth movement toward player
-            const lerpSpeed = 0.1;
+            // Smooth movement toward orbit position (slower lerp = more stable)
+            const lerpSpeed = 0.06;
             const newX = Phaser.Math.Linear(miniMe.x, targetX, lerpSpeed);
             const newY = Phaser.Math.Linear(miniMe.y, targetY, lerpSpeed);
             miniMe.setPosition(newX, newY);
@@ -8103,19 +8160,22 @@ export class GameScene extends Phaser.Scene {
      * Execute mini-me type-specific behavior
      */
     private executeMiniMeBehavior(miniMe: Phaser.Physics.Arcade.Sprite, type: MiniMeType, time: number): void {
+        // All mini-mes shoot at nearest enemy (or upward if no enemy in range)
+        const lastShotTime = miniMe.getData('lastShotTime') as number || 0;
+        const fireRate = PLAYER_CONFIG.fireRate * MINI_ME_CONFIG.behaviors.gunner.fireRate;
+        if (time - lastShotTime >= fireRate) {
+            this.shootMiniMeBulletAtTarget(miniMe);
+            miniMe.setData('lastShotTime', time);
+        }
+        
+        // Type-specific behaviors
         switch (type) {
             case 'scout':
                 // Scout: Reveal enemies (visual effect only for now)
                 // Could add enemy highlighting here
                 break;
             case 'gunner':
-                // Gunner: Shoot alongside player
-                const lastShotTime = miniMe.getData('lastShotTime') as number || 0;
-                const gunnerFireRate = PLAYER_CONFIG.fireRate * MINI_ME_CONFIG.behaviors.gunner.fireRate;
-                if (time - lastShotTime >= gunnerFireRate) {
-                    this.shootMiniMeBullet(miniMe);
-                    miniMe.setData('lastShotTime', time);
-                }
+                // Gunner: Already shooting (handled above)
                 break;
             case 'shield':
                 // Shield: Damage reduction handled in takeDamage()
@@ -8147,14 +8207,39 @@ export class GameScene extends Phaser.Scene {
     }
     
     /**
-     * Shoot bullet from gunner mini-me
+     * Get nearest active enemy to a point, within max range (for mini-me targeting).
      */
-    private shootMiniMeBullet(miniMe: Phaser.Physics.Arcade.Sprite): void {
-        // Use player's current bullet tier sprite
+    private getNearestEnemyTo(miniMeX: number, miniMeY: number, maxRange: number): Phaser.Physics.Arcade.Sprite | null {
+        let nearest: Phaser.Physics.Arcade.Sprite | null = null;
+        let nearestDist = maxRange;
+        this.enemies.children.entries.forEach((obj) => {
+            const enemy = obj as Phaser.Physics.Arcade.Sprite;
+            if (!enemy.active) return;
+            const dist = Phaser.Math.Distance.Between(miniMeX, miniMeY, enemy.x, enemy.y);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = enemy;
+            }
+        });
+        return nearest;
+    }
+
+    /**
+     * Shoot bullet from mini-me toward nearest enemy. Only shoots when an enemy is in range (double range).
+     */
+    private shootMiniMeBulletAtTarget(miniMe: Phaser.Physics.Arcade.Sprite): void {
+        const maxTargetRange = 900; // Double previous range; only shoot when enemy in range
+        const nearest = this.getNearestEnemyTo(miniMe.x, miniMe.y, maxTargetRange);
+        if (!nearest) return; // Only shoot when enemy is in range
+
+        const bulletSpeed = MINI_ME_CONFIG.behaviors.gunner.bulletSpeed;
+        const angle = Phaser.Math.Angle.Between(miniMe.x, miniMe.y, nearest.x, nearest.y);
+        const velocityX = Math.cos(angle) * bulletSpeed;
+        const velocityY = Math.sin(angle) * bulletSpeed;
+
         const bulletTier = getCurrentBulletTier(this.prestigeLevel);
         const bulletStats = getBulletStats(bulletTier.tier);
-        
-        let bullet: Phaser.Physics.Arcade.Sprite;
+        let bullet: Phaser.Physics.Arcade.Sprite | null = null;
         if (bulletStats && this.textures.exists(bulletStats.spriteKey)) {
             bullet = this.bullets.create(miniMe.x, miniMe.y, bulletStats.spriteKey) as Phaser.Physics.Arcade.Sprite;
         } else if (this.textures.exists('bulletTier1')) {
@@ -8162,7 +8247,6 @@ export class GameScene extends Phaser.Scene {
         } else if (this.textures.exists('bullet')) {
             bullet = this.bullets.create(miniMe.x, miniMe.y, 'bullet') as Phaser.Physics.Arcade.Sprite;
         } else {
-            // Create a simple bullet graphic if texture doesn't exist
             if (!this.textures.exists('miniMeBullet')) {
                 const graphics = this.add.graphics();
                 graphics.fillStyle(0x00ff00, 1);
@@ -8172,7 +8256,8 @@ export class GameScene extends Phaser.Scene {
             }
             bullet = this.bullets.create(miniMe.x, miniMe.y, 'miniMeBullet') as Phaser.Physics.Arcade.Sprite;
         }
-        bullet.setVelocityY(-MINI_ME_CONFIG.behaviors.gunner.bulletSpeed);
+        if (!bullet) return; // Group full or create failed
+        bullet.setVelocity(velocityX, velocityY);
         bullet.setScale(0.5 * MOBILE_SCALE);
         bullet.setDepth(50);
         bullet.setData('isMiniMeBullet', true);

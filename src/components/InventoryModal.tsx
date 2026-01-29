@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     addMiniMe,
-    useMiniMe,
     getMiniMeCount,
-    canActivate,
     getMiniMeCost,
     getMiniMeName,
     getMiniMeDescription,
@@ -11,22 +9,31 @@ import {
     type MiniMeType,
 } from '../services/inventoryService';
 import { getAvailableCoins, spendCoins } from '../services/coinService';
+import {
+    getMiniMeSessionsAvailable,
+    buyMiniMeSessionsPack,
+    MINI_ME_SESSIONS_PACK_COST,
+    MINI_ME_SESSIONS_PACK_SIZE,
+} from '../services/miniMeSessionsService';
 import './InventoryModal.css';
 
 interface InventoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     onActivate?: (type: MiniMeType) => void; // Callback when mini-me is activated
+    onSessionsChanged?: (newCount: number) => void; // Callback when sessions are bought (so game registry can update)
 }
 
-export function InventoryModal({ isOpen, onClose, onActivate }: InventoryModalProps) {
+export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged }: InventoryModalProps) {
     const [coins, setCoins] = useState(getAvailableCoins());
+    const [sessions, setSessions] = useState(getMiniMeSessionsAvailable());
     const [selectedType, setSelectedType] = useState<MiniMeType | null>(null);
-    const [action, setAction] = useState<'purchase' | 'activate' | null>(null);
+    const [action, setAction] = useState<'purchase' | 'activate' | 'buySessions' | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setCoins(getAvailableCoins());
+            setSessions(getMiniMeSessionsAvailable());
         }
     }, [isOpen]);
 
@@ -48,21 +55,18 @@ export function InventoryModal({ isOpen, onClose, onActivate }: InventoryModalPr
     };
 
     const handleActivate = (type: MiniMeType) => {
-        const cost = getMiniMeCost(type);
-        if (!canActivate(type, coins)) {
-            alert(`Cannot activate! Need ${cost} coins and at least 1 in inventory.`);
+        // In-game activation uses 1 session (no coins or inventory)
+        if (onActivate) {
+            if (sessions <= 0) {
+                alert('No mini-me sessions left! Buy more or earn 3 by completing a prestige.');
+                return;
+            }
+            onActivate(type);
+            setSessions(getMiniMeSessionsAvailable());
+            onClose();
             return;
         }
-        
-        if (spendCoins(cost, `mini_me_activate_${type}`)) {
-            if (useMiniMe(type, 1)) {
-                setCoins(getAvailableCoins());
-                if (onActivate) {
-                    onActivate(type);
-                }
-                onClose();
-            }
-        }
+        alert('Activate mini-mes during a battle from the pause menu.');
     };
 
     const handleQuickAction = (type: MiniMeType, actionType: 'purchase' | 'activate') => {
@@ -70,12 +74,26 @@ export function InventoryModal({ isOpen, onClose, onActivate }: InventoryModalPr
         setAction(actionType);
     };
 
+    const handleBuySessions = () => {
+        if (coins < MINI_ME_SESSIONS_PACK_COST) {
+            alert(`Need ${MINI_ME_SESSIONS_PACK_COST} coins for ${MINI_ME_SESSIONS_PACK_SIZE} sessions.`);
+            return;
+        }
+        if (buyMiniMeSessionsPack(coins, spendCoins)) {
+            setCoins(getAvailableCoins());
+            const newCount = getMiniMeSessionsAvailable();
+            setSessions(newCount);
+            onSessionsChanged?.(newCount); // Sync to game registry so in-game activation sees new sessions
+            alert(`Purchased ${MINI_ME_SESSIONS_PACK_SIZE} mini-me sessions!`);
+        }
+    };
+
     const confirmAction = () => {
         if (!selectedType || !action) return;
         
         if (action === 'purchase') {
             handlePurchase(selectedType);
-        } else {
+        } else if (action === 'activate') {
             handleActivate(selectedType);
         }
         
@@ -102,12 +120,29 @@ export function InventoryModal({ isOpen, onClose, onActivate }: InventoryModalPr
                     <span className="inventory-coin-value">{coins}</span>
                 </div>
 
+                <div className="inventory-sessions-section">
+                    <h3 className="inventory-sessions-title">MINI-ME SESSIONS (for battle)</h3>
+                    <div className="inventory-sessions-row">
+                        <span className="inventory-sessions-label">Sessions left:</span>
+                        <span className="inventory-sessions-value">{sessions}</span>
+                        <button
+                            type="button"
+                            className={`inventory-sessions-buy-btn ${coins >= MINI_ME_SESSIONS_PACK_COST ? '' : 'disabled'}`}
+                            onClick={(e) => { e.stopPropagation(); handleBuySessions(); }}
+                            disabled={coins < MINI_ME_SESSIONS_PACK_COST}
+                        >
+                            Buy {MINI_ME_SESSIONS_PACK_SIZE} sessions for {MINI_ME_SESSIONS_PACK_COST} coins
+                        </button>
+                    </div>
+                    <p className="inventory-sessions-hint">Use sessions in battle (M key) or earn +3 per prestige.</p>
+                </div>
+
                 <div className="inventory-grid">
                     {miniMeTypes.map((type) => {
                         const count = getMiniMeCount(type);
                         const cost = getMiniMeCost(type);
                         const canBuy = coins >= cost;
-                        const canAct = canActivate(type, coins);
+                        const canAct = !!onActivate && sessions > 0;
                         
                         return (
                             <div key={type} className="inventory-item">
@@ -152,14 +187,14 @@ export function InventoryModal({ isOpen, onClose, onActivate }: InventoryModalPr
                     })}
                 </div>
 
-                {selectedType && action && (
+                {selectedType && action && action !== 'buySessions' && (
                     <div className="inventory-confirmation-overlay">
                         <div className="inventory-confirmation">
                             <h3>Confirm {action === 'purchase' ? 'Purchase' : 'Activation'}</h3>
                             <p>
                                 {action === 'purchase'
                                     ? `Purchase ${getMiniMeName(selectedType)} for ${getMiniMeCost(selectedType)} coins?`
-                                    : `Activate ${getMiniMeName(selectedType)} for ${getMiniMeCost(selectedType)} coins?`}
+                                    : `Use 1 session to deploy ${getMiniMeName(selectedType)} for 15 seconds?`}
                             </p>
                             <div className="inventory-confirmation-actions">
                                 <button onClick={confirmAction} className="inventory-confirm-btn">
