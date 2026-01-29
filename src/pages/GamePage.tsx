@@ -64,14 +64,14 @@ function GamePage() {
         // Expose navigation function to game
         (game as any).returnToMenu = handleReturnToMenu;
         
-        // Listen for inventory open event from UIScene
+        // Listen for inventory open on game's global events (so it works from pause menu regardless of scene timing)
+        game.events.on('open-inventory', () => {
+            setShowInventoryModal(true);
+        });
+
+        // Listen for dialogue and other events from UIScene
         const uiScene = game.scene.getScene('UIScene');
         if (uiScene) {
-            uiScene.events.on('open-inventory', () => {
-                setShowInventoryModal(true);
-            });
-            
-            // Listen for dialogue events
             uiScene.events.on('show-dialogue', (data: {
                 id: string;
                 speaker: string;
@@ -81,7 +81,6 @@ function GamePage() {
                 setCurrentDialogue(data);
             });
             
-            // Listen for final boss victory
             uiScene.events.on('final-boss-victory', () => {
                 setShowVictoryScreen(true);
             });

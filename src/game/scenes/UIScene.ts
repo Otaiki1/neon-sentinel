@@ -856,7 +856,7 @@ export class UIScene extends Phaser.Scene {
     });
 
     // Current rank display in pause menu
-    const rankTitle = this.add.text(width / 2, height / 2 + 230, 'CURRENT RANK', {
+    const rankTitle = this.add.text(width / 2, height / 2 + 320, 'CURRENT RANK', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -865,7 +865,7 @@ export class UIScene extends Phaser.Scene {
     });
     rankTitle.setOrigin(0.5, 0.5);
     
-    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 255, '', {
+    this.currentRankPauseText = this.add.text(width / 2, height / 2 + 345, '', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: '#00ffff',
@@ -880,7 +880,7 @@ export class UIScene extends Phaser.Scene {
       this.currentRankPauseText.setText(rank);
     });
     
-    const achievementsTitle = this.add.text(width / 2, height / 2 + 280, 'ACHIEVEMENTS', {
+    const achievementsTitle = this.add.text(width / 2, height / 2 + 370, 'ACHIEVEMENTS', {
       fontFamily: UI_CONFIG.menuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: UI_CONFIG.neonGreen,
@@ -893,7 +893,7 @@ export class UIScene extends Phaser.Scene {
     for (let i = 0; i < 4; i += 1) {
       const line = this.add.text(
         width / 2,
-        height / 2 + 305 + i * 18,
+        height / 2 + 395 + i * 18,
         '',
         {
           fontFamily: UI_CONFIG.bodyFont,
@@ -907,10 +907,10 @@ export class UIScene extends Phaser.Scene {
       this.achievementTexts.push(line);
     }
 
-    // Inventory button (for pause menu) - opens inventory modal
+    // Inventory button (for pause menu) - opens inventory modal (separate row from Settings)
     const pauseInventoryButton = this.createButton(
       width / 2,
-      height / 2 + 110,
+      height / 2 + 170,
       'INVENTORY',
       180,
       45,
@@ -918,12 +918,12 @@ export class UIScene extends Phaser.Scene {
     );
     const pauseInventoryBg = pauseInventoryButton.list[0] as Phaser.GameObjects.Rectangle;
     pauseInventoryBg.on('pointerdown', () => {
-      // Emit event to open inventory modal in React
-      this.events.emit('open-inventory');
+      // Emit on game's global events so GamePage receives it (works regardless of scene startup order)
+      this.game.events.emit('open-inventory');
     });
     
     // Coin balance display in pause menu
-    const pauseCoinText = this.add.text(width / 2, height / 2 + 170, '', {
+    const pauseCoinText = this.add.text(width / 2, height / 2 + 230, '', {
       fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: this.uiTextColor,
@@ -933,7 +933,7 @@ export class UIScene extends Phaser.Scene {
     pauseCoinText.setOrigin(0.5, 0.5);
     
     // Active mini-mes display in pause menu
-    const pauseMiniMeText = this.add.text(width / 2, height / 2 + 200, '', {
+    const pauseMiniMeText = this.add.text(width / 2, height / 2 + 260, '', {
       fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: this.uiTextColor,
@@ -943,7 +943,7 @@ export class UIScene extends Phaser.Scene {
     pauseMiniMeText.setOrigin(0.5, 0.5);
     
     // Current avatar stats display in pause menu
-    const pauseAvatarText = this.add.text(width / 2, height / 2 + 230, '', {
+    const pauseAvatarText = this.add.text(width / 2, height / 2 + 290, '', {
       fontFamily: this.uiMenuFont,
       fontSize: UI_CONFIG.fontSize.small,
       color: this.uiTextColor,
