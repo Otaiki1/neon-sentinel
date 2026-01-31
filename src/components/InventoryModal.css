@@ -35,7 +35,7 @@
 }
 
 .inventory-modal-title {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     font-size: 1.5rem;
     color: #00ff00;
     margin: 0;
@@ -74,13 +74,13 @@
 }
 
 .inventory-coin-label {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     color: #00ff00;
     font-size: 1rem;
 }
 
 .inventory-coin-value {
-    font-family: 'Share Tech Mono', monospace;
+    font-family: "Share Tech Mono", monospace;
     color: #00ff00;
     font-size: 1.2rem;
     font-weight: bold;
@@ -94,7 +94,7 @@
 }
 
 .inventory-sessions-title {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     color: #00c8ff;
     font-size: 1rem;
     margin: 0 0 0.75rem 0;
@@ -111,20 +111,20 @@
 }
 
 .inventory-sessions-label {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     color: #00c8ff;
     font-size: 1rem;
 }
 
 .inventory-sessions-value {
-    font-family: 'Share Tech Mono', monospace;
+    font-family: "Share Tech Mono", monospace;
     color: #00c8ff;
     font-size: 1.25rem;
     font-weight: bold;
 }
 
 .inventory-sessions-buy-btn {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     font-size: 0.95rem;
     padding: 0.5rem 1rem;
     background: rgba(0, 200, 255, 0.2);
@@ -146,7 +146,7 @@
 }
 
 .inventory-sessions-hint {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     color: #00c8ff;
     font-size: 0.8rem;
     margin: 0;
@@ -179,7 +179,7 @@
 }
 
 .inventory-item-name {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     color: #00ff00;
     font-size: 1.1rem;
     margin: 0;
@@ -187,7 +187,7 @@
 }
 
 .inventory-item-count {
-    font-family: 'Share Tech Mono', monospace;
+    font-family: "Share Tech Mono", monospace;
     color: #00ff00;
     font-size: 0.9rem;
     background: rgba(0, 255, 0, 0.2);
@@ -211,14 +211,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     font-size: 1.5rem;
     color: #00ff00;
     background: rgba(0, 255, 0, 0.1);
 }
 
 .inventory-item-description {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     color: #00ff00;
     font-size: 0.85rem;
     margin: 0.5rem 0;
@@ -227,7 +227,7 @@
 }
 
 .inventory-item-cost {
-    font-family: 'Share Tech Mono', monospace;
+    font-family: "Share Tech Mono", monospace;
     color: #00ff00;
     font-size: 0.9rem;
     margin: 0.5rem 0;
@@ -248,7 +248,7 @@
     background: transparent;
     border: 2px solid #00ff00;
     color: #00ff00;
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -289,14 +289,14 @@
 }
 
 .inventory-confirmation h3 {
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     color: #00ff00;
     margin: 0 0 1rem 0;
     text-transform: uppercase;
 }
 
 .inventory-confirmation p {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     color: #00ff00;
     margin: 0 0 1.5rem 0;
 }
@@ -311,7 +311,7 @@
     flex: 1;
     padding: 0.75rem;
     border: 2px solid #00ff00;
-    font-family: 'Rajdhani', sans-serif;
+    font-family: "Rajdhani", sans-serif;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;

@@ -63,10 +63,11 @@ export function addMiniMeSessions(amount: number): number {
  */
 export function buyMiniMeSessionsPack(
     availableCoins: number,
-    spendCoinsFn: (amount: number, reason: string) => boolean
+    spendCoinsFn: (amount: number, reason: string) => boolean,
 ): boolean {
     if (availableCoins < SESSIONS_PACK_COST) return false;
-    if (!spendCoinsFn(SESSIONS_PACK_COST, "mini_me_sessions_pack")) return false;
+    if (!spendCoinsFn(SESSIONS_PACK_COST, "mini_me_sessions_pack"))
+        return false;
     addMiniMeSessions(SESSIONS_PACK_SIZE);
     return true;
 }
