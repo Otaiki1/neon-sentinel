@@ -6,7 +6,7 @@ import {
   setSelectedHero,
 } from "../services/achievementService";
 import { StatIcon } from "../components/StatIcon";
-import { getRankHistory, getCurrentRankFromStorage, getRankTierName, getRankProgress } from "../services/rankService";
+import { getRankHistory, getCurrentRankFromStorage, getCurrentPrestigeFromStorage, getCurrentLayerFromStorage, getRankTierName, getRankProgress } from "../services/rankService";
 import { getCurrentBulletTier, getTierProgress } from "../services/bulletUpgradeService";
 import { isAchievementUnlocked } from "../services/achievementService";
 import { getAllAvatarsWithStatus, getActiveAvatar } from "../services/avatarService";
@@ -48,15 +48,16 @@ function ProfilePage() {
   const rankHistory = getRankHistory();
   const currentRank = getCurrentRankFromStorage();
   const isPrimeSentinel = isAchievementUnlocked("prime_sentinel");
-  
-  // Get bullet tier info (use prestige from current rank or 0)
-  const currentPrestige = currentRank?.prestige || 0;
+
+  // Player's actual prestige/layer (for unlocks); rank object holds rank definition, not player progress
+  const currentPrestige = getCurrentPrestigeFromStorage();
+  const currentLayer = getCurrentLayerFromStorage();
   const currentBulletTier = getCurrentBulletTier(currentPrestige);
   const tierProgress = getTierProgress(currentPrestige);
-  
-  // Get rank progress
-  const rankProgress = currentRank ? getRankProgress(currentRank.prestige, currentRank.layer) : null;
-  
+
+  // Get rank progress using player's prestige and layer
+  const rankProgress = getRankProgress(currentPrestige, currentLayer);
+
   // Get avatar gallery
   const allAvatars = getAllAvatarsWithStatus(currentPrestige);
   const activeAvatar = getActiveAvatar();
@@ -137,7 +138,7 @@ function ProfilePage() {
                   {isPrimeSentinel && (
                     <span className="text-xs font-menu text-cyan-400 border border-cyan-400 px-2 py-0.5 inline-block mt-1">PRIME SENTINEL</span>
                   )}
-                  <div className="profile-rank-meta">{getRankTierName(currentRank.tier)} · P{currentRank.prestige} L{currentRank.layer}</div>
+                  <div className="profile-rank-meta">{getRankTierName(currentRank.tier)} · P{currentPrestige} L{currentLayer}</div>
                 </div>
               </div>
               {rankProgress && (

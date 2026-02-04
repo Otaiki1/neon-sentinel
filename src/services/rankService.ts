@@ -17,6 +17,8 @@ export interface Rank {
 
 const RANK_HISTORY_KEY = 'neon-sentinel-rank-history';
 const CURRENT_RANK_KEY = 'neon-sentinel-current-rank';
+/** Player's actual prestige/layer progress (used for unlock checks; rank object has definition prestige/layer, not player progress) */
+const CURRENT_PROGRESS_KEY = 'neon-sentinel-current-progress';
 
 /**
  * Get current rank based on prestige and layer
@@ -201,9 +203,62 @@ function saveCurrentRank(rank: Rank): void {
 }
 
 /**
+ * Save player's current prestige and layer (for unlock checks; rank object stores rank definition, not player progress)
+ */
+function saveCurrentProgress(prestige: number, layer: number): void {
+    try {
+        localStorage.setItem(CURRENT_PROGRESS_KEY, JSON.stringify({ prestige, layer }));
+    } catch (error) {
+        console.error('Error saving current progress:', error);
+    }
+}
+
+/**
+ * Get player's current prestige level from storage (for avatar/unlock checks).
+ * Use this instead of getCurrentRankFromStorage()?.prestige, which is the rank definition's prestige, not the player's.
+ */
+export function getCurrentPrestigeFromStorage(): number {
+    try {
+        const stored = localStorage.getItem(CURRENT_PROGRESS_KEY);
+        if (stored) {
+            const { prestige } = JSON.parse(stored) as { prestige: number; layer: number };
+            if (typeof prestige === 'number') return prestige;
+        }
+        // Backward compatibility: infer from highest achieved rank (by rank number)
+        const current = getCurrentRankFromStorage();
+        const history = getRankHistory();
+        let maxRankNumber = current?.number ?? 0;
+        for (const r of history) {
+            if (r.number > maxRankNumber) maxRankNumber = r.number;
+        }
+        const configRank = RANK_CONFIG.ranks.find((r) => r.number === maxRankNumber);
+        return configRank ? configRank.prestige : 0;
+    } catch (error) {
+        console.error('Error loading current prestige:', error);
+        return 0;
+    }
+}
+
+/**
+ * Get player's current layer from storage (for display/consistency).
+ */
+export function getCurrentLayerFromStorage(): number {
+    try {
+        const stored = localStorage.getItem(CURRENT_PROGRESS_KEY);
+        if (!stored) return 1;
+        const { layer } = JSON.parse(stored) as { prestige: number; layer: number };
+        return typeof layer === 'number' ? layer : 1;
+    } catch (error) {
+        console.error('Error loading current layer:', error);
+        return 1;
+    }
+}
+
+/**
  * Update current rank based on prestige and layer
  */
 export function updateCurrentRank(prestige: number, layer: number): Rank | null {
+    saveCurrentProgress(prestige, layer);
     const rank = getHighestRank(prestige, layer);
     if (rank) {
         saveCurrentRank(rank);

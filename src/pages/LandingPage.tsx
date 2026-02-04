@@ -35,7 +35,7 @@ import {
     getAllAvatarsWithStatus,
     setActiveAvatar as setActiveAvatarId,
 } from "../services/avatarService";
-import { getCurrentRankFromStorage } from "../services/rankService";
+import { getCurrentRankFromStorage, getCurrentPrestigeFromStorage } from "../services/rankService";
 import type { AvatarId } from "../services/avatarService";
 import "./LandingPage.css";
 
@@ -364,7 +364,7 @@ function LandingPage() {
 
     /* Kernel/avatar list for SELECT KERNEL - ensure we always have at least the active one */
     const kernelAvatars = useMemo(() => {
-        const prestige = getCurrentRankFromStorage()?.prestige ?? 0;
+        const prestige = getCurrentPrestigeFromStorage();
         const list = getAllAvatarsWithStatus(prestige);
         if (list.length === 0) {
             const config = getAvatarConfig(activeAvatar);
@@ -829,9 +829,7 @@ function LandingPage() {
                                                         ? "Equipped"
                                                         : isLocked &&
                                                             (config?.unlockPrestige ?? 0) >
-                                                                (getCurrentRankFromStorage()
-                                                                    ?.prestige ??
-                                                                    0)
+                                                                getCurrentPrestigeFromStorage()
                                                           ? "Prestige Required"
                                                           : isUnlocked
                                                             ? "Available"

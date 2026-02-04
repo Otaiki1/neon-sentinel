@@ -7,6 +7,7 @@ import {
     type AvatarId 
 } from '../services/avatarService';
 import { getAvailableCoins } from '../services/coinService';
+import { getCurrentPrestigeFromStorage } from '../services/rankService';
 import './AvatarSelectionModal.css';
 
 interface AvatarSelectionModalProps {
@@ -27,10 +28,7 @@ export default function AvatarSelectionModal({
 
     useEffect(() => {
         if (isOpen) {
-            // Prestige level would need to be tracked separately or derived from stats
-            // For now, assume 0 - this should be updated to track actual prestige
-            const currentPrestige = 0; // TODO: Get from prestige tracking
-            
+            const currentPrestige = getCurrentPrestigeFromStorage();
             setPrestigeLevel(currentPrestige);
             setAvatars(getAllAvatarsWithStatus(currentPrestige));
             setActiveAvatarId(getActiveAvatar());
