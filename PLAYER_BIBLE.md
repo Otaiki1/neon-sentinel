@@ -10,24 +10,26 @@ Welcome, Sentinel. You are an autonomous security program fighting to contain Th
 
 1. [The Story](#the-story)
 2. [How to Play](#how-to-play)
-3. [Enemies & Corruption](#enemies--corruption)
-4. [System Layers](#system-layers)
-5. [Power-Ups & System Exploits](#power-ups--system-exploits)
-6. [Scoring System](#scoring-system)
-7. [Progression & Strategy](#progression--strategy)
-8. [Leaderboards](#leaderboards)
-9. [Prestige Mode](#prestige-mode)
-10. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
-11. [Corruption Meter](#corruption-meter)
-12. [Overclock Mode](#overclock-mode)
-13. [Mid-Run Challenges](#mid-run-challenges)
-14. [Rotating Layer Modifiers](#rotating-layer-modifiers)
-15. [Almost Success Feedback](#almost-success-feedback)
-16. [Kernel Playstyles](#kernel-playstyles)
-17. [Sensory Escalation](#sensory-escalation)
-18. [Session Stats HUD](#session-stats-hud)
-19. [Floating Combat Text](#floating-combat-text)
-20. [Achievements & Badges](#achievements--badges)
+3. [Pregame Upgrades](#pregame-upgrades)
+4. [Enemies & Corruption](#enemies--corruption)
+5. [System Layers](#system-layers)
+6. [Power-Ups & System Exploits](#power-ups--system-exploits)
+7. [Scoring System](#scoring-system)
+8. [Progression & Strategy](#progression--strategy)
+9. [Leaderboards](#leaderboards)
+10. [Prestige Mode](#prestige-mode)
+11. [Dynamic Difficulty Evolution](#dynamic-difficulty-evolution)
+12. [Corruption Meter](#corruption-meter)
+13. [Overclock Mode](#overclock-mode)
+14. [Mid-Run Challenges](#mid-run-challenges)
+15. [Rotating Layer Modifiers](#rotating-layer-modifiers)
+16. [Almost Success Feedback](#almost-success-feedback)
+17. [Kernel Playstyles](#kernel-playstyles)
+18. [Sensory Escalation](#sensory-escalation)
+19. [Session Stats HUD](#session-stats-hud)
+20. [Floating Combat Text](#floating-combat-text)
+21. [Achievements & Badges](#achievements--badges)
+22. [Profile & Progress](#profile--progress)
 
 ---
 
@@ -142,6 +144,22 @@ As a Neon Sentinel, your mission is to:
 
 ---
 
+## 🛒 Pregame Upgrades
+
+Before each run you can spend **coins** on session-only upgrades. Click **Start Game** on the landing page to open the Pregame Upgrades modal.
+
+- **Extra Heart** (+1 health bar this run) — 25 coins
+- **Double Heart** (+2 health bars this run) — 50 coins
+- **Reinforced Core** (max 6 health bars this run) — 40 coins
+- **Overcharged Gun** (bullet damage +20% this run) — 45 coins
+- **Rapid Fire** (fire rate +15% this run) — 40 coins
+- **Extended Boost** (power-up duration +25% this run) — 35 coins
+- **Agility Pack** (movement speed +10% this run) — 30 coins
+
+Select the upgrades you want, then **Launch** to start the run (coins are spent) or **Skip** to start without upgrades. Effects apply only for that single run.
+
+---
+
 ## 👾 Enemies & Corruption
 
 Each enemy type represents a different level of system corruption. Understanding them is key to survival.
@@ -207,13 +225,19 @@ Each enemy type represents a different level of system corruption. Understanding
 - **Behavior**: Splits into 3 green enemies on death
 - **Strategy**: Decide when to finish them to avoid swarm pressure
 
-### 🔴 Red Enemies - System Guardians (Bosses)
+### 🔴 Red Enemies - System Guardians (Layer 5)
 - **Points**: 500
 - **Health**: 20 (scales with layer)
 - **Speed**: 120
-- **Behavior**: Mini-bosses that are very tough to kill
+- **Behavior**: Mini-bosses and pawns on Layer 5 (Kernel Breach); very tough to kill
 - **Lore**: System guardians that have been fully taken over by The Swarm
-- **Strategy**: Extremely tough. Requires 20 hits to destroy. Only spawn in later layers.
+- **Strategy**: Extremely tough. Requires 20 hits to destroy. On Layer 5 all enemies use red visuals.
+
+### 🔴 Flame Red Enemies - Collapse Guardians (Layer 6)
+- **Points**: 500
+- **Health**: 20 (scales with layer)
+- **Behavior**: Same tier as red; used for Layer 6 (System Collapse). Distinct bright/flame red visuals for pawns and graduation bosses.
+- **Strategy**: Same as red; prioritize graduation boss when it appears.
 
 ### 🎯 Graduation Bosses
 
@@ -792,28 +816,28 @@ Tips:
 The game features a daily coin system:
 
 - **Daily Coins**: Receive 3 coins every day (resets at midnight)
-- **Usage**: Coins can be used for special features and marketplace items
-- **Tracking**: View your available coins on the landing page
+- **Usage**: Pregame upgrades (session-only boosts), revives, marketplace, and special features
+- **Pregame Upgrades**: Spend coins before a run for extra health, damage, fire rate, power-up duration, or movement speed for that run only
+- **Tracking**: View your available coins on the landing page and in the pregame upgrades modal
 - **Persistence**: Coins persist between sessions
 
 ## 👤 Profile & Customization
 
-Access your profile from the main menu to:
+Access your **Profile** from the main menu. The profile page shows:
 
-- **View Stats**: Lifetime score, playtime, enemies defeated, achievements
-- **Best Run**: Detailed breakdown of your best performance
-- **Heroes**: Unlock and select different Sentinel heroes at score milestones:
-  - Sentinel Standard (0 pts)
-  - Sentinel Vanguard (25,000 pts)
-  - Sentinel Ghost (75,000 pts)
-  - Sentinel Drone (150,000 pts)
-- **Skins**: Unlock and select cosmetic skins with color filters:
-  - Default (0 pts)
-  - Crimson (30,000 pts)
-  - Aurora (90,000 pts)
-  - Void (160,000 pts)
+- **Current Rank & Progress**: Your true prestige and layer (used for unlocking avatars, kernels, etc.)
+- **Bullet Tier, Kernels, Statistics**: Unlocks and stats at a glance
+- **Prime Sentinel**: Status and lifetime/best run stats
+- **Rank History**: Ranks you’ve achieved
+- **Heroes & Skins**: Unlock and select different Sentinel heroes and cosmetic skins (unlocks depend on score and prestige)
+- **Quick Bests**: Personal bests across metrics
 - **Recent Records**: Track personal bests across different metrics
-- **Overall Rank**: See your position in the global leaderboard (requires wallet)
+
+Unlocks (e.g. avatars, kernels) are based on your **current progress** (prestige/layer), not just the rank title you hold.
+
+## 📊 Profile & Progress
+
+Your **progress** is stored as (prestige, layer). Reaching Layer 6 and defeating the graduation boss completes that prestige and unlocks the next; avatars and kernels that require “Prestige 1” unlock when your stored progress is prestige 1 or higher. The profile page displays this progress clearly.
 
 ---
 
@@ -825,5 +849,5 @@ The Grid is collapsing. The Swarm is spreading. As a Neon Sentinel, you are the 
 
 ---
 
-*Last Updated: Game Version 1.8 - 2026-01-27 (Game Balance Update)*
+*Last Updated: 2026-02-04 (Pregame upgrades, red/flameRed enemies, profile & progress documentation)*
 

@@ -15,11 +15,12 @@ This document provides comprehensive technical documentation for developers work
 5. [Scene Architecture](#scene-architecture)
 6. [Physics & Collisions](#physics--collisions)
 7. [State Management](#state-management)
-8. [Asset Management](#asset-management)
-9. [Performance Optimization](#performance-optimization)
-10. [Mobile Support](#mobile-support)
-11. [Integration Points](#integration-points)
-12. [Build & Deployment](#build--deployment)
+8. [Data Structures](./DATASTRUCTURES.md) (localStorage, Registry, service types)
+9. [Asset Management](#asset-management)
+10. [Performance Optimization](#performance-optimization)
+11. [Mobile Support](#mobile-support)
+12. [Integration Points](#integration-points)
+13. [Build & Deployment](#build--deployment)
 
 ---
 
@@ -52,10 +53,15 @@ neon-sentinel/
 │   ├── pages/             # React pages
 │   │   ├── LandingPage.tsx     # Main menu
 │   │   ├── LeaderboardPage.tsx # Hall of Fame leaderboard view
-│   │   └── GamePage.tsx        # Game container
+│   │   ├── GamePage.tsx        # Game container
+│   │   ├── ProfilePage.tsx    # Profile, rank, stats, kernels, heroes
+│   │   └── AboutPage.tsx       # About / info
 │   ├── components/        # React components
 │   │   ├── WalletConnectionModal.tsx
 │   │   ├── StoryModal.tsx
+│   │   ├── PregameUpgradesModal.tsx
+│   │   ├── InventoryModal.tsx
+│   │   ├── AvatarSelectionModal.tsx
 │   │   └── Methods.tsx
 │   ├── services/         # Business logic
 │   │   ├── scoreService.ts     # Leaderboard logic
@@ -63,6 +69,7 @@ neon-sentinel/
 │   │   ├── rotatingLayerService.ts # Rotating modifier schedule helper
 │   │   ├── kernelService.ts # Kernel selection + unlock tracking
 │   │   ├── coinService.ts # Daily coin system
+│   │   ├── pregameUpgradeService.ts # Session-only pre-run upgrades
 │   │   ├── sessionRewardService.ts # Session tracking and rewards
 │   │   ├── settingsService.ts # Gameplay settings persistence
 │   │   └── storyService.ts # Story milestone tracking
@@ -220,8 +227,17 @@ ENEMY_CONFIG = {
         spawnWeight: 0,      // Boss - spawned separately
         canShoot: false,
     },
+    flameRed: {
+        points: 500,
+        speed: 120,
+        health: 20,
+        spawnWeight: 0,      // Layer 6 graduation bosses; visuals differ from red
+        canShoot: false,
+    },
 }
 ```
+
+**Enemy color by layer**: GameScene overrides sprite/color by layer: layer ≥ 5 uses red pawn/boss sprites; layer ≥ 6 uses flameRed. See `enemyService.ts` and `assetMap.ts` for sprite keys.
 
 ### Layer Configuration
 
@@ -1480,13 +1496,16 @@ handlePlayerPowerUpCollision(player, powerUp) {
 
 **Purpose**: Cross-scene state communication
 
-**Registry Keys**:
+**Registry Keys** (see [DATASTRUCTURES.md](./DATASTRUCTURES.md) for full list):
 - `score`: Current score
 - `comboMultiplier`: Current combo multiplier
 - `layerName`: Current layer name
 - `currentLayer`: Current layer number
 - `lives`: Current lives count
+- `healthBars`: Current health bars (segment count)
+- `maxHealthBars`: Max health bars this run (5 or 6 with pregame upgrade)
 - `gameOver`: Game over flag
+- `pregameSessionEffects`: Session-only upgrade effects (from PregameUpgradesModal)
 - `finalScore`: Final score on game over
 - `deepestLayer`: Deepest layer reached
 - `isPaused`: Pause state
@@ -1548,6 +1567,11 @@ registry.events.on('changedata-score', callback);
 **GamePage**:
 - `gameRef`: Reference to Phaser game instance
 - Exposes `returnToMenu` function to Phaser
+- Passes `gameplaySettings`, `coins`, `pregameSessionEffects` (from `location.state?.pregameUpgrades`) into registry on init
+
+### Data Structures Reference
+
+For a full list of **localStorage keys**, **Phaser Registry keys**, **service types**, and **data flow** (React → GamePage → Registry → GameScene), see **[DATASTRUCTURES.md](./DATASTRUCTURES.md)**.
 
 ---
 
@@ -1781,6 +1805,17 @@ if (returnToMenu) returnToMenu();
 - `consumeCoins(cost)`: Spend coins (returns success/failure)
 - `addCoins(amount)`: Add coins to balance
 - `getDailyCoinCount()`: Get daily coin allocation
+
+### Pregame Upgrade Service
+
+**Location**: `src/services/pregameUpgradeService.ts`
+
+**Responsibilities**:
+- Define session-only upgrades (extra health, max health cap, bullet damage, fire rate, power-up duration, movement speed)
+- Merge selected upgrade IDs into a single `PregameSessionEffects` object for the game
+- No persistence: selection is passed via React Router state to GamePage, then into Phaser registry as `pregameSessionEffects`
+
+**Flow**: LandingPage "Start Game" → PregameUpgradesModal → user selects upgrades and "Launch" → `navigate('/play', { state: { pregameUpgrades: ids } })` → GamePage calls `mergePregameEffects(ids)` and `game.registry.set('pregameSessionEffects', effects)` → GameScene applies effects in `applyPregameSessionEffects()` (max/initial health bars, damage/fire rate/powerup duration/speed multipliers).
 
 ### Ability Service
 

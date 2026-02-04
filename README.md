@@ -24,8 +24,9 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Shock Bomb**: Area-of-effect ability that kills 70% of on-screen enemies
 -   **God Mode**: Temporary invincibility ability with meter-based activation
 -   **Coin System**: Daily coins for special features and rewards
+-   **Pregame Upgrades**: Spend coins before a run for session-only boosts (extra health, damage, fire rate, etc.)
 -   **Achievements & Badges**: Meta-progression with unlockable cosmetics
--   **Profile & Customization**: Unlock heroes, skins, and view detailed stats
+-   **Profile & Customization**: Unlock heroes, skins, kernels; view rank, stats, and progress (prestige/layer)
 -   **Mid-Run Challenges**: Random micro-challenges with bonus rewards
 -   **Rotating Layer Modifiers**: Time-based layer variants with unique constraints
 -   **Almost Success Feedback**: Game over insights that nudge another run
@@ -136,6 +137,7 @@ neon-sentinel/
 ### For Developers
 
 -   **[Developer's Bible](./DEVELOPER_BIBLE.md)**: Technical documentation, architecture, configuration, implementation details
+-   **[Data Structures](./DATASTRUCTURES.md)**: localStorage keys, Phaser Registry, service types, and data flow
 
 ---
 
@@ -241,8 +243,9 @@ The game features 6 system layers, each with increasing difficulty:
 ### Coin System
 
 - **Daily Coins**: Receive 3 coins daily (resets at midnight)
-- **Usage**: Used for special features and marketplace items
-- **Tracking**: View available coins on the landing page
+- **Usage**: Pregame upgrades (session-only boosts), revives, marketplace, and special features
+- **Pregame Upgrades**: Before starting a run, spend coins on extra health, max health cap, bullet damage, fire rate, power-up duration, or movement speed for that run only
+- **Tracking**: View available coins on the landing page and in the pregame upgrades modal
 
 ### Sensory Escalation
 
@@ -266,7 +269,8 @@ The game features 6 system layers, each with increasing difficulty:
 -   **Blue Buff**: Boosts nearby enemy fire rate and damage
 -   **Purple**: Elite enemies (100 points, 6 health)
 -   **Purple Fragmenter**: Splits into multiple greens on death
--   **Red**: Bosses (500 points, 20 health)
+-   **Red**: Layer 5 enemies and bosses (500 points, 20 health)
+-   **Flame Red**: Layer 6 enemies and graduation bosses (same tier, distinct visuals)
 
 ### Power-Ups
 
@@ -339,13 +343,13 @@ The game is fully optimized for mobile devices:
 
 ## 👤 Profile & Customization
 
-- **Profile Page**: Access via main menu to view detailed stats
-- **Heroes**: Unlock different Sentinel heroes at score milestones
-- **Skins**: Unlock cosmetic skins with color filters
-- **Lifetime Stats**: Track total score, playtime, enemies defeated
-- **Best Run Stats**: View detailed breakdown of your best performance
-- **Achievements**: See all achievements and progress
-- **Recent Records**: Track personal bests across different metrics
+- **Profile Page**: Access via main menu; compact neon-themed layout with rank, bullet tier, kernels, stats, Prime Sentinel status, lifetime & best run, rank history, heroes & skins, quick bests
+- **Current Progress**: True prestige and layer stored separately for unlock checks (avatars, kernels); profile shows this progress
+- **Heroes & Skins**: Unlock different Sentinel heroes and cosmetic skins
+- **Lifetime Stats**: Total score, playtime, enemies defeated
+- **Best Run Stats**: Detailed breakdown of best performance
+- **Achievements**: All achievements and progress
+- **Recent Records**: Personal bests across metrics
 
 ## 🎯 Development
 
@@ -441,4 +445,4 @@ For issues, questions, or contributions, please [open an issue](link-to-issues) 
 
 **Built with ❤️ by the Neon Sentinel team**
 
-_Last Updated: 2026-01-27 (Game Balance Update)_
+_Last Updated: 2026-02-04 (Documentation & data structures update)_
