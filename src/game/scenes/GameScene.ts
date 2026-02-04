@@ -310,6 +310,13 @@ export class GameScene extends Phaser.Scene {
     private totalFirepowerUpgrades = 0; // Track total number of firepower upgrades collected
     private enemyBulletHits = 0; // Track number of hits from enemy bullets
     private baseFireRateMultiplier = 1; // Base fire rate multiplier from firepower upgrades (separate from other multipliers)
+    // Pregame session-only upgrades (one run)
+    private pregameBulletDamageMultiplier = 1;
+    private pregameFireRateMultiplier = 1;
+    private pregamePowerupDurationMultiplier = 1;
+    private pregameSpeedMultiplier = 1;
+    private sessionMaxHealthBars: number | null = null;
+    private sessionInitialHealthBars: number = PLAYER_CONFIG.initialHealthBars;
     private spaceKey!: Phaser.Input.Keyboard.Key;
     // Mobile touch controls
     private joystickBase?: Phaser.GameObjects.Arc;
@@ -334,6 +341,7 @@ export class GameScene extends Phaser.Scene {
 
     create() {
         this.applyGameplaySettings();
+        this.applyPregameSessionEffects();
         // Draw background grid
         this.drawBackgroundGrid();
         this.createSensoryOverlays();
@@ -366,9 +374,10 @@ export class GameScene extends Phaser.Scene {
         // Initialize coin balance in registry
         this.registry.set("coinBalance", getAvailableCoins());
         
-        // Initialize health bars in registry
+        // Initialize health bars and max health in registry (for UI)
         this.registry.set("healthBars", this.healthBars);
-        
+        this.registry.set("maxHealthBars", this.getMaxHealthBars());
+
         // Initialize mini-me active count and sessions (from persistent service)
         this.registry.set("activeMiniMes", 0);
         this.registry.set("miniMeSessionsRemaining", getMiniMeSessionsAvailable());
@@ -1079,8 +1088,8 @@ export class GameScene extends Phaser.Scene {
         this.registry.set("reviveCount", this.reviveCount);
         this.isPaused = false;
         this.player.setVelocity(0, 0);
-        // Restore all 5 health bars on revival
-        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        // Restore to session initial health on revival
+        this.healthBars = this.sessionInitialHealthBars;
         this.registry.set("healthBars", this.healthBars);
         this.lastHitTime = this.time.now;
 
@@ -1165,6 +1174,39 @@ export class GameScene extends Phaser.Scene {
             "uiDyslexiaFont",
             settings?.accessibility?.dyslexiaFont ?? false
         );
+    }
+
+    private applyPregameSessionEffects() {
+        const effects = this.registry.get("pregameSessionEffects") as
+            | {
+                  extraHealthBars: number;
+                  maxHealthBars: number | null;
+                  bulletDamageMultiplier: number;
+                  fireRateMultiplier: number;
+                  powerupDurationMultiplier: number;
+                  speedMultiplier: number;
+              }
+            | undefined;
+        if (!effects) return;
+        this.sessionMaxHealthBars = effects.maxHealthBars ?? null;
+        const maxBars = this.getMaxHealthBars();
+        this.sessionInitialHealthBars = Math.min(
+            PLAYER_CONFIG.initialHealthBars + (effects.extraHealthBars ?? 0),
+            maxBars
+        );
+        this.healthBars = this.sessionInitialHealthBars;
+        this.pregameBulletDamageMultiplier = effects.bulletDamageMultiplier ?? 1;
+        this.pregameFireRateMultiplier = effects.fireRateMultiplier ?? 1;
+        this.pregamePowerupDurationMultiplier = effects.powerupDurationMultiplier ?? 1;
+        this.pregameSpeedMultiplier = effects.speedMultiplier ?? 1;
+    }
+
+    private getMaxHealthBars(): number {
+        return this.sessionMaxHealthBars ?? PLAYER_CONFIG.maxHealthBars;
+    }
+
+    private getPowerupDuration(ms: number): number {
+        return Math.round(ms * this.pregamePowerupDurationMultiplier);
     }
 
     private getGridColorForLayer(layer: number, defaultColor: number) {
@@ -1294,7 +1336,8 @@ export class GameScene extends Phaser.Scene {
             this.challengeFireRateMultiplier *
             this.kernelFireRateMultiplier *
             this.heroGradeFireRateMultiplier *
-            this.layerFireRateMultiplier;
+            this.layerFireRateMultiplier *
+            this.pregameFireRateMultiplier;
 
         // Check stun status
         if (this.isStunned && time >= this.stunEndTime) {
@@ -1680,7 +1723,8 @@ export class GameScene extends Phaser.Scene {
             this.overclockSpeedMultiplier *
             this.kernelSpeedMultiplier *
             this.heroGradeSpeedMultiplier *
-            this.modifierSpeedCap;
+            this.modifierSpeedCap *
+            this.pregameSpeedMultiplier;
 
         // Mobile joystick controls
         if (MOBILE_SCALE < 1.0) {
@@ -3860,8 +3904,8 @@ export class GameScene extends Phaser.Scene {
             this.registry.set("comboMultiplier", this.comboMultiplier);
         }
         if (reward.extraLife) {
-            // Restore 1 health bar per life orb (max 5 health bars)
-            this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+            // Restore 1 health bar per life orb (max session health bars)
+            this.healthBars = Math.min(this.healthBars + 1, this.getMaxHealthBars());
             this.registry.set("healthBars", this.healthBars);
             
             // Show floating text for health restoration
@@ -5194,7 +5238,7 @@ export class GameScene extends Phaser.Scene {
         
         // Get bullet tier damage multiplier
         const bulletDamageMultiplier = b.getData('damageMultiplier') as number || 1.0;
-        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier * bulletDamageMultiplier;
+        const damage = 1 * (1 - shieldReduction) * this.heroGradeDamageMultiplier * bulletDamageMultiplier * this.pregameBulletDamageMultiplier;
         const isCriticalHit = isBoss || this.comboMultiplier >= 3;
         const damageText = Number.isInteger(damage)
             ? `${damage}`
@@ -5736,7 +5780,7 @@ export class GameScene extends Phaser.Scene {
             this.totalHealthBarsLost += damageBars;
         }
         this.healthBars = Math.max(0, this.healthBars - damageBars);
-        this.healthBars = Math.min(this.healthBars, PLAYER_CONFIG.maxHealthBars); // Cap at max
+        this.healthBars = Math.min(this.healthBars, this.getMaxHealthBars()); // Cap at max
         this.registry.set("healthBars", this.healthBars);
 
         // Debug: Log health bars to help diagnose
@@ -6857,7 +6901,7 @@ export class GameScene extends Phaser.Scene {
                 this.powerUpTimers.get("speed")!.remove();
             }
             this.speedMultiplier = config.speedMultiplier;
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.speedMultiplier = 1;
                 this.powerUpTimers.delete("speed");
             });
@@ -6868,7 +6912,7 @@ export class GameScene extends Phaser.Scene {
                 this.powerUpTimers.get("fireRate")!.remove();
             }
             this.fireRateMultiplier = config.fireRateMultiplier;
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.fireRateMultiplier = 1;
                 this.powerUpTimers.delete("fireRate");
             });
@@ -6879,7 +6923,7 @@ export class GameScene extends Phaser.Scene {
                 this.powerUpTimers.get("score")!.remove();
             }
             this.scoreMultiplier = config.scoreMultiplier;
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.scoreMultiplier = 1;
                 this.powerUpTimers.delete("score");
             });
@@ -6890,15 +6934,15 @@ export class GameScene extends Phaser.Scene {
                 this.powerUpTimers.get("autoShoot")!.remove();
             }
             this.autoShootEnabled = true;
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.autoShootEnabled = false;
                 this.powerUpTimers.delete("autoShoot");
             });
             this.powerUpTimers.set("autoShoot", timer);
         } else if (powerUpType === "lives") {
             // Restore 1 health bar (max 5)
-            if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
-                this.healthBars = Math.min(this.healthBars + 1, PLAYER_CONFIG.maxHealthBars);
+            if (this.healthBars < this.getMaxHealthBars()) {
+                this.healthBars = Math.min(this.healthBars + 1, this.getMaxHealthBars());
                 this.registry.set("healthBars", this.healthBars);
                 this.createFloatingText(this.player.x, this.player.y - 20, "+1 Health", { color: "#00ff00" });
             }
@@ -6929,7 +6973,7 @@ export class GameScene extends Phaser.Scene {
             this.baseFireRateMultiplier *= config.fireRateMultiplier;
             this.fireRateMultiplier *= config.fireRateMultiplier;
 
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 // Reset firepower level (round down to handle fractional levels)
                 this.firepowerLevel = Math.max(
                     0,
@@ -6964,7 +7008,7 @@ export class GameScene extends Phaser.Scene {
                 repeat: -1,
             });
 
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.isInvisible = false;
                 this.player.setAlpha(1);
                 this.powerUpTimers.delete("invisibility");
@@ -7017,13 +7061,13 @@ export class GameScene extends Phaser.Scene {
             miniMe.setData('type', miniMeType);
             miniMe.setData('spawnTime', this.time.now);
             miniMe.setData('hits', 0);
-            miniMe.setData('expireTime', this.time.now + config.duration);
+            miniMe.setData('expireTime', this.time.now + this.getPowerupDuration(config.duration));
             
             // Setup mini-me behavior
             this.setupMiniMeBehavior(miniMe, miniMeType);
             
             // Auto-destroy after duration
-            this.time.delayedCall(config.duration, () => {
+            this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 if (miniMe && miniMe.active) {
                     miniMe.destroy();
                 }
@@ -7054,7 +7098,7 @@ export class GameScene extends Phaser.Scene {
                 this.createFloatingText(this.player.x, this.player.y - 20, `+${config.coinBonus} Coins`, { color: "#ffd700" });
             }
             
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.scoreMultiplier /= config.scoreMultiplier;
                 this.powerUpTimers.delete("prestige");
             });
@@ -7080,7 +7124,7 @@ export class GameScene extends Phaser.Scene {
             helper.setScale(0.6 * MOBILE_SCALE * CHARACTER_SCALE);
             helper.setDepth(98);
             helper.setData('spawnTime', this.time.now);
-            helper.setData('expireTime', this.time.now + config.duration);
+            helper.setData('expireTime', this.time.now + this.getPowerupDuration(config.duration));
             helper.setData('lastShotTime', 0);
             helper.setData('fireRate', 500); // Shoot every 500ms
             
@@ -7088,7 +7132,7 @@ export class GameScene extends Phaser.Scene {
             helper.setTint(0x00ffff); // Cyan tint
             
             // Auto-destroy after duration
-            this.time.delayedCall(config.duration, () => {
+            this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 if (helper && helper.active) {
                     helper.destroy();
                 }
@@ -7114,7 +7158,7 @@ export class GameScene extends Phaser.Scene {
             this.comboMultiplier *= config.comboMultiplier;
             this.registry.set("comboMultiplier", this.comboMultiplier);
             
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 // Restore previous combo (divide by multiplier)
                 this.comboMultiplier = previousCombo;
                 this.registry.set("comboMultiplier", this.comboMultiplier);
@@ -7147,7 +7191,7 @@ export class GameScene extends Phaser.Scene {
                 this.createFloatingText(this.player.x, this.player.y - 20, `+${config.coinBonus} Coins`, { color: "#ffd700" });
             }
             
-            const timer = this.time.delayedCall(config.duration, () => {
+            const timer = this.time.delayedCall(this.getPowerupDuration(config.duration), () => {
                 this.scoreMultiplier /= config.scoreMultiplier;
                 this.powerUpTimers.delete("crown");
             });
@@ -7461,8 +7505,8 @@ export class GameScene extends Phaser.Scene {
         this.lastMovementSampleTime = 0;
         this.lastEdgeSampleTime = 0;
         this.lastCoordinatedFireTime = 0;
-        // Health bars are always 5 (not affected by hero grade multiplier)
-        this.healthBars = PLAYER_CONFIG.initialHealthBars;
+        // Restore to session initial health on run reset
+        this.healthBars = this.sessionInitialHealthBars;
         this.registry.set("healthBars", this.healthBars);
         this.powerUpsCollected = 0;
         this.totalBulletsDodged = 0;
@@ -8264,8 +8308,8 @@ export class GameScene extends Phaser.Scene {
      * Heal player (healer mini-me)
      */
     private healPlayer(miniMe: Phaser.Physics.Arcade.Sprite): void {
-        if (this.healthBars < PLAYER_CONFIG.maxHealthBars) {
-            this.healthBars = Math.min(this.healthBars + MINI_ME_CONFIG.behaviors.healer.healAmount, PLAYER_CONFIG.maxHealthBars);
+        if (this.healthBars < this.getMaxHealthBars()) {
+            this.healthBars = Math.min(this.healthBars + MINI_ME_CONFIG.behaviors.healer.healAmount, this.getMaxHealthBars());
             this.registry.set("healthBars", this.healthBars);
             this.createFloatingText(miniMe.x, miniMe.y - 20, "+1 Health", { color: "#00ff00" });
         }

@@ -1,0 +1,221 @@
+.pregame-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+}
+
+.pregame-modal {
+    background: #000;
+    border: 2px solid #00ff00;
+    padding: 1.5rem 2rem;
+    max-width: 720px;
+    width: 92%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 0 24px rgba(0, 255, 0, 0.45);
+}
+
+.pregame-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid #00ff00;
+    padding-bottom: 0.75rem;
+}
+
+.pregame-modal-title {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1.5rem;
+    color: #00ff00;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.pregame-modal-close {
+    background: transparent;
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-size: 1.75rem;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.pregame-modal-close:hover {
+    background: #00ff00;
+    color: #000;
+}
+
+.pregame-modal-subtitle {
+    font-family: "JetBrains Mono", monospace;
+    color: #00ff00;
+    font-size: 0.85rem;
+    margin: 0 0 1rem 0;
+    opacity: 0.9;
+}
+
+.pregame-coin-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid #00ff00;
+}
+
+.pregame-coin-label {
+    font-family: "Rajdhani", sans-serif;
+    color: #00ff00;
+    font-size: 0.95rem;
+}
+
+.pregame-coin-value {
+    font-family: "Share Tech Mono", monospace;
+    color: #00ff00;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.pregame-upgrades-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.pregame-upgrade-card {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 255, 0, 0.06);
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.pregame-upgrade-card:hover:not(.disabled) {
+    background: rgba(0, 255, 0, 0.15);
+    box-shadow: 0 0 12px rgba(0, 255, 0, 0.35);
+}
+
+.pregame-upgrade-card.selected {
+    background: rgba(0, 255, 0, 0.2);
+    box-shadow: inset 0 0 12px rgba(0, 255, 0, 0.2);
+}
+
+.pregame-upgrade-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #444;
+}
+
+.pregame-upgrade-name {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.pregame-upgrade-desc {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+    opacity: 0.9;
+    line-height: 1.3;
+}
+
+.pregame-upgrade-cost {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    padding: 0.2rem 0;
+    border-top: 1px solid rgba(0, 255, 0, 0.4);
+}
+
+.pregame-total-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem 0;
+}
+
+.pregame-total-label {
+    font-family: "Rajdhani", sans-serif;
+    color: #00ff00;
+    font-size: 1rem;
+}
+
+.pregame-total-value {
+    font-family: "Share Tech Mono", monospace;
+    color: #00ff00;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.pregame-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+.pregame-btn {
+    padding: 0.75rem 1.25rem;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid #00ff00;
+}
+
+.pregame-btn-skip {
+    background: transparent;
+    color: #00ff00;
+}
+
+.pregame-btn-skip:hover {
+    background: rgba(0, 255, 0, 0.15);
+}
+
+.pregame-btn-launch {
+    background: #00ff00;
+    color: #000;
+}
+
+.pregame-btn-launch:hover:not(:disabled) {
+    background: #00cc00;
+    border-color: #00cc00;
+    box-shadow: 0 0 16px rgba(0, 255, 0, 0.5);
+}
+
+.pregame-btn-launch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

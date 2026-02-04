@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { initGame } from "../game/Game";
 import { getGameplaySettings } from "../services/settingsService";
 import { getAvailableCoins } from "../services/coinService";
+import { mergePregameEffects } from "../services/pregameUpgradeService";
+import type { PregameUpgradeId } from "../services/pregameUpgradeService";
 import { InventoryModal } from "../components/InventoryModal";
 import { DialogueCard } from "../components/DialogueCard";
 import { VictoryScreen } from "../components/VictoryScreen";
@@ -15,6 +17,7 @@ function GamePage() {
     const gameInstanceRef = useRef<Phaser.Game | null>(null);
     const { primaryWallet } = useDynamicContext();
     const navigate = useNavigate();
+    const location = useLocation();
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [currentDialogue, setCurrentDialogue] = useState<{
         id: string;
@@ -55,6 +58,9 @@ function GamePage() {
         const settings = getGameplaySettings();
         game.registry.set("gameplaySettings", settings);
         game.registry.set("coins", getAvailableCoins());
+        const pregameIds = (location.state as { pregameUpgrades?: PregameUpgradeId[] } | null)?.pregameUpgrades ?? [];
+        const pregameEffects = mergePregameEffects(pregameIds);
+        game.registry.set("pregameSessionEffects", pregameEffects);
 
         // Listen for return to menu event
         const handleReturnToMenu = () => {

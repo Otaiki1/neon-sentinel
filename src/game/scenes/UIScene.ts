@@ -2149,7 +2149,7 @@ export class UIScene extends Phaser.Scene {
         y: number,
         uiScale: number,
     ) {
-        const maxBars = 5;
+        const maxBars = (this.registry.get("maxHealthBars") as number) ?? 5;
         const clampedBars = Math.max(0, Math.min(healthBars, maxBars));
         const barTotalWidth = 140 * uiScale;
         const barHeight = 10 * uiScale;
@@ -2161,7 +2161,7 @@ export class UIScene extends Phaser.Scene {
         this.livesOrb.clear();
 
         if (this.healthBarLabel) {
-            this.healthBarLabel.setText(`${clampedBars}/5`);
+            this.healthBarLabel.setText(`${clampedBars}/${maxBars}`);
         }
 
         // Single horizontal bar: outline (cyan tint) then 5 segments

@@ -27,6 +27,7 @@ import WalletConnectionModal from "../components/WalletConnectionModal";
 import StoryModal from "../components/StoryModal";
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
+import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
 import { FirstTimeTooltip } from "../components/Tooltip";
 import {
     getActiveAvatar,
@@ -106,6 +107,7 @@ function LandingPage() {
     const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
+    const [showPregameModal, setShowPregameModal] = useState(false);
     const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
     const [settings, setSettings] = useState<GameplaySettings>(
         getGameplaySettings(),
@@ -623,9 +625,10 @@ function LandingPage() {
                             onNext={advanceTooltip}
                             onSkip={skipTour}
                         >
-                            <Link
-                                to="/play"
+                            <button
+                                type="button"
                                 className="start-game-btn-link start-game-btn-wide font-display"
+                                onClick={() => setShowPregameModal(true)}
                             >
                                 <span className="start-game-btn-main">
                                     &gt;&gt; START GAME &lt;&lt;
@@ -634,7 +637,7 @@ function LandingPage() {
                                 <p className="start-game-btn-subtitle">
                                     Liberate the Neon Terminal
                                 </p>
-                            </Link>
+                            </button>
                         </FirstTimeTooltip>
                     </section>
 
@@ -1579,6 +1582,10 @@ function LandingPage() {
                     // Mini-me activation will be handled by GameScene when game is running
                     console.log("Mini-me activated:", type);
                 }}
+            />
+            <PregameUpgradesModal
+                isOpen={showPregameModal}
+                onClose={() => setShowPregameModal(false)}
             />
         </div>
     );

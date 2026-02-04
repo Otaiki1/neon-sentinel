@@ -1284,12 +1284,19 @@
     font-weight: bold;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    text-decoration: none;
     text-align: center;
     transition:
         background 0.2s ease,
         box-shadow 0.2s ease;
     box-shadow: var(--btn-inner-glow), var(--btn-outer-glow);
+    cursor: pointer;
+    width: 100%;
+}
+
+button.start-game-btn-link {
+    text-decoration: none;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
 .start-game-btn-link::before {
