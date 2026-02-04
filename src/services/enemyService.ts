@@ -4,7 +4,7 @@
  * Handles enemy variant selection based on prestige level
  */
 
-export type EnemyColor = 'green' | 'yellow' | 'blue' | 'purple';
+export type EnemyColor = 'green' | 'yellow' | 'blue' | 'purple' | 'red' | 'flameRed';
 export type EnemyType = 'pawn' | 'boss';
 
 export interface EnemyVariant {
@@ -79,6 +79,36 @@ const ENEMY_SPRITE_MAP = {
             prestige6: 'purpleBossCorrupted',
         },
     },
+    // Layer 5 - red enemies
+    red: {
+        pawn: {
+            prestige0_1: 'redPawn1',
+            prestige2_3: 'redPawn2',
+            prestige4_5: 'redPawn3',
+            prestige6: 'redPawn3',
+        },
+        boss: {
+            prestige0_1: 'redBoss1',
+            prestige2_3: 'redBoss2',
+            prestige4_5: 'redBoss2',
+            prestige6: 'redBoss2',
+        },
+    },
+    // Layer 6 - flame red enemies (prestige boss tier)
+    flameRed: {
+        pawn: {
+            prestige0_1: 'flameRedPawn1',
+            prestige2_3: 'flameRedPawn2',
+            prestige4_5: 'flameRedPawn3',
+            prestige6: 'flameRedPawn4',
+        },
+        boss: {
+            prestige0_1: 'flameRedBoss1',
+            prestige2_3: 'flameRedBoss2',
+            prestige4_5: 'flameRedBoss3',
+            prestige6: 'flameRedBoss3',
+        },
+    },
 } as const;
 
 /**
@@ -139,6 +169,34 @@ const ENEMY_DISPLAY_NAMES = {
             prestige2_3: 'Violet Intellect 2',
             prestige4_5: 'Magenta Sovereign 3',
             prestige6: 'Infernal Overlord',
+        },
+    },
+    red: {
+        pawn: {
+            prestige0_1: 'Red Breach',
+            prestige2_3: 'Crimson Striker',
+            prestige4_5: 'Kernel Breaker',
+            prestige6: 'Kernel Breaker',
+        },
+        boss: {
+            prestige0_1: 'Red Guardian',
+            prestige2_3: 'Crimson Overlord',
+            prestige4_5: 'Kernel Sentinel',
+            prestige6: 'Kernel Sentinel',
+        },
+    },
+    flameRed: {
+        pawn: {
+            prestige0_1: 'Flame Fragment',
+            prestige2_3: 'Inferno Drone',
+            prestige4_5: 'Collapse Harbinger',
+            prestige6: 'Swarm Fragment',
+        },
+        boss: {
+            prestige0_1: 'Flame Guardian',
+            prestige2_3: 'Inferno Sentinel',
+            prestige4_5: 'System Collapse Boss',
+            prestige6: 'Prestige Tyrant',
         },
     },
 } as const;
@@ -243,30 +301,13 @@ export function getEnemyStats(
  * Get graduation boss name based on layer and prestige
  */
 export function getGraduationBossName(layer: number, prestige: number): string {
-    // Layer 5 wraps to green, Layer 6 wraps to yellow (prestige boss)
     if (layer === 5) {
-        const variantKey = getPrestigeVariantKey(prestige);
-        const names = {
-            prestige0_1: 'Neon Guardian 1',
-            prestige2_3: 'System Protector 2',
-            prestige4_5: 'Terminal Sentinel 3',
-            prestige6: 'Swarm Executor',
-        };
-        return names[variantKey];
-    } else if (layer === 6) {
-        // Prestige boss names
-        if (prestige === 0) return 'Prestige Guardian I';
-        if (prestige === 1) return 'Prestige Sentinel II';
-        if (prestige === 2) return 'Prestige Overlord III';
-        if (prestige === 3) return 'Prestige Emperor IV';
-        if (prestige === 4) return 'Prestige Sovereign V';
-        if (prestige === 5) return 'Prestige Deity VI';
-        if (prestige === 6) return 'Prestige Tyrant VII';
-        if (prestige === 7) return 'Prestige Tyrant VII';
-        if (prestige === 8) return 'Zrechostikal - The Swarm Overlord';
-        return 'Prestige Guardian I';
+        return getEnemyDisplayName('red', prestige, true);
     }
-    
+    if (layer === 6) {
+        if (prestige === 8) return 'Zrechostikal - The Swarm Overlord';
+        return getEnemyDisplayName('flameRed', prestige, true);
+    }
     // Layers 1-4 use color-based naming
     const colorMap: Record<number, EnemyColor> = {
         1: 'green',
@@ -274,7 +315,6 @@ export function getGraduationBossName(layer: number, prestige: number): string {
         3: 'blue',
         4: 'purple',
     };
-    
     const color = colorMap[layer] || 'green';
     return getEnemyDisplayName(color, prestige, true);
 }
@@ -283,28 +323,19 @@ export function getGraduationBossName(layer: number, prestige: number): string {
  * Get graduation boss sprite key based on layer and prestige
  */
 export function getGraduationBossSpriteKey(layer: number, prestige: number): string {
-    // Layer 5 wraps to green
     if (layer === 5) {
-        return getEnemySpriteKey('green', prestige, true);
+        return getEnemySpriteKey('red', prestige, true);
     }
-    
-    // Layer 6 wraps to yellow (prestige boss)
     if (layer === 6) {
-        // Special handling for final boss (Prestige 8)
-        if (prestige === 8) {
-            return 'zrechostikal'; // Special final boss sprite
-        }
-        return getEnemySpriteKey('yellow', prestige, true);
+        if (prestige === 8) return 'zrechostikal';
+        return getEnemySpriteKey('flameRed', prestige, true);
     }
-    
-    // Layers 1-4 use color-based sprites
     const colorMap: Record<number, EnemyColor> = {
         1: 'green',
         2: 'yellow',
         3: 'blue',
         4: 'purple',
     };
-    
     const color = colorMap[layer] || 'green';
     return getEnemySpriteKey(color, prestige, true);
 }
@@ -313,11 +344,13 @@ export function getGraduationBossSpriteKey(layer: number, prestige: number): str
  * Get enemy color from enemy type string
  */
 export function getEnemyColorFromType(enemyType: string): EnemyColor {
+    if (enemyType.includes('flameRed') || enemyType.includes('flame_red')) return 'flameRed';
     if (enemyType.includes('green')) return 'green';
     if (enemyType.includes('yellow')) return 'yellow';
     if (enemyType.includes('blue')) return 'blue';
     if (enemyType.includes('purple')) return 'purple';
-    return 'green'; // Default fallback
+    if (enemyType.includes('red')) return 'red';
+    return 'green';
 }
 
 /**

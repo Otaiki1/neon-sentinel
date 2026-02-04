@@ -311,6 +311,88 @@ export const ENEMY_ASSETS: AssetMapping[] = [
         required: false,
     },
 
+    // Red enemies (layer 5) - from /red-enemy/
+    {
+        key: "redPawn1",
+        path: "/red-enemy/pawn-1.svg",
+        fallback: "enemyGreen",
+        required: false,
+    },
+    {
+        key: "redPawn2",
+        path: "/red-enemy/pawn-2.svg",
+        fallback: "redPawn1",
+        required: false,
+    },
+    {
+        key: "redPawn3",
+        path: "/red-enemy/pawn-3.svg",
+        fallback: "redPawn2",
+        required: false,
+    },
+    {
+        key: "redBoss1",
+        path: "/red-enemy/boss-1.svg",
+        fallback: "enemyGreen",
+        required: false,
+    },
+    {
+        key: "redBoss2",
+        path: "/red-enemy/boss-2.svg",
+        fallback: "redBoss1",
+        required: false,
+    },
+
+    // Flame red enemies (layer 6) - from /flame-red-enemy/
+    {
+        key: "flameRedPawn1",
+        path: "/flame-red-enemy/pawn-1.svg",
+        fallback: "redPawn1",
+        required: false,
+    },
+    {
+        key: "flameRedPawn2",
+        path: "/flame-red-enemy/pawn-2.svg",
+        fallback: "flameRedPawn1",
+        required: false,
+    },
+    {
+        key: "flameRedPawn3",
+        path: "/flame-red-enemy/pawn-3.svg",
+        fallback: "flameRedPawn2",
+        required: false,
+    },
+    {
+        key: "flameRedPawn4",
+        path: "/flame-red-enemy/pawn-4.svg",
+        fallback: "flameRedPawn3",
+        required: false,
+    },
+    {
+        key: "flameRedBoss1",
+        path: "/flame-red-enemy/boss-1.svg",
+        fallback: "redBoss1",
+        required: false,
+    },
+    {
+        key: "flameRedBoss2",
+        path: "/flame-red-enemy/boss-2.svg",
+        fallback: "flameRedBoss1",
+        required: false,
+    },
+    {
+        key: "flameRedBoss3",
+        path: "/flame-red-enemy/boss-3.svg",
+        fallback: "flameRedBoss2",
+        required: false,
+    },
+    {
+        key: "flameRedFinalBoss",
+        path: "/flame-red-enemy/final-boss.svg",
+        fallback: "flameRedBoss3",
+        required: false,
+    },
+
     // Legacy fallbacks
     { key: "enemyGreen", path: "/sprites/enemy_green.svg", required: true },
     { key: "enemyYellow", path: "/sprites/enemy_yellow.svg", required: true },

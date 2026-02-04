@@ -2382,30 +2382,25 @@ export class GameScene extends Phaser.Scene {
 
     /**
      * Get enemy sprite key using enemy service
-     * @deprecated Use getEnemySpriteKey from enemyService directly
+     * Layer 5 uses red sprites, layer 6 uses flameRed sprites (except final boss).
      */
     private getEnemySpriteKey(
-        enemyType: keyof typeof ENEMY_CONFIG | "red",
+        enemyType: keyof typeof ENEMY_CONFIG | "red" | "flameRed",
         isBoss: boolean = false,
         layer: number = 1,
         prestigeLevel?: number
     ): string {
-        // Handle red bosses (final bosses) - use old sprite system as fallback
-        if (enemyType === "red") {
-            if (layer >= 6) {
-                return "finalBoss";
-            } else if (layer >= 5) {
-                return "mediumFinalBoss";
-            } else {
-                return "miniFinalBoss";
-            }
-        }
-        
-        // Get enemy color from type
-        const color = getEnemyColorFromType(enemyType);
         const prestige = prestigeLevel !== undefined ? prestigeLevel : this.prestigeLevel;
-        
-        // Use enemy service to get sprite key
+        // Layer 6: flame red sprites (final boss uses zrechostikal from getGraduationBossSpriteKey)
+        if (layer >= 6) {
+            return getEnemySpriteKey("flameRed", prestige, isBoss);
+        }
+        // Layer 5: red sprites
+        if (layer >= 5) {
+            return getEnemySpriteKey("red", prestige, isBoss);
+        }
+        // Get enemy color from type for layers 1-4
+        const color = getEnemyColorFromType(enemyType);
         return getEnemySpriteKey(color, prestige, isBoss);
     }
 
@@ -4360,27 +4355,25 @@ export class GameScene extends Phaser.Scene {
 
         // Use enemy service for boss selection
         if (this.currentLayer >= 6) {
-            // Layer 6: Prestige boss (yellow) or final boss (Zrechostikal)
+            // Layer 6: Prestige boss (flame red) or final boss (Zrechostikal)
             if (this.prestigeLevel === 8) {
-                // Final boss: Zrechostikal
-                bossKey = "zrechostikal"; // Special final boss sprite
+                bossKey = "zrechostikal";
                 bossType = "red";
                 points = 1000;
                 health = 50;
                 speed = 100;
             } else {
-                // Prestige boss: yellow variant
                 bossKey = getGraduationBossSpriteKey(6, this.prestigeLevel);
-                bossType = "yellow";
+                bossType = "flameRed";
                 const baseStats = getEnemyStats(16, 130, 400, this.prestigeLevel, 10);
                 points = baseStats.points;
                 health = baseStats.health;
                 speed = baseStats.speed;
             }
         } else if (this.currentLayer >= 5) {
-            // Layer 5: Green variant (wraps)
+            // Layer 5: Red variant
             bossKey = getGraduationBossSpriteKey(5, this.prestigeLevel);
-            bossType = "green";
+            bossType = "red";
             const baseStats = getEnemyStats(14, 140, 300, this.prestigeLevel, 10);
             points = baseStats.points;
             health = baseStats.health;
@@ -4531,20 +4524,19 @@ export class GameScene extends Phaser.Scene {
         }
 
         // Determine boss type based on target layer
-        // Layer 1 = green, Layer 2 = yellow, Layer 3 = blue, Layer 4 = purple
-        // Layer 5 = green (wraps), Layer 6 = yellow (wraps)
+        // Layer 1 = green, 2 = yellow, 3 = blue, 4 = purple, 5 = red, 6 = flameRed
         let bossType = "";
         let points = 0;
         let health = 0;
         let speed = 0;
 
-        const layerColorMap: Record<number, "green" | "yellow" | "blue" | "purple"> = {
+        const layerColorMap: Record<number, "green" | "yellow" | "blue" | "purple" | "red" | "flameRed"> = {
             1: "green",
             2: "yellow",
             3: "blue",
             4: "purple",
-            5: "green",
-            6: "yellow",
+            5: "red",
+            6: "flameRed",
         };
 
         bossType = layerColorMap[targetLayer] || "green";
@@ -6344,17 +6336,42 @@ export class GameScene extends Phaser.Scene {
      * Get enemy bullet sprite key based on enemy type and progression
      */
     private getEnemyBulletSpriteKey(enemyType: string, isBoss: boolean, layer: number, prestige: number): string {
-        // Calculate bullet grade based on layer and prestige progression
-        // Base grade increases with layer (1-6) and prestige (0-8)
         let bulletGrade = Math.floor((layer - 1) / 2) + Math.floor(prestige / 2);
-        bulletGrade = Math.min(bulletGrade, 6); // Cap at grade 6
-        
-        // Boss bullets use higher grade
+        bulletGrade = Math.min(bulletGrade, 6);
         if (isBoss) {
             bulletGrade = Math.min(bulletGrade + 1, 6);
         }
-        
-        // Map enemy types to their bullet color directories
+
+        // Layer 6: flame red enemy bullets
+        if (layer >= 6) {
+            const gradeKeys: Record<number, string> = {
+                0: "flameRedEnemyBullet0",
+                1: "flameRedEnemyBullet1",
+                2: "flameRedEnemyBullet2",
+                3: "flameRedEnemyBullet3",
+                4: "flameRedEnemyBullet4",
+                5: "flameRedEnemyBullet5",
+                6: "flameRedEnemyBullet6",
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        }
+        // Layer 5: red enemy bullets
+        if (layer >= 5) {
+            if (bulletGrade === 1 && layer >= 4) return "redEnemyBullet1_2";
+            if (bulletGrade === 2 && layer >= 5) return "redEnemyBullet2_9";
+            const gradeKeys: Record<number, string> = {
+                0: "redEnemyBullet0",
+                1: "redEnemyBullet1",
+                2: "redEnemyBullet2",
+                3: "redEnemyBullet3",
+                4: "redEnemyBullet4",
+                5: "redEnemyBullet5",
+                6: "redEnemyBullet6",
+            };
+            return gradeKeys[Math.min(bulletGrade, 6)] || gradeKeys[0];
+        }
+
+        // Map enemy types to their bullet color directories (layers 1-4)
         if (enemyType === "green" || enemyType === "yellowShield" || enemyType === "yellowEcho") {
             // Green enemies use green enemy bullets
             // Handle fractional grades first (based on layer progression)

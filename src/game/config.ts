@@ -110,6 +110,13 @@ export const ENEMY_CONFIG = {
         spawnWeight: 0, // Boss - spawned separately
         canShoot: false,
     },
+    flameRed: {
+        points: 500,
+        speed: 120,
+        health: 20,
+        spawnWeight: 0,
+        canShoot: false,
+    },
 } as const;
 
 // Layer progression system - score thresholds (exponential scaling for harder progression)
