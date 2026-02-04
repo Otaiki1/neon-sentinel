@@ -1,0 +1,285 @@
+/* Profile page - compact, high contrast, legible */
+
+.profile-page .profile-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.profile-page .profile-container * {
+  box-sizing: border-box;
+}
+
+.profile-page .profile-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-page .profile-title {
+  font-family: var(--font-header), sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #00ff00;
+  text-shadow: 0 0 12px rgba(0, 255, 0, 0.8);
+  letter-spacing: 0.1em;
+  margin: 0;
+}
+
+.profile-page .profile-back {
+  font-family: var(--font-buttons-cards), sans-serif;
+  font-size: 0.8rem;
+  padding: 0.5rem 1rem;
+  border: 2px solid #00ff00;
+  color: #00ff00;
+  background: #000;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.profile-page .profile-back:hover {
+  background: #00ff00;
+  color: #000;
+}
+
+/* Compact panels - black bg, neon border, tight spacing */
+.profile-page .profile-panel {
+  background: #000;
+  border: 2px solid #00ff00;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 0 16px rgba(0, 255, 0, 0.25);
+}
+
+.profile-page .profile-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-header), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #00ff00;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+  letter-spacing: 0.08em;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(0, 255, 0, 0.5);
+}
+
+.profile-page .profile-panel-title .profile-panel-icon {
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+/* High contrast text */
+.profile-page .profile-label {
+  font-size: 0.7rem;
+  font-family: var(--font-buttons-cards), sans-serif;
+  color: rgba(0, 255, 0, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-page .profile-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #00ff00;
+  text-shadow: 0 0 6px rgba(0, 255, 0, 0.5);
+}
+
+.profile-page .profile-value-dim {
+  color: rgba(0, 255, 0, 0.85);
+  font-weight: 500;
+}
+
+/* Stat row - compact with icon */
+.profile-page .profile-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+}
+
+.profile-page .profile-stat-row:last-child {
+  border-bottom: 0;
+}
+
+.profile-page .profile-stat-row .stat-icon-wrap {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact stat items inside profile panels */
+.profile-page .profile-stat-list > div {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+  gap: 0.6rem;
+}
+
+.profile-page .profile-stat-list > div:last-child {
+  border-bottom: 0;
+}
+
+.profile-page .profile-stat-list .text-xs {
+  font-size: 0.7rem;
+  color: rgba(0, 255, 0, 0.9);
+}
+
+.profile-page .profile-stat-list .text-sm {
+  font-size: 0.85rem;
+  color: #00ff00;
+  font-weight: 600;
+}
+
+/* Top row: rank + bullet tier side by side */
+.profile-page .profile-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .profile-page .profile-top-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Rank block compact */
+.profile-page .profile-rank-block {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile-page .profile-rank-number {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border: 2px solid #00ff00;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-buttons-cards), sans-serif;
+  font-size: 1.1rem;
+  color: #00ff00;
+}
+
+.profile-page .profile-rank-name {
+  font-family: var(--font-buttons-cards), sans-serif;
+  font-size: 1rem;
+  color: #00ff00;
+  margin: 0 0 0.2rem;
+}
+
+.profile-page .profile-rank-meta {
+  font-size: 0.75rem;
+  color: rgba(0, 255, 0, 0.85);
+}
+
+/* Progress bar - high contrast */
+.profile-page .profile-progress-wrap {
+  margin-top: 0.5rem;
+}
+
+.profile-page .profile-progress-bar {
+  height: 6px;
+  background: #0d1a0d;
+  border: 1px solid rgba(0, 255, 0, 0.4);
+  overflow: hidden;
+}
+
+.profile-page .profile-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00aa00, #00ff00);
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+  transition: width 0.3s ease;
+}
+
+/* Avatar/Bullet cards - compact grid */
+.profile-page .profile-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.profile-page .profile-card {
+  background: #0a0a0a;
+  border: 2px solid rgba(0, 255, 0, 0.5);
+  padding: 0.6rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.profile-page .profile-card.active {
+  border-color: #00ffff;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.35);
+}
+
+.profile-page .profile-card.unlocked:not(.active):hover {
+  border-color: rgba(0, 255, 0, 0.8);
+}
+
+.profile-page .profile-card-icon-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 64px;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.4rem;
+}
+
+.profile-page .profile-card-label {
+  font-size: 0.7rem;
+  color: #00ff00;
+  margin: 0 0 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-page .profile-card-meta {
+  font-size: 0.65rem;
+  color: rgba(0, 255, 0, 0.8);
+}
+
+/* Stats grid - 2 cols compact */
+.profile-page .profile-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .profile-page .profile-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Prime Sentinel block - cyan accent */
+.profile-page .profile-prime-panel {
+  border-color: #00ffff;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+.profile-page .profile-prime-panel .profile-panel-title {
+  color: #00ffff;
+  border-bottom-color: rgba(0, 255, 255, 0.5);
+}
+
+.profile-page .profile-prime-panel .profile-value,
+.profile-page .profile-prime-panel .profile-rank-name {
+  color: #00ffff;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}

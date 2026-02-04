@@ -725,17 +725,18 @@
     );
 }
 
-/* Portrait frame - thin crisp neon border + angular brackets (reference) */
+/* Portrait frame - cyan border + glow (active/equipped accent) */
 .hero-portrait-frame {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 12px;
-    border: 2px solid var(--neon-primary);
+    border: 2px solid #00ffff;
     border-radius: 0;
     box-shadow:
-        0 0 12px rgba(0, 255, 0, 0.35),
+        0 0 14px rgba(0, 255, 255, 0.5),
+        0 0 28px rgba(0, 255, 255, 0.2),
         inset 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -745,10 +746,11 @@
     position: absolute;
     width: 14px;
     height: 14px;
-    border-color: var(--neon-primary);
+    border-color: #00ffff;
     border-style: solid;
     border-width: 0;
     pointer-events: none;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
 }
 
 .hero-portrait-frame::before {
