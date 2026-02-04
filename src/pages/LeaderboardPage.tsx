@@ -150,14 +150,13 @@ function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
       {/* Background Image */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/bg-img.png)',
+          backgroundImage: 'url(/sentinel-bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          opacity: 0.3
         }}
       />
       {/* Animated Grid Background Overlay */}

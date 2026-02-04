@@ -758,7 +758,7 @@ export class GameScene extends Phaser.Scene {
         
         // Map layer number to background image key
         const layerImageMap: Record<number, string> = {
-            1: '', // Boot Sector - no image, use default grid
+            1: 'layerBootSector', // Boot Sector - bg-img.png
             2: 'layerFirewall',
             3: 'layerSecurityCore',
             4: 'layerCorruptedAI',
@@ -8355,13 +8355,15 @@ export class GameScene extends Phaser.Scene {
     private updatePrimeSentinelHelpers(time: number): void {
         this.primeSentinelHelpers.children.entries.forEach((helperObj) => {
             const helper = helperObj as Phaser.Physics.Arcade.Sprite;
-            if (!helper.active) return;
+            if (!helper || !helper.active) return;
             
             const expireTime = helper.getData('expireTime') as number;
             if (time >= expireTime) {
                 helper.destroy();
                 return;
             }
+            
+            if (!this.player || !this.player.active) return;
             
             // Follow player but maintain distance
             const targetX = this.player.x + 50;

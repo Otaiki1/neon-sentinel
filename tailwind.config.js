@@ -12,12 +12,13 @@ export default {
         'neon-green-light': '#33ff33',
       },
       fontFamily: {
-        'brutal': ['"Bungee"', 'sans-serif'], // Bold, blocky, brutalist for logos
-        'title': ['"Black Ops One"', 'cursive'], // Military brutalist for big titles
-        'logo': ['"Bungee"', 'sans-serif'], // Alias for brutal - main button/logo
-        'menu': ['"Rajdhani"', 'sans-serif'], // Geometric, bold for menus
-        'score': ['"Share Tech Mono"', 'monospace'], // Tech monospace for score/HUD
-        'body': ['"JetBrains Mono"', 'monospace'], // Clean monospace for body text
+        'logo': ['"Orbitron"', 'sans-serif'],      // Logo / brand
+        'header': ['"Oxanium"', 'sans-serif'],     // Section headers
+        'title': ['"Rajdhani"', 'sans-serif'],     // Panel/card titles
+        'menu': ['"Rajdhani"', 'sans-serif'],      // Titles (alias)
+        'body': ['"Inter"', 'sans-serif'],         // UI text, labels, body
+        'score': ['"Share Tech Mono"', 'monospace'],
+        'brutal': ['"Bungee"', 'sans-serif'],
       },
     },
   },

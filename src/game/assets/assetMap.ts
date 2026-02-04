@@ -1076,6 +1076,11 @@ export const UI_ASSETS: AssetMapping[] = [
  */
 export const LAYER_BACKGROUND_ASSETS: AssetMapping[] = [
     {
+        key: "layerBootSector",
+        path: "/bg-img.png",
+        required: false,
+    },
+    {
         key: "layerFirewall",
         path: "/scenes/firewall-layer.png",
         required: false,

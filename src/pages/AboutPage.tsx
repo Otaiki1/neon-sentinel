@@ -6,6 +6,16 @@ import "./LandingPage.css";
 function AboutPage() {
   return (
     <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+      {/* Background Image */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: 'url(/sentinel-bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
       <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid" />
       <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-4xl">
         {/* Header */}

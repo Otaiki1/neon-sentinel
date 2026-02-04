@@ -98,15 +98,20 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
       {/* Background Image */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/bg-img.png)',
+          backgroundImage: 'url(/sentinel-bg.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          opacity: 0.3
         }}
+      />
+      {/* Dark overlay 0.8 */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: 'rgba(0, 0, 0, 0.8)' }}
+        aria-hidden
       />
       {/* Animated Grid Background Overlay */}
       <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid" />

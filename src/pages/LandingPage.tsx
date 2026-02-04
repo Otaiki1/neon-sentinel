@@ -1,1140 +1,1587 @@
 import { Link } from "react-router-dom";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { fetchWeeklyLeaderboard, getCurrentISOWeek } from '../services/scoreService';
-import { CUSTOMIZABLE_SETTINGS, PLAYER_KERNELS } from '../game/config';
-import { getKernelState, getKernelUnlocks, getSelectedKernelKey, setSelectedKernelKey } from '../services/kernelService';
-import { getGameplaySettings, saveGameplaySettings, type GameplaySettings } from '../services/settingsService';
-import { addCoins, getAvailableCoins, getDailyCoins } from '../services/coinService';
-import { useState, useEffect } from 'react';
-import logoImage from '../assets/logo.png';
-import iconProfile from '../assets/icons/icon-profile.svg';
-import iconHall from '../assets/icons/icon-hall.svg';
-import iconSettings from '../assets/icons/icon-settings.svg';
-import iconMarketplace from '../assets/icons/icon-marketplace.svg';
-import iconLogin from '../assets/icons/icon-login.svg';
-import WalletConnectionModal from '../components/WalletConnectionModal';
-import StoryModal from '../components/StoryModal';
-import AvatarSelectionModal from '../components/AvatarSelectionModal';
-import { InventoryModal } from '../components/InventoryModal';
-import { FirstTimeTooltip } from '../components/Tooltip';
-import { KernelIcon } from '../components/KernelIcon';
-import { getActiveAvatar, getAvatarConfig } from '../services/avatarService';
-import { getCurrentRankFromStorage } from '../services/rankService';
-import './LandingPage.css';
+import {
+    fetchWeeklyLeaderboard,
+    getCurrentISOWeek,
+} from "../services/scoreService";
+import { CUSTOMIZABLE_SETTINGS } from "../game/config";
+import {
+    getGameplaySettings,
+    saveGameplaySettings,
+    type GameplaySettings,
+} from "../services/settingsService";
+import {
+    addCoins,
+    getAvailableCoins,
+    getDailyCoins,
+} from "../services/coinService";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import logoImage from "../assets/logo.png";
+import iconProfile from "../assets/icons/icon-profile.svg";
+import iconHall from "../assets/icons/icon-hall.svg";
+import iconSettings from "../assets/icons/icon-settings.svg";
+import iconMarketplace from "../assets/icons/icon-marketplace.svg";
+import iconInventory from "../assets/icons/icon-inventory.svg";
+import iconLogin from "../assets/icons/icon-login.svg";
+import WalletConnectionModal from "../components/WalletConnectionModal";
+import StoryModal from "../components/StoryModal";
+import AvatarSelectionModal from "../components/AvatarSelectionModal";
+import { InventoryModal } from "../components/InventoryModal";
+import { FirstTimeTooltip } from "../components/Tooltip";
+import {
+    getActiveAvatar,
+    getAvatarConfig,
+    getAllAvatarsWithStatus,
+    setActiveAvatar as setActiveAvatarId,
+} from "../services/avatarService";
+import { getCurrentRankFromStorage } from "../services/rankService";
+import type { AvatarId } from "../services/avatarService";
+import "./LandingPage.css";
 
-const WALLET_MODAL_SEEN_KEY = 'neon-sentinel-wallet-modal-seen';
-const USER_MODE_KEY = 'neon-sentinel-user-mode';
-const STORY_MODAL_SEEN_KEY = 'neon-sentinel-story-modal-seen';
+const HERO_SPRITE_PATHS: Record<string, string> = {
+    heroGrade1: "/hero/hero-grade-1.svg",
+    heroGrade1Blue: "/hero/hero-grade-1-blue-skin.svg",
+    heroGrade2: "/hero/hero-grade-2.svg",
+    heroGrade2Purple: "/hero/hero-grade-2-purple-skin.svg",
+    heroGrade3: "/hero/hero-grade-3.svg",
+    heroGrade3Red: "/hero/hero-grade-3-red-skin.svg",
+    heroGrade4: "/hero/hero-grade-4.svg",
+    heroGrade4Orange: "/hero/hero-grade-4-orange-skin.svg",
+    heroGrade5: "/hero/hero-grade-5.svg",
+    heroGrade5White: "/hero/hero-grade-5-white-skin.svg",
+};
+
+function getHeroPortraitPath(spriteKey: string): string {
+    return HERO_SPRITE_PATHS[spriteKey] ?? `/hero/hero-grade-1.svg`;
+}
+
+const WALLET_MODAL_SEEN_KEY = "neon-sentinel-wallet-modal-seen";
+const USER_MODE_KEY = "neon-sentinel-user-mode";
+const STORY_MODAL_SEEN_KEY = "neon-sentinel-story-modal-seen";
 const TOOLTIP_KEYS = [
-  'nav-hall',
-  'nav-profile',
-  'nav-settings',
-  'nav-marketplace',
-  'nav-login',
-  'start-game',
-  'kernel-selection',
-  'weekly-leaderboard',
-  'system-depth',
-  'champions',
-  'daily-coins',
-  'marketplace-daily-coins',
+    "nav-hall",
+    "nav-profile",
+    "nav-settings",
+    "nav-marketplace",
+    "nav-login",
+    "start-game",
+    "kernel-selection",
+    "weekly-leaderboard",
+    "system-depth",
+    "champions",
+    "daily-coins",
+    "marketplace-daily-coins",
 ];
-const TOOLTIP_SEEN_PREFIX = 'neon-sentinel-tooltip-seen-';
+const TOOLTIP_SEEN_PREFIX = "neon-sentinel-tooltip-seen-";
 
-export type UserMode = 'wallet' | 'anonymous';
+export type UserMode = "wallet" | "anonymous";
 
 export function getUserMode(): UserMode | null {
-  const stored = localStorage.getItem(USER_MODE_KEY);
-  return (stored === 'wallet' || stored === 'anonymous') ? stored : null;
+    const stored = localStorage.getItem(USER_MODE_KEY);
+    return stored === "wallet" || stored === "anonymous" ? stored : null;
 }
 
 export function setUserMode(mode: UserMode): void {
-  localStorage.setItem(USER_MODE_KEY, mode);
+    localStorage.setItem(USER_MODE_KEY, mode);
 }
 
 function LandingPage() {
-  const { primaryWallet } = useDynamicContext();
-  const isWalletConnected = !!primaryWallet;
-  const walletLabel = isWalletConnected
-    ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
-    : 'LOGIN';
-  const [leaderboard, setLeaderboard] = useState<
-    Array<{ score: number; playerName: string; prestigeLevel?: number; currentRank?: string }>
-  >([]);
-  const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showStoryModal, setShowStoryModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
-  const [showAvatarModal, setShowAvatarModal] = useState(false);
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
-  const [kernelUnlocks, setKernelUnlocks] = useState(getKernelUnlocks());
-  const [selectedKernel, setSelectedKernel] = useState(getSelectedKernelKey());
-  const [settings, setSettings] = useState<GameplaySettings>(getGameplaySettings());
-  const [coins, setCoins] = useState(getAvailableCoins());
-  const [currentRank, setCurrentRank] = useState(() => {
-    const stored = getCurrentRankFromStorage();
-    return stored ? stored.name : 'Initiate Sentinel';
-  });
-  const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(() => {
-    const unseen = TOOLTIP_KEYS.find(
-      (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
+    const { primaryWallet } = useDynamicContext();
+    const isWalletConnected = !!primaryWallet;
+    const walletLabel = isWalletConnected
+        ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
+        : "LOGIN";
+    const [leaderboard, setLeaderboard] = useState<
+        Array<{
+            score: number;
+            playerName: string;
+            prestigeLevel?: number;
+            currentRank?: string;
+        }>
+    >([]);
+    const [currentWeek, setCurrentWeek] = useState<number>(1);
+    const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showStoryModal, setShowStoryModal] = useState(false);
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
+    const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
+    const [showAvatarModal, setShowAvatarModal] = useState(false);
+    const [showInventoryModal, setShowInventoryModal] = useState(false);
+    const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
+    const [settings, setSettings] = useState<GameplaySettings>(
+        getGameplaySettings(),
     );
-    return unseen ?? null;
-  });
-
-  useEffect(() => {
-    const scores = fetchWeeklyLeaderboard();
-    setLeaderboard(scores.slice(0, 3)); // Top 3
-    setCurrentWeek(getCurrentISOWeek());
-    const kernelState = getKernelState();
-    setKernelUnlocks(kernelState.unlocked);
-    setSelectedKernel(kernelState.selectedKernel);
-    setSettings(getGameplaySettings());
-    setCoins(getAvailableCoins());
-    
-    // Update rank display
-    const stored = getCurrentRankFromStorage();
-    if (stored) {
-      setCurrentRank(stored.name);
-    } else {
-      // Default to Initiate Sentinel - rank will update during gameplay
-      setCurrentRank('Initiate Sentinel');
-    }
-  }, []);
-
-  // Show wallet modal on first visit if wallet not connected
-  useEffect(() => {
-    const hasSeenModal = localStorage.getItem(WALLET_MODAL_SEEN_KEY) === 'true';
-    const userMode = getUserMode();
-
-    // Show modal if:
-    // 1. User hasn't seen the modal before
-    // 2. No wallet is connected
-    // 3. No user mode is set (first visit)
-    if (!hasSeenModal && !isWalletConnected && !userMode) {
-      setShowWalletModal(true);
-    }
-  }, [primaryWallet]);
-
-  const handleCloseModal = () => {
-    setShowWalletModal(false);
-    localStorage.setItem(WALLET_MODAL_SEEN_KEY, 'true');
-  };
-
-  const handleOpenWalletModal = () => {
-    setShowWalletModal(true);
-  };
-
-  const handleAnonymous = () => {
-    setUserMode('anonymous');
-    handleCloseModal();
-  };
-
-  const handleCloseStoryModal = () => {
-    setShowStoryModal(false);
-    localStorage.setItem(STORY_MODAL_SEEN_KEY, 'true');
-  };
-
-  const handleKernelSelect = (key: keyof typeof PLAYER_KERNELS) => {
-    const next = setSelectedKernelKey(key);
-    setSelectedKernel(next);
-  };
-
-  const handleOpenSettings = () => {
-    setSettings(getGameplaySettings());
-    setShowSettingsModal(true);
-  };
-
-  const handleCloseSettings = () => {
-    setShowSettingsModal(false);
-  };
-
-  const handleSaveSettings = () => {
-    saveGameplaySettings(settings);
-    setShowSettingsModal(false);
-  };
-
-  const handleOpenMarketplace = () => {
-    setCoins(getAvailableCoins());
-    setShowMarketplaceModal(true);
-  };
-
-  const handleCloseMarketplace = () => {
-    setShowMarketplaceModal(false);
-  };
-
-  const handleBuyCoins = (amount: number) => {
-    const next = addCoins(amount);
-    setCoins(next);
-  };
-
-  const handleOpenAvatarModal = () => {
-    setCoins(getAvailableCoins());
-    setShowAvatarModal(true);
-  };
-
-  const handleCloseAvatarModal = () => {
-    setShowAvatarModal(false);
-  };
-
-  const handleAvatarChange = () => {
-    setActiveAvatar(getActiveAvatar());
-    setCoins(getAvailableCoins());
-  };
-
-  const advanceTooltip = () => {
-    if (currentTooltipId === null) return;
-    localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${currentTooltipId}`, 'true');
-    const currentIndex = TOOLTIP_KEYS.indexOf(currentTooltipId);
-    const next = TOOLTIP_KEYS.slice(currentIndex + 1).find(
-      (id) => localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== 'true'
+    const [coins, setCoins] = useState(getAvailableCoins());
+    const [currentRank, setCurrentRank] = useState(() => {
+        const stored = getCurrentRankFromStorage();
+        return stored ? stored.name : "Initiate Sentinel";
+    });
+    const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(
+        () => {
+            const unseen = TOOLTIP_KEYS.find(
+                (id) =>
+                    localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !==
+                    "true",
+            );
+            return unseen ?? null;
+        },
     );
-    setCurrentTooltipId(next ?? null);
-  };
 
-  const skipTour = () => {
-    TOOLTIP_KEYS.forEach((id) => localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${id}`, 'true'));
-    setCurrentTooltipId(null);
-  };
+    useEffect(() => {
+        const scores = fetchWeeklyLeaderboard();
+        setLeaderboard(scores.slice(0, 3)); // Top 3
+        setCurrentWeek(getCurrentISOWeek());
+        setSettings(getGameplaySettings());
+        setCoins(getAvailableCoins());
 
+        // Update rank display
+        const stored = getCurrentRankFromStorage();
+        if (stored) {
+            setCurrentRank(stored.name);
+        } else {
+            // Default to Initiate Sentinel - rank will update during gameplay
+            setCurrentRank("Initiate Sentinel");
+        }
+    }, []);
 
-  // Update user mode when wallet connects
-  useEffect(() => {
-    if (primaryWallet) {
-      setUserMode('wallet');
-    }
-  }, [primaryWallet]);
+    // Show wallet modal on first visit if wallet not connected
+    useEffect(() => {
+        const hasSeenModal =
+            localStorage.getItem(WALLET_MODAL_SEEN_KEY) === "true";
+        const userMode = getUserMode();
 
-  useEffect(() => {
-    const hasSeenStory = localStorage.getItem(STORY_MODAL_SEEN_KEY) === 'true';
-    const userMode = getUserMode();
+        // Show modal if:
+        // 1. User hasn't seen the modal before
+        // 2. No wallet is connected
+        // 3. No user mode is set (first visit)
+        if (!hasSeenModal && !isWalletConnected && !userMode) {
+            setShowWalletModal(true);
+        }
+    }, [primaryWallet]);
 
-    if (!hasSeenStory && !showWalletModal && (userMode || isWalletConnected)) {
-      setShowStoryModal(true);
-    }
-  }, [isWalletConnected, showWalletModal]);
+    const handleCloseModal = () => {
+        setShowWalletModal(false);
+        localStorage.setItem(WALLET_MODAL_SEEN_KEY, "true");
+    };
 
-  // Generate weekly sector name based on week number
-  const weeklySectorNames = [
-    'Crimson Virus', 'Void Protocol', 'Dark Matrix', 'Neon Flux',
-    'System Breach', 'Quantum Core', 'Data Storm', 'Cyber Pulse',
-    'Grid Lock', 'Binary Warp', 'Code Cascade', 'Signal Void',
-    'Neural Mesh', 'Pixel Rift', 'Vector Shift', 'Kernel Wave',
-    'Digital Tide', 'Byte Storm', 'Frame Flux', 'Grid Surge',
-    'Circuit Fire', 'Data Flow', 'Signal Peak', 'Neon Wave',
-    'Cyber Pulse', 'Void Core', 'Matrix Lock', 'Binary Flow',
-    'Quantum Flux', 'Neural Storm', 'Code Rift', 'System Core',
-    'Grid Warp', 'Pixel Void', 'Vector Mesh', 'Kernel Surge',
-    'Digital Peak', 'Byte Flux', 'Frame Shift', 'Circuit Tide',
-    'Data Pulse', 'Signal Core', 'Neon Lock', 'Cyber Flow',
-    'Void Mesh', 'Matrix Warp', 'Binary Rift', 'Quantum Lock',
-    'Neural Core', 'Code Surge', 'System Flux', 'Grid Storm',
-    'Pixel Core', 'Vector Lock', 'Kernel Flow', 'Digital Mesh'
-  ];
-  const sectorName = weeklySectorNames[(currentWeek - 1) % weeklySectorNames.length];
+    const handleOpenWalletModal = () => {
+        setShowWalletModal(true);
+    };
 
-  const topScore = leaderboard[0]?.score || 0;
-  const topPlayer = leaderboard[0]?.playerName || 'None';
+    const handleAnonymous = () => {
+        setUserMode("anonymous");
+        handleCloseModal();
+    };
 
-  // Layer configuration - matching the design
-  const layers = [
-    { name: 'Boot Sector', threshold: 0 },
-    { name: 'Firewall', threshold: 500 },
-    { name: 'Security Core', threshold: 1500 },
-    { name: 'Kernel Breach', threshold: 10000 },
-    { name: 'System Collapse', threshold: 25000 },
-  ];
-  const currentLayerIndex = 1; // Currently at Layer 2 (Firewall)
-  const nextLayerThreshold = layers[currentLayerIndex + 1]?.threshold || 1000;
-  const storyText = [
-    '> BOOT SECTOR ONLINE...',
-    '> THE GRID IS COLLAPSING UNDER A CORRUPTION KNOWN AS THE SWARM.',
-    '> YOU ARE A NEON SENTINEL, A SECURITY PROGRAM BUILT TO CONTAIN IT.',
-    '> EACH LAYER YOU ENTER IS DEEPER, DARKER, AND MORE DEADLY.',
-    '> DESTROY CORRUPTED ENTITIES. SURVIVE. PUSH THE SYSTEM BACK.',
-    '> SIGNAL LOST IN: 00:00:03...'
-  ].join('\n');
+    const handleCloseStoryModal = () => {
+        setShowStoryModal(false);
+        localStorage.setItem(STORY_MODAL_SEEN_KEY, "true");
+    };
 
-  return (
-    <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
-      {/* Background Image */}
-      <div 
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage: 'url(/bg-img.png)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          opacity: 0.3
-        }}
-      />
-      {/* Animated Grid Background Overlay */}
-      <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid">
-        <div 
-          className="w-full h-full"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(0, 255, 0, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 0, 0.1) 1px, transparent 1px)',
-            backgroundSize: '40px 40px'
-          }}
-        />
-      </div>
+    const handleOpenSettings = () => {
+        setSettings(getGameplaySettings());
+        setShowSettingsModal(true);
+    };
 
-      {/* Vignette Effect */}
-      <div className="fixed inset-0 pointer-events-none z-40" style={{
-        background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%)'
-      }} />
+    const handleCloseSettings = () => {
+        setShowSettingsModal(false);
+    };
 
-      {currentTooltipId && (
-        <div className="fixed top-4 right-4 z-50 flex gap-2">
-          <button
-            type="button"
-            onClick={skipTour}
-            className="font-body text-xs px-3 py-2 border border-neon-green text-neon-green bg-black bg-opacity-70 hover:bg-neon-green hover:text-black transition-all duration-150"
-          >
-            Skip tutorial
-          </button>
-        </div>
-      )}
+    const handleSaveSettings = () => {
+        saveGameplaySettings(settings);
+        setShowSettingsModal(false);
+    };
 
-      <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
-        <div className="landing-nav mb-6">
-          <FirstTimeTooltip
-            id="nav-hall"
-            content="View the Hall of Fame - see top players across all leaderboard categories and your achievements."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <Link to="/leaderboards" className="nav-icon-button" aria-label="Hall of Fame">
-              <img src={iconHall} alt="" className="nav-icon-image" />
-              <span className="nav-icon-label">HALL</span>
-            </Link>
-          </FirstTimeTooltip>
-          <FirstTimeTooltip
-            id="nav-profile"
-            content="View your profile - see your stats, achievements, unlocked kernels, and progression."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <Link to="/profile" className="nav-icon-button" aria-label="Profile">
-              <img src={iconProfile} alt="" className="nav-icon-image" />
-              <span className="nav-icon-label">PROFILE</span>
-            </Link>
-          </FirstTimeTooltip>
-          <FirstTimeTooltip
-            id="nav-settings"
-            content="Adjust game settings - control volume, UI scale, accessibility options, and gameplay preferences."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <button type="button" className="nav-icon-button" onClick={handleOpenSettings} aria-label="Settings">
-              <img src={iconSettings} alt="" className="nav-icon-image" />
-              <span className="nav-icon-label">SETTINGS</span>
-            </button>
-          </FirstTimeTooltip>
-          <FirstTimeTooltip
-            id="nav-marketplace"
-            content="Visit the marketplace - spend coins to unlock cosmetics, heroes, and other items."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <button type="button" className="nav-icon-button" onClick={handleOpenMarketplace} aria-label="Marketplace">
-              <img src={iconMarketplace} alt="" className="nav-icon-image" />
-              <span className="nav-icon-label">MARKET</span>
-            </button>
-          </FirstTimeTooltip>
-          <FirstTimeTooltip
-            id="nav-inventory"
-            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <button type="button" className="nav-icon-button" onClick={() => setShowInventoryModal(true)} aria-label="Inventory">
-              <span className="nav-icon-text" style={{ fontSize: '1.5rem' }}>📦</span>
-              <span className="nav-icon-label">INVENTORY</span>
-            </button>
-          </FirstTimeTooltip>
-          <FirstTimeTooltip
-            id="nav-login"
-            content="Connect your wallet or play anonymously. Wallet connection enables additional features."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <button type="button" className="nav-icon-button" onClick={handleOpenWalletModal} aria-label="Login">
-              <img src={iconLogin} alt="" className="nav-icon-image" />
-              <span className="nav-icon-label">{walletLabel}</span>
-            </button>
-          </FirstTimeTooltip>
-        </div>
-        {/* Logo & Sector Section */}
-        <div className="text-center mb-10 md:mb-12">
-          <div className="logo-container mb-6 flex justify-center">
-            <img 
-              src={logoImage} 
-              alt="Neon Sentinel" 
-              className="max-w-full h-auto"
-              style={{
-                maxHeight: '140px',
-                imageRendering: 'auto'
-              }}
+    const handleOpenMarketplace = () => {
+        setCoins(getAvailableCoins());
+        setShowMarketplaceModal(true);
+    };
+
+    const handleCloseMarketplace = () => {
+        setShowMarketplaceModal(false);
+    };
+
+    const handleBuyCoins = (amount: number) => {
+        const next = addCoins(amount);
+        setCoins(next);
+    };
+
+    const handleOpenAvatarModal = () => {
+        setCoins(getAvailableCoins());
+        setShowAvatarModal(true);
+    };
+
+    const handleCloseAvatarModal = () => {
+        setShowAvatarModal(false);
+    };
+
+    const handleAvatarChange = () => {
+        setActiveAvatar(getActiveAvatar());
+        setCoins(getAvailableCoins());
+    };
+
+    const advanceTooltip = () => {
+        if (currentTooltipId === null) return;
+        localStorage.setItem(
+            `${TOOLTIP_SEEN_PREFIX}${currentTooltipId}`,
+            "true",
+        );
+        const currentIndex = TOOLTIP_KEYS.indexOf(currentTooltipId);
+        const next = TOOLTIP_KEYS.slice(currentIndex + 1).find(
+            (id) =>
+                localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== "true",
+        );
+        setCurrentTooltipId(next ?? null);
+    };
+
+    const skipTour = () => {
+        TOOLTIP_KEYS.forEach((id) =>
+            localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${id}`, "true"),
+        );
+        setCurrentTooltipId(null);
+    };
+
+    // Update user mode when wallet connects
+    useEffect(() => {
+        if (primaryWallet) {
+            setUserMode("wallet");
+        }
+    }, [primaryWallet]);
+
+    useEffect(() => {
+        const hasSeenStory =
+            localStorage.getItem(STORY_MODAL_SEEN_KEY) === "true";
+        const userMode = getUserMode();
+
+        if (
+            !hasSeenStory &&
+            !showWalletModal &&
+            (userMode || isWalletConnected)
+        ) {
+            setShowStoryModal(true);
+        }
+    }, [isWalletConnected, showWalletModal]);
+
+    // Generate weekly sector name based on week number
+    const weeklySectorNames = [
+        "Crimson Virus",
+        "Void Protocol",
+        "Dark Matrix",
+        "Neon Flux",
+        "System Breach",
+        "Quantum Core",
+        "Data Storm",
+        "Cyber Pulse",
+        "Grid Lock",
+        "Binary Warp",
+        "Code Cascade",
+        "Signal Void",
+        "Neural Mesh",
+        "Pixel Rift",
+        "Vector Shift",
+        "Kernel Wave",
+        "Digital Tide",
+        "Byte Storm",
+        "Frame Flux",
+        "Grid Surge",
+        "Circuit Fire",
+        "Data Flow",
+        "Signal Peak",
+        "Neon Wave",
+        "Cyber Pulse",
+        "Void Core",
+        "Matrix Lock",
+        "Binary Flow",
+        "Quantum Flux",
+        "Neural Storm",
+        "Code Rift",
+        "System Core",
+        "Grid Warp",
+        "Pixel Void",
+        "Vector Mesh",
+        "Kernel Surge",
+        "Digital Peak",
+        "Byte Flux",
+        "Frame Shift",
+        "Circuit Tide",
+        "Data Pulse",
+        "Signal Core",
+        "Neon Lock",
+        "Cyber Flow",
+        "Void Mesh",
+        "Matrix Warp",
+        "Binary Rift",
+        "Quantum Lock",
+        "Neural Core",
+        "Code Surge",
+        "System Flux",
+        "Grid Storm",
+        "Pixel Core",
+        "Vector Lock",
+        "Kernel Flow",
+        "Digital Mesh",
+    ];
+    const sectorName =
+        weeklySectorNames[(currentWeek - 1) % weeklySectorNames.length];
+
+    const topPlayer = leaderboard[0]?.playerName || "None";
+
+    /* Parallax for hero character */
+    const heroRef = useRef<HTMLDivElement>(null);
+    const [parallax, setParallax] = useState({ x: 0, y: 0 });
+    const onMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!heroRef.current) return;
+        const rect = heroRef.current.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = (e.clientX - cx) / rect.width;
+        const dy = (e.clientY - cy) / rect.height;
+        setParallax({ x: dx * 8, y: dy * 8 });
+    }, []);
+    const onMouseLeave = useCallback(() => setParallax({ x: 0, y: 0 }), []);
+
+    /* Data stream chars for matrix effect (stable once) */
+    const dataStreamLine = useMemo(() => {
+        const chars =
+            "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ";
+        return Array.from({ length: 40 }, () =>
+            Array.from(
+                { length: 12 },
+                () => chars[Math.floor(Math.random() * chars.length)],
+            ).join(""),
+        ).join("\n");
+    }, []);
+
+    /* Ticker tape content (duplicated for seamless scroll) */
+    const tickerItems = [
+        "MARSTORES · MARKET FLUCTUATIONS ·",
+        `SECTOR CHAMPION: ${topPlayer || "NONE"} ·`,
+        "GRID STATUS: ACTIVE · NEON TERMINAL ONLINE ·",
+        "PRESTIGE CYCLE ACTIVE · KERNEL DEPLOYMENT READY ·",
+    ];
+    const tickerText = [...tickerItems, ...tickerItems].join("  ");
+
+    /* Kernel/avatar list for SELECT KERNEL - ensure we always have at least the active one */
+    const kernelAvatars = useMemo(() => {
+        const prestige = getCurrentRankFromStorage()?.prestige ?? 0;
+        const list = getAllAvatarsWithStatus(prestige);
+        if (list.length === 0) {
+            const config = getAvatarConfig(activeAvatar);
+            return [
+                {
+                    id: activeAvatar,
+                    config,
+                    isUnlocked: true,
+                } as { id: AvatarId; config: ReturnType<typeof getAvatarConfig>; isUnlocked: boolean },
+            ];
+        }
+        return list;
+    }, [activeAvatar]);
+
+    const storyText = [
+        "> BOOT SECTOR ONLINE...",
+        "> THE GRID IS COLLAPSING UNDER A CORRUPTION KNOWN AS THE SWARM.",
+        "> YOU ARE A NEON SENTINEL, A SECURITY PROGRAM BUILT TO CONTAIN IT.",
+        "> EACH LAYER YOU ENTER IS DEEPER, DARKER, AND MORE DEADLY.",
+        "> DESTROY CORRUPTED ENTITIES. SURVIVE. PUSH THE SYSTEM BACK.",
+        "> SIGNAL LOST IN: 00:00:03...",
+    ].join("\n");
+
+    return (
+        <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+            {/* Background Image */}
+            <div
+                className="fixed inset-0 pointer-events-none z-0"
+                style={{
+                    backgroundImage: "url(/sentinel-bg.png)",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                }}
             />
-          </div>
-          <div>
-            <p className="text-xl md:text-2xl font-menu text-red-500" style={{ letterSpacing: '0.15em' }}>
-              WEEKLY SECTOR: {sectorName}
-            </p>
-            <p className="text-sm md:text-base font-body text-neon-green opacity-70 mt-2" style={{ letterSpacing: '0.1em' }}>
-              Week {currentWeek} • Grid Status: ACTIVE
-            </p>
-          </div>
-        </div>
 
-        {/* Avatar Selection Section */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="retro-panel inline-block px-6 py-4">
-            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
-              AVATAR SELECTION
-            </h3>
-            <div className="flex items-center gap-4 justify-center">
-              <div className="flex flex-col items-center">
-                <div className="w-16 h-16 md:w-20 md:h-20 border-2 border-neon-green bg-black mb-2 flex items-center justify-center">
-                  <img 
-                    src={`/sprites/${getAvatarConfig(activeAvatar).spriteKey}.svg`}
-                    alt={getAvatarConfig(activeAvatar).displayName}
-                    className="max-w-full max-h-full object-contain"
-                    style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/sprites/hero.svg';
-                    }}
-                  />
-                </div>
-                <p className="font-menu text-xs text-neon-green">
-                  {getAvatarConfig(activeAvatar).displayName}
-                </p>
-                <div className="mt-1 text-xs font-body text-neon-green opacity-70">
-                  {getAvatarConfig(activeAvatar).description}
-                </div>
-                {/* Show stats */}
-                <div className="mt-2 text-xs font-body text-neon-green opacity-60">
-                  Speed: {getAvatarConfig(activeAvatar).stats.speedMult.toFixed(1)}x | 
-                  Fire: {getAvatarConfig(activeAvatar).stats.fireRateMult.toFixed(1)}x | 
-                  Health: {getAvatarConfig(activeAvatar).stats.healthMult.toFixed(1)}x
-                </div>
-              </div>
-              <button
-                className="retro-button font-menu text-sm px-4 py-2"
-                onClick={handleOpenAvatarModal}
-              >
-                CHANGE AVATAR
-              </button>
-            </div>
-            <div className="mt-3 text-xs font-body text-neon-green opacity-70 border-t border-neon-green border-opacity-30 pt-2">
-              Coins: {coins} | Prestige Required: {getAvatarConfig(activeAvatar).unlockPrestige}
-            </div>
-          </div>
-        </div>
-        
-        {/* Inventory Section */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="retro-panel inline-block px-6 py-4">
-            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
-              MINI-ME INVENTORY
-            </h3>
-            <button
-              className="retro-button font-menu text-sm px-4 py-2"
-              onClick={() => setShowInventoryModal(true)}
-            >
-              OPEN INVENTORY
-            </button>
-            <div className="mt-2 text-xs font-body text-neon-green opacity-70">
-              Manage your Mini-Me companions
-            </div>
-          </div>
-        </div>
-        
-        {/* Rank Display Section */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="retro-panel inline-block px-6 py-4">
-            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
-              CURRENT RANK
-            </h3>
-            <div className="flex items-center gap-4 justify-center">
-              <div className="w-16 h-16 border-2 border-neon-green bg-black flex items-center justify-center">
-                <div className="text-2xl font-menu text-neon-green">
-                  {currentRank ? '#' + (getCurrentRankFromStorage()?.number || 1) : '#'}
-                </div>
-              </div>
-              <div className="text-left">
-                <div className="font-menu text-base text-neon-green">{currentRank}</div>
-                <div className="font-body text-xs text-neon-green opacity-70 mt-1">
-                  {getCurrentRankFromStorage() ? 
-                    `Prestige ${getCurrentRankFromStorage()!.prestige}, Layer ${getCurrentRankFromStorage()!.layer}` : 
-                    'Progress to unlock ranks'}
-                </div>
-              </div>
-            </div>
-            <Link
-              to="/profile"
-              className="mt-3 inline-block font-menu text-xs text-neon-green hover:text-red-500 transition-all duration-200"
-            >
-              View Rank History →
-            </Link>
-          </div>
-        </div>
-        
-        {/* Coin Display Section */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="retro-panel inline-block px-6 py-4">
-            <h3 className="font-menu text-sm mb-3 text-neon-green border-b border-neon-green border-opacity-30 pb-2">
-              COIN BALANCE
-            </h3>
-            <div className="text-2xl font-menu text-neon-green mb-2">
-              {coins} <span className="text-lg">coins</span>
-            </div>
-            <div className="text-xs font-body text-neon-green opacity-70 space-y-1">
-              <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
-              <div>Earn coins by completing prestiges</div>
-            </div>
-          </div>
-        </div>
+            {/* Black overlay on background */}
+            <div
+                className="fixed inset-0 pointer-events-none z-0"
+                style={{ background: "rgba(0, 0, 0, 0.9)" }}
+                aria-hidden
+            />
 
-        {/* START GAME Button */}
-        <div className="text-center mb-12 md:mb-16">
-          <FirstTimeTooltip
-            id="start-game"
-            content="Click to start playing! Use arrow keys or WASD to move, Spacebar to shoot. Destroy enemies to score points and survive as long as possible."
-            position="bottom"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <Link to="/play" className="inline-block">
-              <button className="retro-button font-logo text-xl md:text-3xl px-8 md:px-16 py-4 md:py-6">
-                &gt;&gt; START GAME &lt;&lt;
-              </button>
-            </Link>
-          </FirstTimeTooltip>
-        </div>
+            {/* Subtle tech background: soft green glow + star-like dots */}
+            <div
+                className="landing-bg-tech fixed inset-0 pointer-events-none z-0"
+                aria-hidden
+            />
 
-        {/* Kernel Selection */}
-        <FirstTimeTooltip
-          id="kernel-selection"
-          content="Choose your Kernel before each run. Each Kernel has different stats - speed, fire rate, and special abilities. Unlock new Kernels by achieving milestones. Hover over icons to see details."
-          position="bottom"
-          activeId={currentTooltipId}
-          onNext={advanceTooltip}
-          onSkip={skipTour}
-        >
-          <div className="retro-panel mb-10 md:mb-12">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              SELECT KERNEL
-            </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-            {Object.entries(PLAYER_KERNELS).map(([key, kernel]) => {
-              const kernelKey = key as keyof typeof PLAYER_KERNELS;
-              const unlocked = kernelUnlocks[kernelKey];
-              const isSelected = selectedKernel === kernelKey;
-              
-              // Map kernel keys to icon types
-              let iconType: 'standard' | 'swift' | 'artillery' | 'sniper' | 'guardian' = 'standard';
-              if (key === 'sentinel_standard') iconType = 'standard';
-              else if (key === 'sentinel_speed') iconType = 'swift';
-              else if (key === 'sentinel_firepower') iconType = 'artillery';
-              else if (key === 'sentinel_precision') iconType = 'sniper';
-              else if (key === 'sentinel_tanky') iconType = 'guardian';
-              
-              return (
-                <KernelIcon
-                  key={key}
-                  type={iconType}
-                  label={kernel.name}
-                  description={kernel.description}
-                  isSelected={isSelected}
-                  isUnlocked={unlocked}
-                  unlockCondition={kernel.unlockCondition}
-                  onClick={() => unlocked && handleKernelSelect(kernelKey)}
-                />
-              );
-            })}
-          </div>
-          </div>
-        </FirstTimeTooltip>
+            {currentTooltipId && (
+                <div className="fixed top-4 right-4 z-50 flex gap-2">
+                    <button
+                        type="button"
+                        onClick={skipTour}
+                        className="font-body text-xs px-3 py-2 border border-neon-green text-neon-green bg-black bg-opacity-70 hover:bg-neon-green hover:text-black transition-all duration-150"
+                    >
+                        Skip tutorial
+                    </button>
+                </div>
+            )}
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-          {/* Left Panel: Weekly Leaderboard */}
-          <FirstTimeTooltip
-            id="weekly-leaderboard"
-            content="Weekly Leaderboard - Top scores for the current week. Leaderboards reset every week. Compete to reach the top!"
-            position="right"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <div className="retro-panel">
-              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-                letterSpacing: '0.1em'
-              }}>
-                WEEKLY LEADERBOARD
-              </h2>
-            <div className="text-xs text-neon-green opacity-70 mb-3 font-body">Week {currentWeek}</div>
-            <div className="space-y-2 mb-4">
-              {leaderboard.length > 0 ? (
-                leaderboard.map((entry, index) => (
-                  <div key={index} className="leaderboard-entry">
-                    <div className="flex items-center justify-between">
-                      <span>
-                        <span className="rank-badge font-score text-base">{index + 1}</span>
-                      <span className="font-score text-base md:text-lg">
-                        {entry.playerName}
-                      </span>
-                      <span className="font-score text-xs md:text-sm text-red-500 ml-2">
-                        P{entry.prestigeLevel ?? 0}
-                      </span>
-                      {entry.currentRank && (
-                        <span className="font-score text-xs md:text-sm text-cyan-400 ml-2">
-                          {entry.currentRank}
+            <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
+                <header className="landing-header mb-8 md:mb-10">
+                    <nav
+                        className="landing-nav mb-6"
+                        aria-label="Main navigation"
+                    >
+                        <span className="nav-scan-line" aria-hidden />
+                        <FirstTimeTooltip
+                            id="nav-hall"
+                            content="View the Hall of Fame - see top players across all leaderboard categories and your achievements."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <Link
+                                to="/leaderboards"
+                                className="nav-icon-button"
+                                aria-label="Hall of Fame"
+                            >
+                                <img
+                                    src={iconHall}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">HALL</span>
+                            </Link>
+                        </FirstTimeTooltip>
+                        <FirstTimeTooltip
+                            id="nav-profile"
+                            content="View your profile - see your stats, achievements, unlocked kernels, and progression."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <Link
+                                to="/profile"
+                                className="nav-icon-button"
+                                aria-label="Profile"
+                            >
+                                <img
+                                    src={iconProfile}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">PROFILE</span>
+                            </Link>
+                        </FirstTimeTooltip>
+                        <FirstTimeTooltip
+                            id="nav-settings"
+                            content="Adjust game settings - control volume, UI scale, accessibility options, and gameplay preferences."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <button
+                                type="button"
+                                className="nav-icon-button"
+                                onClick={handleOpenSettings}
+                                aria-label="Settings"
+                            >
+                                <img
+                                    src={iconSettings}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">SETTINGS</span>
+                            </button>
+                        </FirstTimeTooltip>
+                        <FirstTimeTooltip
+                            id="nav-marketplace"
+                            content="Visit the marketplace - spend coins to unlock cosmetics, heroes, and other items."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <button
+                                type="button"
+                                className="nav-icon-button"
+                                onClick={handleOpenMarketplace}
+                                aria-label="Marketplace"
+                            >
+                                <img
+                                    src={iconMarketplace}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">MARKET</span>
+                            </button>
+                        </FirstTimeTooltip>
+                        <FirstTimeTooltip
+                            id="nav-inventory"
+                            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <button
+                                type="button"
+                                className="nav-icon-button"
+                                onClick={() => setShowInventoryModal(true)}
+                                aria-label="Inventory"
+                            >
+                                <img
+                                    src={iconInventory}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">
+                                    INVENTORY
+                                </span>
+                            </button>
+                        </FirstTimeTooltip>
+                        <FirstTimeTooltip
+                            id="nav-login"
+                            content="Connect your wallet or play anonymously. Wallet connection enables additional features."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <button
+                                type="button"
+                                className="nav-icon-button"
+                                onClick={handleOpenWalletModal}
+                                aria-label="Login"
+                            >
+                                <img
+                                    src={iconLogin}
+                                    alt=""
+                                    className="nav-icon-image"
+                                />
+                                <span className="nav-icon-label">
+                                    {walletLabel}
+                                </span>
+                            </button>
+                        </FirstTimeTooltip>
+                    </nav>
+                    <section
+                        className="landing-logo-section text-center mb-8 md:mb-10"
+                        aria-label="Logo and weekly sector"
+                    >
+                        <div className="logo-container mb-6 flex justify-center">
+                            <img
+                                src={logoImage}
+                                alt="Neon Sentinel"
+                                className="max-w-full h-auto logo-glow"
+                                style={{
+                                    maxHeight: "140px",
+                                    imageRendering: "auto",
+                                }}
+                            />
+                        </div>
+                        <div className="sector-subtitle">
+                            <p
+                                className="text-xl md:text-2xl font-logo text-neon-green"
+                                style={{
+                                    letterSpacing: "0.15em",
+                                    textShadow: "0 0 10px rgba(0,255,0,0.8)",
+                                }}
+                            >
+                                WEEKLY SECTOR: {sectorName}
+                            </p>
+                            <p
+                                className="text-sm md:text-base font-body text-neon-green opacity-70 mt-2"
+                                style={{ letterSpacing: "0.1em" }}
+                            >
+                                Week {currentWeek} · Grid Status:{" "}
+                                <span
+                                    className="status-breathing text-neon-green opacity-100 font-semibold"
+                                    style={{
+                                        textShadow: "0 0 8px rgba(0,255,0,0.8)",
+                                    }}
+                                >
+                                    ACTIVE
+                                </span>
+                            </p>
+                        </div>
+                    </section>
+                </header>
+
+                <main className="landing-main">
+                    {/* START GAME - wide, on top of hero card */}
+                    <section
+                        className="start-game-on-card mb-4"
+                        aria-label="Start game"
+                    >
+                        <FirstTimeTooltip
+                            id="start-game"
+                            content="Click to start playing! Use arrow keys or WASD to move, Spacebar to shoot. Destroy enemies to score points and survive as long as possible."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <Link
+                                to="/play"
+                                className="start-game-btn-link start-game-btn-wide font-display"
+                            >
+                                <span className="start-game-btn-main">
+                                    &gt;&gt; START GAME &lt;&lt;
+                                </span>
+                                <hr className="start-game-btn-divider" />
+                                <p className="start-game-btn-subtitle">
+                                    Liberate the Neon Terminal
+                                </p>
+                            </Link>
+                        </FirstTimeTooltip>
+                    </section>
+
+                    {/* Hero Panel: character left, two big buttons right */}
+                    <section
+                        className="hero-section"
+                        aria-label="Character and actions"
+                    >
+                        <div
+                            className="hero-panel retro-panel mb-6 md:mb-8"
+                            ref={heroRef}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
+                        >
+                            <div className="hero-panel-noise" aria-hidden />
+                            <div className="hero-corner-brackets">
+                                <span className="hero-corner-bracket bracket-tl" />
+                                <span className="hero-corner-bracket bracket-tr" />
+                                <span className="hero-corner-bracket bracket-bl" />
+                                <span className="hero-corner-bracket bracket-br" />
+                            </div>
+                            <div className="hero-data-stream" aria-hidden>
+                                <div className="hero-data-stream-inner hero-data-stream-col hero-data-stream-left">
+                                    {dataStreamLine}
+                                </div>
+                                <div className="hero-data-stream-inner hero-data-stream-col hero-data-stream-center">
+                                    {dataStreamLine}
+                                </div>
+                                <div className="hero-data-stream-inner hero-data-stream-col hero-data-stream-right">
+                                    {dataStreamLine}
+                                </div>
+                            </div>
+                            <div className="hero-panel-inner flex flex-col md:flex-row">
+                                <div className="hero-panel-character flex-shrink-0 md:w-1/2 flex items-center justify-center min-h-[100px] md:min-h-[160px] p-3">
+                                    <div className="hero-portrait-frame">
+                                        <div
+                                            className="hero-character-wrapper hero-character-glitch"
+                                            style={{
+                                                transform: `translate(${parallax.x}px, ${parallax.y}px)`,
+                                            }}
+                                        >
+                                            <img
+                                                src="/hero-full.svg"
+                                                alt={
+                                                    getAvatarConfig(
+                                                        activeAvatar,
+                                                    ).displayName
+                                                }
+                                                className="hero-character-image max-h-full w-auto object-contain"
+                                                onError={(e) => {
+                                                    (
+                                                        e.target as HTMLImageElement
+                                                    ).src = getHeroPortraitPath(
+                                                        getAvatarConfig(
+                                                            activeAvatar,
+                                                        ).spriteKey,
+                                                    );
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="hero-panel-stats flex-1 flex flex-col justify-center p-4 md:p-5">
+                                    <p
+                                        className="font-body text-xs text-neon-green opacity-80 mb-1"
+                                        style={{ letterSpacing: "0.1em" }}
+                                    >
+                                        SYNCH RATE{" "}
+                                        {Math.min(
+                                            100,
+                                            Math.round(
+                                                (getAvatarConfig(activeAvatar)
+                                                    .stats.healthMult /
+                                                    1.5) *
+                                                    100,
+                                            ),
+                                        )}
+                                        %
+                                    </p>
+                                    <h2
+                                        className="hero-character-name font-menu text-neon-green mb-2"
+                                        style={{
+                                            letterSpacing: "0.1em",
+                                        }}
+                                    >
+                                        {getAvatarConfig(
+                                            activeAvatar,
+                                        ).displayName.toUpperCase()}
+                                    </h2>
+                                    <p className="hero-rank-line font-body text-neon-green mb-2">
+                                        Rank:{" "}
+                                        {getCurrentRankFromStorage()
+                                            ? `Prestige ${getCurrentRankFromStorage()!.prestige}`
+                                            : currentRank}
+                                    </p>
+                                    <p className="hero-fire-line font-body mb-4">
+                                        {getCurrentRankFromStorage()
+                                            ? `Prestige ${getCurrentRankFromStorage()!.prestige}. Fire: ${getAvatarConfig(activeAvatar).displayName.toUpperCase()}`
+                                            : "Progress to unlock ranks"}
+                                    </p>
+                                    {/* Two big wide buttons only */}
+                                    <div className="hero-two-buttons">
+                                        <button
+                                            type="button"
+                                            className="hero-big-btn retro-button font-menu"
+                                            onClick={handleOpenAvatarModal}
+                                        >
+                                            CHANGE SENTINEL
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="hero-big-btn retro-button font-menu"
+                                            onClick={() =>
+                                                setShowInventoryModal(true)
+                                            }
+                                        >
+                                            <img
+                                                src={iconInventory}
+                                                alt=""
+                                                className="hero-big-btn-icon"
+                                                aria-hidden
+                                            />
+                                            <span>OPEN INVENTORY</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* CODE RENDERS divider */}
+                    <div className="text-center py-2">
+                        <span
+                            className="font-menu text-sm text-neon-green opacity-70 border border-neon-green/50 px-4 py-1 inline-block"
+                            style={{ letterSpacing: "0.15em" }}
+                        >
+                            &gt;&gt; CODE RENDERS &lt;&lt;
                         </span>
-                      )}
-                      </span>
-                      <span className="font-score text-base md:text-lg text-neon-green">
-                        {entry.score.toLocaleString()}
-                      </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="leaderboard-entry text-center py-4">
-                  <div className="font-body text-sm text-neon-green opacity-50">
-                    NO SCORES YET
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="border-t-2 border-neon-green pt-3 mt-4">
-              <div className="font-score text-sm text-neon-green">
-                TOP: {topPlayer} - {topScore.toLocaleString()}
-              </div>
-            </div>
-            </div>
-          </FirstTimeTooltip>
 
-          {/* Middle Panel: System Depth & Rank */}
-          <FirstTimeTooltip
-            id="system-depth"
-            content="System Depth = Current Layer + (Prestige × 6). This measures how deep you've penetrated The Grid. Higher depth = more challenge and rewards!"
-            position="right"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <div className="retro-panel">
-              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-                letterSpacing: '0.1em'
-              }}>
-                SYSTEM DEPTH
-              </h2>
-            <div className="text-xs text-neon-green opacity-70 mb-2 font-body">
-              Current Depth: <span className="text-red-500 font-semibold">LAYER {currentLayerIndex + 1}</span>
+                    {/* SELECT CHARACTER: avatars + Start Game / Equip at top */}
+                    <section
+                        className="character-selection-section"
+                        aria-label="Select character and start"
+                    >
+                        {/* EQUIP MINIMES at top of avatar section */}
+                        <div className="kernel-cta-top flex flex-col items-center gap-4 mb-6">
+                            <button
+                                type="button"
+                                className="equip-minimes-btn font-menu font-bold px-6 py-3"
+                                onClick={() => setShowInventoryModal(true)}
+                                aria-label="Equip Mini-Mes"
+                            >
+                                &gt;&gt; EQUIP MINIMES &gt;&gt;
+                            </button>
+                        </div>
+                        <FirstTimeTooltip
+                            id="kernel-selection"
+                            content="Choose your character. Each has different stats. Unlock more by reaching prestige levels and spending coins."
+                            position="bottom"
+                            activeId={currentTooltipId}
+                            onNext={advanceTooltip}
+                            onSkip={skipTour}
+                        >
+                            <div className="kernel-selector-panel mb-8 md:mb-10">
+                                <div className="kernel-selector-header">
+                                    <h2 className="kernel-selector-title">
+                                        SELECT KERNEL
+                                    </h2>
+                                    <p className="kernel-selector-subtitle">
+                                        Deploy a loadout · Tap to equip
+                                    </p>
+                                </div>
+                                <div className="character-selector flex overflow-x-auto gap-5 pb-3 scroll-smooth snap-x snap-mandatory">
+                                            {kernelAvatars.map(
+                                                (
+                                                    { id, config, isUnlocked },
+                                                    index,
+                                                ) => {
+                                                    const selectedIndex =
+                                                        kernelAvatars.findIndex(
+                                                            (a) => a.id === activeAvatar,
+                                                        );
+                                                    const isEquipped =
+                                                        activeAvatar === id;
+                                                    const isLocked =
+                                                        !isUnlocked;
+                                                    const status = isEquipped
+                                                        ? "Equipped"
+                                                        : isLocked &&
+                                                            (config?.unlockPrestige ?? 0) >
+                                                                (getCurrentRankFromStorage()
+                                                                    ?.prestige ??
+                                                                    0)
+                                                          ? "Prestige Required"
+                                                          : isUnlocked
+                                                            ? "Available"
+                                                            : "Locked";
+                                                    const portraitPath =
+                                                        getHeroPortraitPath(
+                                                            config?.spriteKey ?? "heroGrade1",
+                                                        );
+                                                    const flowSelected =
+                                                        index === selectedIndex;
+                                                    const flowSide =
+                                                        !flowSelected;
+                                                    return (
+                                                        <button
+                                                            key={id}
+                                                            type="button"
+                                                            className={`kernel-card flex-shrink-0 snap-center p-0 border-2 transition-all duration-300 ${isEquipped ? "kernel-card-equipped" : isUnlocked ? "kernel-card-available" : "kernel-card-locked"} ${flowSelected ? "kernel-card-flow-selected" : ""} ${flowSide ? "kernel-card-flow-side" : ""}`}
+                                                            onClick={() => {
+                                                                if (
+                                                                    isUnlocked &&
+                                                                    id !==
+                                                                        activeAvatar
+                                                                ) {
+                                                                    setActiveAvatarId(
+                                                                        id as AvatarId,
+                                                                    );
+                                                                    setActiveAvatar(
+                                                                        getActiveAvatar(),
+                                                                    );
+                                                                } else if (
+                                                                    !isUnlocked
+                                                                ) {
+                                                                    handleOpenAvatarModal();
+                                                                }
+                                                            }}
+                                                        >
+                                                            {isLocked && (
+                                                                <span className="kernel-card-prestige-required">
+                                                                    PRESTIGE
+                                                                    REQUIRED
+                                                                </span>
+                                                            )}
+                                                            <div className="kernel-card-frame">
+                                                                <div className="kernel-card-portrait">
+                                                                    <img
+                                                                        src={
+                                                                            portraitPath
+                                                                        }
+                                                                        alt={
+                                                                            config?.displayName ?? "Kernel"
+                                                                        }
+                                                                        className="kernel-card-image"
+                                                                        style={{
+                                                                            filter: isUnlocked
+                                                                                ? "drop-shadow(0 0 10px rgba(0,255,0,0.6))"
+                                                                                : "grayscale(1) brightness(0.5)",
+                                                                        }}
+                                                                        onError={(
+                                                                            e,
+                                                                        ) => {
+                                                                            (
+                                                                                e.target as HTMLImageElement
+                                                                            ).src =
+                                                                                "/hero/hero-grade-1.svg";
+                                                                        }}
+                                                                    />
+                                                                    {!isUnlocked && (
+                                                                        <span
+                                                                            className="kernel-card-lock"
+                                                                            aria-hidden
+                                                                        >
+                                                                            LOCKED
+                                                                        </span>
+                                                                    )}
+                                                                    {isEquipped && (
+                                                                        <span
+                                                                            className="kernel-card-badge"
+                                                                            aria-hidden
+                                                                        >
+                                                                            ACTIVE
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="kernel-card-info">
+                                                                    <p className="kernel-card-name">
+                                                                        {
+                                                                            config?.displayName ?? "Kernel"
+                                                                        }
+                                                                    </p>
+                                                                    <p className="kernel-card-status">
+                                                                        {status}
+                                                                    </p>
+                                                                    <p className="kernel-card-cost">
+                                                                        <img
+                                                                            src="/coin.png"
+                                                                            alt=""
+                                                                            className="kernel-card-coin"
+                                                                        />
+                                                                        {config?.unlockCostCoins ?? 0}{" "}
+                                                                        COINS
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                },
+                                            )}
+                                        </div>
+                            </div>
+                        </FirstTimeTooltip>
+                    </section>
+
+                    {/* Bottom panels: UNLOCKED SYSTEMS | SYSTEM DEPTH | CHAMPIONS */}
+                    <section
+                        className="bottom-panels-section"
+                        aria-label="Unlocked systems, system depth, and champions"
+                    >
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+                            {/* UNLOCKED SYSTEMS - horizontal row of icons */}
+                            <FirstTimeTooltip
+                                id="weekly-leaderboard"
+                                content="Unlocked systems - kernels and features you've unlocked."
+                                position="right"
+                                activeId={currentTooltipId}
+                                onNext={advanceTooltip}
+                                onSkip={skipTour}
+                            >
+                                <div className="retro-panel">
+                                    <h2
+                                        className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
+                                        style={{ letterSpacing: "0.1em" }}
+                                    >
+                                        UNLOCKED SYSTEMS
+                                    </h2>
+                                    <div className="unlocked-systems-circuit">
+                                        <div className="circuit-node unlocked">
+                                            <div className="circuit-node-icon">
+                                                <img
+                                                    src="/sprites/hero_2.svg"
+                                                    alt=""
+                                                    className="max-w-full max-h-full object-contain"
+                                                    style={{
+                                                        filter: "drop-shadow(0 0 3px #00ff00)",
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="font-menu text-[10px] text-neon-green">
+                                                Prestige 2
+                                            </p>
+                                        </div>
+                                        <div className="circuit-node unlocked">
+                                            <div className="circuit-node-icon">
+                                                <img
+                                                    src="/sprites/drone.svg"
+                                                    alt=""
+                                                    className="max-w-full max-h-full object-contain"
+                                                    style={{
+                                                        filter: "drop-shadow(0 0 3px #00ff00)",
+                                                    }}
+                                                />
+                                            </div>
+                                            <p className="font-menu text-[10px] text-neon-green">
+                                                Prestige 2
+                                            </p>
+                                        </div>
+                                        {[1, 2, 3].map((item) => (
+                                            <div
+                                                key={item}
+                                                className="circuit-node locked"
+                                            >
+                                                <div className="circuit-node-icon">
+                                                    <span
+                                                        className="text-sm opacity-70"
+                                                        aria-hidden
+                                                    >
+                                                        🔒
+                                                    </span>
+                                                </div>
+                                                <p className="font-menu text-[10px] text-gray-500">
+                                                    Prestige {item + 2}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </FirstTimeTooltip>
+
+                            {/* SYSTEM DEPTH - numbered 1-5 boxes */}
+                            <FirstTimeTooltip
+                                id="system-depth"
+                                content="System Depth - prestige levels. Hover boxes for glow."
+                                position="right"
+                                activeId={currentTooltipId}
+                                onNext={advanceTooltip}
+                                onSkip={skipTour}
+                            >
+                                <div className="retro-panel">
+                                    <h2
+                                        className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
+                                        style={{ letterSpacing: "0.1em" }}
+                                    >
+                                        SYSTEM DEPTH
+                                    </h2>
+                                    <p className="font-body text-xs text-neon-green opacity-70 mb-2">
+                                        PRESTIGE{" "}
+                                        {(getCurrentRankFromStorage()
+                                            ?.prestige ?? 0) + 1}
+                                    </p>
+                                    <div className="depth-gauge-vertical">
+                                        {[1, 2, 3, 4, 5].map((num) => {
+                                            const currentPrestige =
+                                                (getCurrentRankFromStorage()
+                                                    ?.prestige ?? 0) + 1;
+                                            const isActive =
+                                                num === currentPrestige;
+                                            const isLocked =
+                                                num > currentPrestige;
+                                            const filled =
+                                                num <= currentPrestige;
+                                            return (
+                                                <div
+                                                    key={num}
+                                                    className={`depth-gauge-bar ${filled ? "filled" : ""} ${isActive ? "active" : ""} ${isLocked ? "locked" : ""}`}
+                                                    title={`Layer ${num}`}
+                                                >
+                                                    {isLocked && (
+                                                        <span
+                                                            className="absolute inset-0 flex items-center justify-center text-xs opacity-70"
+                                                            aria-hidden
+                                                        >
+                                                            🔒
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="font-body text-[10px] text-neon-green opacity-70 text-center mt-2">
+                                        BOOT SECTOR → KERNEL BREACH
+                                    </p>
+                                </div>
+                            </FirstTimeTooltip>
+
+                            {/* CHAMPIONS */}
+                            <FirstTimeTooltip
+                                id="champions"
+                                content="Champions - top players for the current sector."
+                                position="left"
+                                activeId={currentTooltipId}
+                                onNext={advanceTooltip}
+                                onSkip={skipTour}
+                            >
+                                <div className="retro-panel">
+                                    <h2
+                                        className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
+                                        style={{ letterSpacing: "0.1em" }}
+                                    >
+                                        CHAMPIONS
+                                    </h2>
+                                    <div className="space-y-2">
+                                        <div className="py-2 border-b border-neon-green/30">
+                                            <div className="font-body text-[10px] text-neon-green opacity-70">
+                                                SECTOR CHAMPION
+                                            </div>
+                                            <div className="font-score text-base text-neon-green">
+                                                {topPlayer || "NONE"}
+                                            </div>
+                                        </div>
+                                        <div className="py-2 border-b border-neon-green/30">
+                                            <div className="font-body text-[10px] text-neon-green opacity-70">
+                                                PREVIOUS
+                                            </div>
+                                            <div className="font-body text-xs text-neon-green opacity-50">
+                                                Coming Soon
+                                            </div>
+                                        </div>
+                                        <div className="py-2">
+                                            <div className="font-body text-[10px] text-neon-green opacity-70">
+                                                STATUS
+                                            </div>
+                                            <div className="font-body text-xs text-green-500">
+                                                ACTIVE
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </FirstTimeTooltip>
+                        </div>
+                    </section>
+
+                    {/* How To Play - minimal accordion */}
+                    <section
+                        className="how-to-play-section"
+                        aria-label="How to play"
+                    >
+                        <details className="retro-panel mb-6">
+                            <summary
+                                className="font-menu text-sm text-neon-green cursor-pointer list-none pb-2 border-b border-neon-green/30"
+                                style={{ letterSpacing: "0.1em" }}
+                            >
+                                HOW TO PLAY
+                            </summary>
+                            <p className="font-body text-xs text-neon-green opacity-90 mt-3">
+                                WASD / Arrows to move, Space to fire. Survive
+                                and score.{" "}
+                                <Link
+                                    to="/about"
+                                    className="underline hover:text-red-500"
+                                >
+                                    More
+                                </Link>
+                            </p>
+                        </details>
+                    </section>
+                </main>
+
+                {/* Footer: single row with vertical separators */}
+                <footer
+                    className="landing-footer flex flex-wrap justify-center items-center gap-0 pt-4 pb-6 border-t border-neon-green/40"
+                    role="contentinfo"
+                >
+                    <Link
+                        to="/about"
+                        className="footer-link font-menu text-sm text-neon-green hover:text-neon-green/90 transition-all"
+                        style={{
+                            letterSpacing: "0.1em",
+                            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+                        }}
+                    >
+                        ABOUT
+                    </Link>
+                    <span
+                        className="footer-sep text-neon-green/50 mx-2"
+                        aria-hidden
+                    >
+                        |
+                    </span>
+                    <Link
+                        to="/leaderboards"
+                        className="footer-link font-menu text-sm text-neon-green hover:text-neon-green/90 transition-all"
+                        style={{
+                            letterSpacing: "0.1em",
+                            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+                        }}
+                    >
+                        HALL OF FAME
+                    </Link>
+                    <span
+                        className="footer-sep text-neon-green/50 mx-2"
+                        aria-hidden
+                    >
+                        |
+                    </span>
+                    <button
+                        type="button"
+                        className="footer-link font-menu text-sm text-neon-green hover:text-neon-green/90 transition-all border-0 bg-transparent cursor-pointer"
+                        style={{
+                            letterSpacing: "0.1em",
+                            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+                        }}
+                        onClick={handleOpenSettings}
+                    >
+                        SETTINGS
+                    </button>
+                    <span
+                        className="footer-sep text-neon-green/50 mx-2"
+                        aria-hidden
+                    >
+                        |
+                    </span>
+                    <button
+                        type="button"
+                        className="footer-link font-menu text-sm text-neon-green hover:text-neon-green/90 transition-all border-0 bg-transparent cursor-pointer"
+                        style={{
+                            letterSpacing: "0.1em",
+                            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+                        }}
+                        onClick={handleOpenMarketplace}
+                    >
+                        MARKET
+                    </button>
+                    <span
+                        className="footer-sep text-neon-green/50 mx-2"
+                        aria-hidden
+                    >
+                        |
+                    </span>
+                    <button
+                        type="button"
+                        className="footer-link font-menu text-sm text-neon-green hover:text-neon-green/90 transition-all border-0 bg-transparent cursor-pointer"
+                        style={{
+                            letterSpacing: "0.1em",
+                            textShadow: "0 0 6px rgba(0,255,0,0.5)",
+                        }}
+                        onClick={handleOpenMarketplace}
+                    >
+                        MARSTORES
+                    </button>
+                    <span
+                        className="footer-sep text-neon-green/50 mx-2"
+                        aria-hidden
+                    >
+                        |
+                    </span>
+                    <button
+                        type="button"
+                        className="footer-link font-body text-xs text-neon-green border-0 bg-transparent cursor-pointer px-2 py-1 hover:opacity-90 transition-all"
+                        style={{ letterSpacing: "0.05em" }}
+                        onClick={handleOpenWalletModal}
+                    >
+                        <span className="wallet-login-label">
+                            {walletLabel}
+                        </span>
+                    </button>
+                </footer>
             </div>
-            <div className="text-xs text-neon-green opacity-70 mb-4 font-body border-t border-neon-green border-opacity-30 pt-2 mt-2">
-              Current Rank: <span className="text-cyan-400 font-semibold">{currentRank}</span>
+
+            {/* Ticker tape - bottom */}
+            <div className="ticker-tape-wrap" role="marquee" aria-live="polite">
+                <div className="ticker-tape-content">
+                    {tickerText} {tickerText}
+                </div>
             </div>
-            <div className="grid grid-cols-5 gap-2 mb-4">
-              {layers.map((layer, index) => {
-                const isActive = index === currentLayerIndex;
-                const isUnlocked = index <= currentLayerIndex;
-                return (
-                  <div key={index} className={`layer-indicator ${isActive ? 'active' : ''}`}>
-                    <div className="w-full h-12 mb-2 border-2 bg-black flex items-center justify-center" style={{
-                      background: isActive 
-                        ? 'radial-gradient(circle, rgba(255, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.9) 100%)'
-                        : 'radial-gradient(circle, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.9) 100%)',
-                      borderColor: isActive ? '#ff0000' : isUnlocked ? '#00ff00' : '#333333'
-                    }}>
-                      <div className="w-8 h-8 border" style={{
-                        borderColor: isActive ? '#ff0000' : isUnlocked ? '#00ff00' : '#333333'
-                      }} />
+
+            {/* Wallet Connection Modal */}
+            <WalletConnectionModal
+                isOpen={showWalletModal}
+                onClose={handleCloseModal}
+                onAnonymous={handleAnonymous}
+            />
+            {showSettingsModal && (
+                <div className="landing-modal-overlay">
+                    <div className="retro-panel landing-modal-panel w-full max-w-2xl">
+                        <h2
+                            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
+                            style={{
+                                letterSpacing: "0.1em",
+                            }}
+                        >
+                            SETTINGS
+                        </h2>
+                        <div className="space-y-6 text-sm text-neon-green">
+                            <div>
+                                <div className="font-menu text-xs mb-2">
+                                    DIFFICULTY
+                                </div>
+                                <select
+                                    value={settings.difficulty}
+                                    onChange={(event) =>
+                                        setSettings({
+                                            ...settings,
+                                            difficulty: event.target
+                                                .value as GameplaySettings["difficulty"],
+                                        })
+                                    }
+                                    className="w-full bg-black border border-neon-green px-3 py-2 font-body"
+                                >
+                                    <option value="normal">Normal</option>
+                                    <option value="easy">Easy</option>
+                                    <option value="hard">Hard</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <div className="font-menu text-xs mb-2">
+                                    ACCESSIBILITY
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {[
+                                        {
+                                            key: "colorBlindMode",
+                                            label: "Color Blind Mode",
+                                        },
+                                        {
+                                            key: "highContrast",
+                                            label: "High Contrast UI",
+                                        },
+                                        {
+                                            key: "dyslexiaFont",
+                                            label: "Dyslexia-Friendly Font",
+                                        },
+                                        {
+                                            key: "reduceMotion",
+                                            label: "Reduce Motion",
+                                        },
+                                        {
+                                            key: "reduceFlash",
+                                            label: "Reduce Flash",
+                                        },
+                                    ].map((option) => (
+                                        <label
+                                            key={option.key}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    settings.accessibility[
+                                                        option.key as keyof GameplaySettings["accessibility"]
+                                                    ]
+                                                }
+                                                onChange={(event) =>
+                                                    setSettings({
+                                                        ...settings,
+                                                        accessibility: {
+                                                            ...settings.accessibility,
+                                                            [option.key]:
+                                                                event.target
+                                                                    .checked,
+                                                        },
+                                                    })
+                                                }
+                                            />
+                                            <span className="font-body">
+                                                {option.label}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="font-menu text-xs mb-2">
+                                    VISUAL
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <label className="flex flex-col gap-2">
+                                        <span>UI Scale</span>
+                                        <select
+                                            value={settings.visual.uiScale}
+                                            onChange={(event) =>
+                                                setSettings({
+                                                    ...settings,
+                                                    visual: {
+                                                        ...settings.visual,
+                                                        uiScale: Number(
+                                                            event.target.value,
+                                                        ),
+                                                    },
+                                                })
+                                            }
+                                            className="bg-black border border-neon-green px-3 py-2"
+                                        >
+                                            {CUSTOMIZABLE_SETTINGS.visual.uiScale.map(
+                                                (value) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {value}x
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+                                    <label className="flex flex-col gap-2">
+                                        <span>UI Opacity</span>
+                                        <select
+                                            value={settings.visual.uiOpacity}
+                                            onChange={(event) =>
+                                                setSettings({
+                                                    ...settings,
+                                                    visual: {
+                                                        ...settings.visual,
+                                                        uiOpacity: Number(
+                                                            event.target.value,
+                                                        ),
+                                                    },
+                                                })
+                                            }
+                                            className="bg-black border border-neon-green px-3 py-2"
+                                        >
+                                            {CUSTOMIZABLE_SETTINGS.visual.uiOpacity.map(
+                                                (value) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {value}
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+                                    <label className="flex flex-col gap-2">
+                                        <span>Screen Shake</span>
+                                        <select
+                                            value={
+                                                settings.visual
+                                                    .screenShakeIntensity
+                                            }
+                                            onChange={(event) =>
+                                                setSettings({
+                                                    ...settings,
+                                                    visual: {
+                                                        ...settings.visual,
+                                                        screenShakeIntensity:
+                                                            Number(
+                                                                event.target
+                                                                    .value,
+                                                            ),
+                                                    },
+                                                })
+                                            }
+                                            className="bg-black border border-neon-green px-3 py-2"
+                                        >
+                                            {CUSTOMIZABLE_SETTINGS.visual.screenShakeIntensity.map(
+                                                (value) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {value}
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+                                    <label className="flex flex-col gap-2">
+                                        <span>Grid Intensity</span>
+                                        <select
+                                            value={
+                                                settings.visual.gridIntensity
+                                            }
+                                            onChange={(event) =>
+                                                setSettings({
+                                                    ...settings,
+                                                    visual: {
+                                                        ...settings.visual,
+                                                        gridIntensity: Number(
+                                                            event.target.value,
+                                                        ),
+                                                    },
+                                                })
+                                            }
+                                            className="bg-black border border-neon-green px-3 py-2"
+                                        >
+                                            {CUSTOMIZABLE_SETTINGS.visual.gridIntensity.map(
+                                                (value) => (
+                                                    <option
+                                                        key={value}
+                                                        value={value}
+                                                    >
+                                                        {value}
+                                                    </option>
+                                                ),
+                                            )}
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex flex-col md:flex-row gap-3 justify-end">
+                            <button
+                                className="retro-button font-menu text-sm px-6 py-3"
+                                onClick={handleSaveSettings}
+                            >
+                                SAVE
+                            </button>
+                            <button
+                                className="retro-button font-menu text-sm px-6 py-3"
+                                onClick={handleCloseSettings}
+                            >
+                                CANCEL
+                            </button>
+                        </div>
                     </div>
-                    <p className={`font-menu text-xs ${isActive ? 'text-red-500' : isUnlocked ? 'text-neon-green' : 'text-gray-500'}`}>
-                      {layer.name}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="space-y-1 text-xs font-body text-neon-green">
-              <div>Hive Code Attacks Increasing</div>
-              <div className="opacity-70">Next Layer at {nextLayerThreshold.toLocaleString()} Points</div>
-            </div>
-            </div>
-          </FirstTimeTooltip>
-
-          {/* Right Panel: Champions */}
-          <FirstTimeTooltip
-            id="champions"
-            content="Champions - Top players for the current sector. See who's leading the weekly competition!"
-            position="left"
-            activeId={currentTooltipId}
-            onNext={advanceTooltip}
-            onSkip={skipTour}
-          >
-            <div className="retro-panel">
-              <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-                letterSpacing: '0.1em'
-              }}>
-                CHAMPIONS
-              </h2>
-              <div className="space-y-3">
-              <div className="py-2 border-b border-neon-green border-opacity-30">
-                <div className="font-body text-xs text-neon-green opacity-70 mb-1">SECTOR CHAMPION</div>
-                <div className="font-score text-lg text-neon-green">
-                  {topPlayer || 'NONE'}
                 </div>
-              </div>
-              <div className="py-2 border-b border-neon-green border-opacity-30">
-                <div className="font-body text-xs text-neon-green opacity-70 mb-1">PREVIOUS</div>
-                <div className="font-body text-sm text-neon-green opacity-50">Coming Soon</div>
-              </div>
-              <div className="py-2">
-                <div className="font-body text-xs text-neon-green opacity-70 mb-1">STATUS</div>
-                <div className="font-body text-sm text-green-500">
-                  ACTIVE
+            )}
+            {showMarketplaceModal && (
+                <div className="landing-modal-overlay">
+                    <div className="retro-panel landing-modal-panel w-full max-w-xl">
+                        <h2
+                            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
+                            style={{
+                                letterSpacing: "0.1em",
+                            }}
+                        >
+                            MARKETPLACE
+                        </h2>
+                        <div className="text-sm font-body text-neon-green space-y-2">
+                            <FirstTimeTooltip
+                                id="marketplace-daily-coins"
+                                content="Daily Coins - You receive 3 coins every day. Use them to purchase items in the marketplace!"
+                                position="bottom"
+                                activeId={currentTooltipId}
+                                onNext={advanceTooltip}
+                                onSkip={skipTour}
+                            >
+                                <div>
+                                    Daily Coins: {getDailyCoins()}{" "}
+                                    (auto-refresh)
+                                </div>
+                            </FirstTimeTooltip>
+                            <div>Available Coins: {coins}</div>
+                            <div className="opacity-70">
+                                Crypto purchases are simulated.
+                            </div>
+                        </div>
+                        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {[
+                                {
+                                    amount: 5,
+                                    label: "Buy 5 Coins",
+                                    price: "0.005 ETH",
+                                },
+                                {
+                                    amount: 15,
+                                    label: "Buy 15 Coins",
+                                    price: "0.012 ETH",
+                                },
+                            ].map((item) => (
+                                <button
+                                    key={item.amount}
+                                    className="retro-button font-menu text-sm px-6 py-3"
+                                    onClick={() => handleBuyCoins(item.amount)}
+                                >
+                                    {item.label} ({item.price})
+                                </button>
+                            ))}
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                            <button
+                                className="retro-button font-menu text-sm px-6 py-3"
+                                onClick={handleCloseMarketplace}
+                            >
+                                CLOSE
+                            </button>
+                        </div>
+                    </div>
                 </div>
-              </div>
-            </div>
-            </div>
-          </FirstTimeTooltip>
+            )}
+            <StoryModal
+                isOpen={showStoryModal}
+                onClose={handleCloseStoryModal}
+                storyText={storyText}
+            />
+            <AvatarSelectionModal
+                isOpen={showAvatarModal}
+                onClose={handleCloseAvatarModal}
+                onAvatarChange={handleAvatarChange}
+            />
+            <InventoryModal
+                isOpen={showInventoryModal}
+                onClose={() => setShowInventoryModal(false)}
+                onActivate={(type) => {
+                    // Mini-me activation will be handled by GameScene when game is running
+                    console.log("Mini-me activated:", type);
+                }}
+            />
         </div>
-
-        {/* Hall of Fame & About Links */}
-        <div className="flex gap-4 justify-center mb-6">
-          <Link
-            to="/leaderboards"
-            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
-          >
-            &gt; HALL OF FAME
-          </Link>
-          <Link
-            to="/about"
-            className="font-menu text-sm text-neon-green hover:text-red-500 transition-all duration-200 px-4 py-2 border border-neon-green hover:bg-neon-green hover:text-black"
-          >
-            &gt; ABOUT
-          </Link>
-        </div>
-        <div className="mb-4 md:mb-6">
-          <Link
-            to="/leaderboards"
-            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
-            style={{ letterSpacing: '0.1em' }}
-          >
-            &gt; HALL OF FAME
-          </Link>
-        </div>
-
-        {/* Bottom Section: Unlocked Systems */}
-        <div className="retro-panel mb-8">
-          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-            letterSpacing: '0.1em'
-          }}>
-            UNLOCKED SYSTEMS
-          </h2>
-          <p className="font-body text-xs text-neon-green opacity-70 mb-4">
-            Systems unlock as you earn lifetime points. Some slots are visible now so you can
-            see what will open next.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {/* Kernel Walker */}
-            <div className="text-center">
-              <div className="w-full h-20 md:h-24 mx-auto border-2 border-neon-green bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
-                background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
-              }}>
-                <img 
-                  src="/sprites/hero_2.svg" 
-                  alt="Kernel Walker"
-                  className="max-w-full max-h-full object-contain"
-                  style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
-                />
-              </div>
-              <p className="font-menu text-xs text-neon-green">Kernel Walker</p>
-            </div>
-
-            {/* Drone */}
-            <div className="text-center">
-              <div className="w-full h-20 md:h-24 mx-auto border-2 border-neon-green bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
-                background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
-              }}>
-                <img 
-                  src="/sprites/drone.svg" 
-                  alt="Drone"
-                  className="max-w-full max-h-full object-contain"
-                  style={{ filter: 'drop-shadow(0 0 3px #00ff00)' }}
-                />
-              </div>
-              <p className="font-menu text-xs text-neon-green">Drone</p>
-            </div>
-
-            {/* Locked Items */}
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="text-center">
-                <div className="w-full h-20 md:h-24 mx-auto border-2 border-gray-600 bg-black mb-2 flex items-center justify-center relative overflow-hidden" style={{
-                  background: 'linear-gradient(135deg, rgba(100, 100, 100, 0.05) 0%, rgba(0, 0, 0, 0.95) 100%)'
-                }}>
-                  <div className="w-12 h-12 border border-gray-600 opacity-30" />
-                </div>
-                <p className="font-menu text-xs text-gray-500">Locked</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* How To Play */}
-        <div className="retro-panel mb-8">
-          <h2
-            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
-            style={{ letterSpacing: '0.1em' }}
-          >
-            HOW TO PLAY
-          </h2>
-          <div className="space-y-3 text-sm md:text-base font-body text-neon-green">
-            <p className="opacity-90 leading-relaxed">
-              Move to dodge, shoot to clear corrupted entities, and keep your combo alive for
-              bonus score. Survive longer to reach deeper layers with tougher enemies and higher
-              rewards.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="space-y-1">
-                <p>Desktop: WASD / Arrow Keys to move</p>
-                <p>Desktop: Space / Click to fire</p>
-                <p>Desktop: Hold Shift for focus movement</p>
-              </div>
-              <div className="space-y-1">
-                <p>Mobile: Drag to move</p>
-                <p>Auto-fire enabled on mobile</p>
-                <p>Coins allow revives on death</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* About Section */}
-        <div className="retro-panel mb-8">
-          <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-            letterSpacing: '0.1em'
-          }}>
-            ABOUT
-          </h2>
-          <div className="space-y-4 text-sm md:text-base font-body text-neon-green">
-            <div>
-              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
-                THE GRID
-              </h3>
-              <p className="opacity-90 leading-relaxed">
-                The Grid is a collapsing megasystem. You are a Neon Sentinel tasked with pushing
-                back a corruption called the Swarm. Every layer is deeper, darker, and more
-                unstable.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
-                THE MISSION
-              </h3>
-              <p className="opacity-90 leading-relaxed">
-                Survive as long as possible, keep your combo alive, and farm points to unlock
-                new kernels, heroes, and cosmetics. Weekly sectors rotate, so your ranking starts
-                fresh each cycle.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-menu text-base mb-2 text-red-500" style={{ letterSpacing: '0.1em' }}>
-                THE LAYERS
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2 text-xs">
-                <div className="space-y-1">
-                  <p><span className="text-green-500">Boot Sector</span> - Broken data fragments</p>
-                  <p><span className="text-yellow-500">Firewall</span> - Recompiled attack routines</p>
-                  <p><span className="text-blue-500">Security Core</span> - Hijacked security bots</p>
-                </div>
-                <div className="space-y-1">
-                  <p><span className="text-purple-500">Corrupted AI</span> - High-level AI cores</p>
-                  <p><span className="text-red-500">Kernel Breach</span> - System guardians taken over</p>
-                  <p><span className="text-red-600">System Collapse</span> - Final boss territory</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Navigation */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
-          <Link
-            to="/leaderboards"
-            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
-            style={{ letterSpacing: '0.1em' }}
-          >
-            &gt; HALL OF FAME
-          </Link>
-          <button
-            type="button"
-            className="wallet-login-pill font-body text-xs text-neon-green px-4 py-2 border border-neon-green border-opacity-30 bg-black bg-opacity-50"
-            style={{ letterSpacing: '0.05em' }}
-            onClick={handleOpenWalletModal}
-          >
-            <span className="wallet-login-label">{walletLabel}</span>
-          </button>
-          <button
-            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
-            style={{ letterSpacing: '0.1em' }}
-            onClick={handleOpenSettings}
-          >
-            &gt; SETTINGS
-          </button>
-          <button
-            className="font-menu text-base text-neon-green hover:text-red-500 transition-all duration-200 cursor-pointer"
-            style={{ letterSpacing: '0.1em' }}
-            onClick={handleOpenMarketplace}
-          >
-            &gt; MARKETPLACE
-          </button>
-        </div>
-      </div>
-
-      {/* Wallet Connection Modal */}
-      <WalletConnectionModal
-        isOpen={showWalletModal}
-        onClose={handleCloseModal}
-        onAnonymous={handleAnonymous}
-      />
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 px-4">
-          <div className="retro-panel w-full max-w-2xl">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              SETTINGS
-            </h2>
-            <div className="space-y-6 text-sm text-neon-green">
-              <div>
-                <div className="font-menu text-xs mb-2">DIFFICULTY</div>
-                <select
-                  value={settings.difficulty}
-                  onChange={(event) =>
-                    setSettings({ ...settings, difficulty: event.target.value as GameplaySettings['difficulty'] })
-                  }
-                  className="w-full bg-black border border-neon-green px-3 py-2 font-body"
-                >
-                  <option value="normal">Normal</option>
-                  <option value="easy">Easy</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-
-              <div>
-                <div className="font-menu text-xs mb-2">ACCESSIBILITY</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {[
-                    { key: 'colorBlindMode', label: 'Color Blind Mode' },
-                    { key: 'highContrast', label: 'High Contrast UI' },
-                    { key: 'dyslexiaFont', label: 'Dyslexia-Friendly Font' },
-                    { key: 'reduceMotion', label: 'Reduce Motion' },
-                    { key: 'reduceFlash', label: 'Reduce Flash' },
-                  ].map((option) => (
-                    <label key={option.key} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={settings.accessibility[option.key as keyof GameplaySettings['accessibility']]}
-                        onChange={(event) =>
-                          setSettings({
-                            ...settings,
-                            accessibility: {
-                              ...settings.accessibility,
-                              [option.key]: event.target.checked,
-                            },
-                          })
-                        }
-                      />
-                      <span className="font-body">{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="font-menu text-xs mb-2">VISUAL</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="flex flex-col gap-2">
-                    <span>UI Scale</span>
-                    <select
-                      value={settings.visual.uiScale}
-                      onChange={(event) =>
-                        setSettings({
-                          ...settings,
-                          visual: { ...settings.visual, uiScale: Number(event.target.value) },
-                        })
-                      }
-                      className="bg-black border border-neon-green px-3 py-2"
-                    >
-                      {CUSTOMIZABLE_SETTINGS.visual.uiScale.map((value) => (
-                        <option key={value} value={value}>{value}x</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span>UI Opacity</span>
-                    <select
-                      value={settings.visual.uiOpacity}
-                      onChange={(event) =>
-                        setSettings({
-                          ...settings,
-                          visual: { ...settings.visual, uiOpacity: Number(event.target.value) },
-                        })
-                      }
-                      className="bg-black border border-neon-green px-3 py-2"
-                    >
-                      {CUSTOMIZABLE_SETTINGS.visual.uiOpacity.map((value) => (
-                        <option key={value} value={value}>{value}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span>Screen Shake</span>
-                    <select
-                      value={settings.visual.screenShakeIntensity}
-                      onChange={(event) =>
-                        setSettings({
-                          ...settings,
-                          visual: { ...settings.visual, screenShakeIntensity: Number(event.target.value) },
-                        })
-                      }
-                      className="bg-black border border-neon-green px-3 py-2"
-                    >
-                      {CUSTOMIZABLE_SETTINGS.visual.screenShakeIntensity.map((value) => (
-                        <option key={value} value={value}>{value}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex flex-col gap-2">
-                    <span>Grid Intensity</span>
-                    <select
-                      value={settings.visual.gridIntensity}
-                      onChange={(event) =>
-                        setSettings({
-                          ...settings,
-                          visual: { ...settings.visual, gridIntensity: Number(event.target.value) },
-                        })
-                      }
-                      className="bg-black border border-neon-green px-3 py-2"
-                    >
-                      {CUSTOMIZABLE_SETTINGS.visual.gridIntensity.map((value) => (
-                        <option key={value} value={value}>{value}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col md:flex-row gap-3 justify-end">
-              <button
-                className="retro-button font-menu text-sm px-6 py-3"
-                onClick={handleSaveSettings}
-              >
-                SAVE
-              </button>
-              <button
-                className="retro-button font-menu text-sm px-6 py-3"
-                onClick={handleCloseSettings}
-              >
-                CANCEL
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showMarketplaceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 px-4">
-          <div className="retro-panel w-full max-w-xl">
-            <h2 className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2" style={{ 
-              letterSpacing: '0.1em'
-            }}>
-              MARKETPLACE
-            </h2>
-            <div className="text-sm font-body text-neon-green space-y-2">
-              <FirstTimeTooltip
-                id="marketplace-daily-coins"
-                content="Daily Coins - You receive 3 coins every day. Use them to purchase items in the marketplace!"
-                position="bottom"
-                activeId={currentTooltipId}
-                onNext={advanceTooltip}
-                onSkip={skipTour}
-              >
-                <div>Daily Coins: {getDailyCoins()} (auto-refresh)</div>
-              </FirstTimeTooltip>
-              <div>Available Coins: {coins}</div>
-              <div className="opacity-70">Crypto purchases are simulated.</div>
-            </div>
-            <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { amount: 5, label: 'Buy 5 Coins', price: '0.005 ETH' },
-                { amount: 15, label: 'Buy 15 Coins', price: '0.012 ETH' },
-              ].map((item) => (
-                <button
-                  key={item.amount}
-                  className="retro-button font-menu text-sm px-6 py-3"
-                  onClick={() => handleBuyCoins(item.amount)}
-                >
-                  {item.label} ({item.price})
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                className="retro-button font-menu text-sm px-6 py-3"
-                onClick={handleCloseMarketplace}
-              >
-                CLOSE
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <StoryModal
-        isOpen={showStoryModal}
-        onClose={handleCloseStoryModal}
-        storyText={storyText}
-      />
-      <AvatarSelectionModal
-        isOpen={showAvatarModal}
-        onClose={handleCloseAvatarModal}
-        onAvatarChange={handleAvatarChange}
-      />
-      <InventoryModal
-        isOpen={showInventoryModal}
-        onClose={() => setShowInventoryModal(false)}
-        onActivate={(type) => {
-          // Mini-me activation will be handled by GameScene when game is running
-          console.log('Mini-me activated:', type);
-        }}
-      />
-    </div>
-  );
+    );
 }
 
 export default LandingPage;
