@@ -53,19 +53,6 @@ export function Tooltip({
   );
 }
 
-interface FirstTimeTooltipProps {
-  id: string;
-  content: string;
-  children: ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  activeId?: string | null; // when provided, only show if id === activeId
-  onNext?: () => void; // called when user clicks Next/Got it
-  onSkip?: () => void; // optional skip handler to end tour
-}
-
-const TOOLTIP_SEEN_KEY_PREFIX = 'neon-sentinel-tooltip-seen-';
-
-export function FirstTimeTooltip({ 
   id, 
   content, 
   children, 

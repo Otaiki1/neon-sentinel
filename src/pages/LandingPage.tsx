@@ -26,12 +26,13 @@ import iconMarketplace from "../assets/icons/icon-marketplace.svg";
 import iconInventory from "../assets/icons/icon-inventory.svg";
 import iconLogin from "../assets/icons/icon-login.svg";
 import WalletConnectionModal from "../components/WalletConnectionModal";
-import StoryModal from "../components/StoryModal";
+
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
-import { FirstTimeTooltip } from "../components/Tooltip";
-import TxLoadingModal from "../components/TxLoadingModal";
+
+
+import CommanderWalkthrough from "../components/CommanderWalkthrough";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -61,22 +62,9 @@ function getHeroPortraitPath(spriteKey: string): string {
 
 const WALLET_MODAL_SEEN_KEY = "neon-sentinel-wallet-modal-seen";
 const USER_MODE_KEY = "neon-sentinel-user-mode";
-const STORY_MODAL_SEEN_KEY = "neon-sentinel-story-modal-seen";
-const TOOLTIP_KEYS = [
-    "nav-hall",
-    "nav-profile",
-    "nav-settings",
-    "nav-marketplace",
-    "nav-login",
-    "start-game",
-    "kernel-selection",
-    "weekly-leaderboard",
-    "system-depth",
-    "champions",
-    "daily-coins",
-    "marketplace-daily-coins",
-];
-const TOOLTIP_SEEN_PREFIX = "neon-sentinel-tooltip-seen-";
+
+
+
 
 export type UserMode = "wallet" | "anonymous";
 
@@ -105,8 +93,7 @@ function LandingPage() {
     >([]);
     const [currentWeek, setCurrentWeek] = useState<number>(1);
     const [showWalletModal, setShowWalletModal] = useState(false);
-    const [showStoryModal, setShowStoryModal] = useState(false);
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
+        const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -127,16 +114,6 @@ function LandingPage() {
         const stored = getCurrentRankFromStorage();
         return stored ? stored.name : "Initiate Sentinel";
     });
-    const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(
-        () => {
-            const unseen = TOOLTIP_KEYS.find(
-                (id) =>
-                    localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !==
-                    "true",
-            );
-            return unseen ?? null;
-        },
-    );
 
     useEffect(() => {
         const scores = fetchWeeklyLeaderboard();
@@ -184,11 +161,7 @@ function LandingPage() {
         handleCloseModal();
     };
 
-    const handleCloseStoryModal = () => {
-        setShowStoryModal(false);
-        localStorage.setItem(STORY_MODAL_SEEN_KEY, "true");
-    };
-
+    
     const handleOpenSettings = () => {
         setSettings(getGameplaySettings());
         setShowSettingsModal(true);
@@ -267,26 +240,7 @@ function LandingPage() {
         setActiveAvatar(getActiveAvatar());
     };
 
-    const advanceTooltip = () => {
-        if (currentTooltipId === null) return;
-        localStorage.setItem(
-            `${TOOLTIP_SEEN_PREFIX}${currentTooltipId}`,
-            "true",
-        );
-        const currentIndex = TOOLTIP_KEYS.indexOf(currentTooltipId);
-        const next = TOOLTIP_KEYS.slice(currentIndex + 1).find(
-            (id) =>
-                localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== "true",
-        );
-        setCurrentTooltipId(next ?? null);
-    };
-
-    const skipTour = () => {
-        TOOLTIP_KEYS.forEach((id) =>
-            localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${id}`, "true"),
-        );
-        setCurrentTooltipId(null);
-    };
+    
 
     // Update user mode when wallet connects
     useEffect(() => {
@@ -295,20 +249,7 @@ function LandingPage() {
         }
     }, [address]);
 
-    useEffect(() => {
-        const hasSeenStory =
-            localStorage.getItem(STORY_MODAL_SEEN_KEY) === "true";
-        const userMode = getUserMode();
-
-        if (
-            !hasSeenStory &&
-            !showWalletModal &&
-            (userMode || isWalletConnected)
-        ) {
-            setShowStoryModal(true);
-        }
-    }, [isWalletConnected, showWalletModal]);
-
+    
     // Generate weekly sector name based on week number
     const weeklySectorNames = [
         "Crimson Virus",
@@ -425,17 +366,10 @@ function LandingPage() {
         return list;
     }, [activeAvatar]);
 
-    const storyText = [
-        "> BOOT SECTOR ONLINE...",
-        "> THE GRID IS COLLAPSING UNDER A CORRUPTION KNOWN AS THE SWARM.",
-        "> YOU ARE A NEON SENTINEL, A SECURITY PROGRAM BUILT TO CONTAIN IT.",
-        "> EACH LAYER YOU ENTER IS DEEPER, DARKER, AND MORE DEADLY.",
-        "> DESTROY CORRUPTED ENTITIES. SURVIVE. PUSH THE SYSTEM BACK.",
-        "> SIGNAL LOST IN: 00:00:03...",
-    ].join("\n");
-
     return (
         <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+            <CommanderWalkthrough onComplete={() => {}} />
+
             {/* Background Image */}
             <div
                 className="fixed inset-0 pointer-events-none z-0"
@@ -460,18 +394,6 @@ function LandingPage() {
                 aria-hidden
             />
 
-            {currentTooltipId && (
-                <div className="fixed top-4 right-4 z-50 flex gap-2">
-                    <button
-                        type="button"
-                        onClick={skipTour}
-                        className="font-body text-xs px-3 py-2 border border-neon-green text-neon-green bg-black bg-opacity-70 hover:bg-neon-green hover:text-black transition-all duration-150"
-                    >
-                        Skip tutorial
-                    </button>
-                </div>
-            )}
-
             <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
                 <header className="landing-header mb-8 md:mb-10">
                     <nav
@@ -479,14 +401,7 @@ function LandingPage() {
                         aria-label="Main navigation"
                     >
                         <span className="nav-scan-line" aria-hidden />
-                        <FirstTimeTooltip
-                            id="nav-hall"
-                            content="View the Hall of Fame - see top players across all leaderboard categories and your achievements."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <Link
                                 to="/leaderboards"
                                 className="nav-icon-button"
@@ -499,15 +414,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">HALL</span>
                             </Link>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-profile"
-                            content="View your profile - see your stats, achievements, unlocked kernels, and progression."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <Link
                                 to="/profile"
                                 className="nav-icon-button"
@@ -520,15 +428,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">PROFILE</span>
                             </Link>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-settings"
-                            content="Adjust game settings - control volume, UI scale, accessibility options, and gameplay preferences."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -542,15 +443,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">SETTINGS</span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-marketplace"
-                            content="Visit the marketplace - spend coins to unlock cosmetics, heroes, and other items."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -564,15 +458,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">MARKET</span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-inventory"
-                            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -588,15 +475,8 @@ function LandingPage() {
                                     INVENTORY
                                 </span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-login"
-                            content="Connect your wallet or play anonymously. Wallet connection enables additional features."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -612,7 +492,7 @@ function LandingPage() {
                                     {walletLabel}
                                 </span>
                             </button>
-                        </FirstTimeTooltip>
+                        
                     </nav>
                     <section
                         className="landing-logo-section text-center mb-8 md:mb-10"
@@ -663,14 +543,7 @@ function LandingPage() {
                         className="start-game-on-card mb-4"
                         aria-label="Start game"
                     >
-                        <FirstTimeTooltip
-                            id="start-game"
-                            content="Click to start playing! Use arrow keys or WASD to move, Spacebar to shoot. Destroy enemies to score points and survive as long as possible."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <button
                                 type="button"
                                 className="start-game-btn-link start-game-btn-wide font-display"
@@ -684,7 +557,7 @@ function LandingPage() {
                                     Liberate the Neon Terminal
                                 </p>
                             </button>
-                        </FirstTimeTooltip>
+                        
                     </section>
 
                     {/* Hero Panel: character left, two big buttons right */}
@@ -840,14 +713,7 @@ function LandingPage() {
                                 &gt;&gt; EQUIP MINIMES &gt;&gt;
                             </button>
                         </div>
-                        <FirstTimeTooltip
-                            id="kernel-selection"
-                            content="Choose your character. Each has different stats. Unlock more by reaching prestige levels and spending coins."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <div className="kernel-selector-panel mb-8 md:mb-10">
                                 <div className="kernel-selector-header">
                                     <h2 className="kernel-selector-title">
@@ -985,7 +851,7 @@ function LandingPage() {
                                             )}
                                         </div>
                             </div>
-                        </FirstTimeTooltip>
+                        
                     </section>
 
                     {/* Bottom panels: UNLOCKED SYSTEMS | SYSTEM DEPTH | CHAMPIONS */}
@@ -995,14 +861,7 @@ function LandingPage() {
                     >
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                             {/* UNLOCKED SYSTEMS - horizontal row of icons */}
-                            <FirstTimeTooltip
-                                id="weekly-leaderboard"
-                                content="Unlocked systems - kernels and features you've unlocked."
-                                position="right"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1061,17 +920,10 @@ function LandingPage() {
                                         ))}
                                     </div>
                                 </div>
-                            </FirstTimeTooltip>
+                            
 
                             {/* SYSTEM DEPTH - numbered 1-5 boxes */}
-                            <FirstTimeTooltip
-                                id="system-depth"
-                                content="System Depth - prestige levels. Hover boxes for glow."
-                                position="right"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1117,17 +969,10 @@ function LandingPage() {
                                         BOOT SECTOR → KERNEL BREACH
                                     </p>
                                 </div>
-                            </FirstTimeTooltip>
+                            
 
                             {/* CHAMPIONS */}
-                            <FirstTimeTooltip
-                                id="champions"
-                                content="Champions - top players for the current sector."
-                                position="left"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1162,7 +1007,7 @@ function LandingPage() {
                                         </div>
                                     </div>
                                 </div>
-                            </FirstTimeTooltip>
+                            
                         </div>
                     </section>
 
@@ -1607,11 +1452,7 @@ function LandingPage() {
                     </div>
                 </div>
             )}
-            <StoryModal
-                isOpen={showStoryModal}
-                onClose={handleCloseStoryModal}
-                storyText={storyText}
-            />
+            
             <AvatarSelectionModal
                 isOpen={showAvatarModal}
                 onClose={handleCloseAvatarModal}
