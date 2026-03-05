@@ -19,6 +19,7 @@ export const neonSentinelPolicies = {
           entrypoint: "approve",
           spender: DOJO_SEPOLIA.systems.buy_coins,
           amount: MAX_STRK_SESSION,
+          description: "Approve STRK token transfer",
         },
       ],
     },
