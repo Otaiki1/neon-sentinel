@@ -6,7 +6,7 @@ import {
 } from "../services/dojoService";
 import {
     fetchWeeklyLeaderboard,
-    getCurrentISOWeek,
+    getCurrentOnchainWeek,
 } from "../services/scoreService";
 import { CUSTOMIZABLE_SETTINGS } from "../game/config";
 import {
@@ -118,7 +118,7 @@ function LandingPage() {
     useEffect(() => {
         const scores = fetchWeeklyLeaderboard();
         setLeaderboard(scores.slice(0, 3)); // Top 3
-        setCurrentWeek(getCurrentISOWeek());
+        setCurrentWeek(getCurrentOnchainWeek());
         setSettings(getGameplaySettings());
         // Don't reset coins here — allow profile useEffect to set on-chain balance
 

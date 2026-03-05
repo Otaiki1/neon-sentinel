@@ -2661,9 +2661,9 @@ export class UIScene extends Phaser.Scene {
             }
 
             // Import score service
-            const { fetchWeeklyLeaderboard, getCurrentISOWeek } =
+            const { fetchWeeklyLeaderboard, getCurrentOnchainWeek } =
                 await import("../../services/scoreService");
-            const weekNumber = getCurrentISOWeek();
+            const weekNumber = getCurrentOnchainWeek();
             const scores = fetchWeeklyLeaderboard();
 
             // Update title with week number
