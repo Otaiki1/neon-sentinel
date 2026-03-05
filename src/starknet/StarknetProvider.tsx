@@ -7,7 +7,7 @@ import { neonSentinelPolicies } from "./policies";
 
 const connector = new ControllerConnector({
   policies: neonSentinelPolicies,
-  lazy: true,
+  lazyload: true,
 });
 
 const provider = jsonRpcProvider({

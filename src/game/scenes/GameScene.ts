@@ -5165,8 +5165,11 @@ export class GameScene extends Phaser.Scene {
                         }
                         if (runId) {
                             console.log("[OnChain] Final boss victory – ending run:", runId);
-                            await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
-                            console.log("[OnChain] Run ended. Submitting to leaderboard...");
+                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            const endTxHash = endResult?.transaction_hash;
+                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
                             await dojoService.submitToLeaderboard(account, runId);
                             console.log("[OnChain] Final boss run concluded and submitted. RunId:", runId);
                             this.registry.remove("activeRunId");
@@ -5830,8 +5833,11 @@ export class GameScene extends Phaser.Scene {
                         }
                         if (runId) {
                             console.log("[OnChain] Ending run:", runId);
-                            await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
-                            console.log("[OnChain] Run ended. Submitting to leaderboard...");
+                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            const endTxHash = endResult?.transaction_hash;
+                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
                             await dojoService.submitToLeaderboard(account, runId);
                             console.log("[OnChain] Run concluded and submitted to leaderboard. RunId:", runId);
                             // Clear both sources so it's not reused on the next run

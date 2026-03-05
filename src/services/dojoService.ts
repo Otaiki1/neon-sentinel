@@ -1,10 +1,37 @@
 import {
     type AccountInterface,
     CallData,
+    RpcProvider,
     shortString,
     uint256,
 } from "starknet";
 import { DOJO_SEPOLIA } from "../dojo/config";
+
+const _provider = new RpcProvider({ nodeUrl: DOJO_SEPOLIA.rpcUrl });
+
+/**
+ * Wait for a transaction to be accepted on L2 (or throw if rejected).
+ * Polls every 2 seconds for a maximum of 60 seconds.
+ */
+export async function waitForTransaction(txHash: string, maxWaitMs = 60_000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+        try {
+            const receipt = await _provider.getTransactionReceipt(txHash);
+            const status = (receipt as any)?.execution_status ?? (receipt as any)?.status;
+            if (status === 'SUCCEEDED' || status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') return;
+            if (status === 'REVERTED' || status === 'REJECTED') throw new Error(`Transaction ${txHash} ${status}`);
+        } catch (e: any) {
+            if (e?.message?.includes('Transaction hash not found')) {
+                // Not indexed yet, keep polling
+            } else if (e?.message?.includes('REVERTED') || e?.message?.includes('REJECTED')) {
+                throw e;
+            }
+        }
+        await new Promise(r => setTimeout(r, 2000));
+    }
+    throw new Error(`Timeout waiting for transaction ${txHash}`);
+}
 
 const TORII_GRAPHQL_URL = DOJO_SEPOLIA.toriiGraphqlUrl;
 
@@ -450,6 +477,7 @@ export async function getCoinPurchases(address: string) {
 }
 
 export const dojoService = {
+    waitForTransaction,
     queryTorii,
     getPlayerProfileOnChain,
     getActiveRunId,

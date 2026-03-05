@@ -142,7 +142,7 @@ function LandingPage() {
         setLeaderboard(scores.slice(0, 3)); // Top 3
         setCurrentWeek(getCurrentISOWeek());
         setSettings(getGameplaySettings());
-        setCoins(getAvailableCoins());
+        // Don't reset coins here — allow profile useEffect to set on-chain balance
 
         // Update rank display
         const stored = getCurrentRankFromStorage();
@@ -203,7 +203,9 @@ function LandingPage() {
     };
 
     const handleOpenMarketplace = () => {
-        setCoins(getAvailableCoins());
+        // Don't overwrite coins here — the useEffect on [profile] already keeps
+        // coins in sync with the on-chain balance. Calling getAvailableCoins()
+        // here would reset it to the localStorage fallback (3).
         setShowMarketplaceModal(true);
     };
 
@@ -249,7 +251,6 @@ function LandingPage() {
     };
 
     const handleOpenAvatarModal = () => {
-        setCoins(getAvailableCoins());
         setShowAvatarModal(true);
     };
 
@@ -259,7 +260,6 @@ function LandingPage() {
 
     const handleAvatarChange = () => {
         setActiveAvatar(getActiveAvatar());
-        setCoins(getAvailableCoins());
     };
 
     const advanceTooltip = () => {
@@ -1553,7 +1553,10 @@ function LandingPage() {
                             MARKETPLACE
                         </h2>
                         <div className="text-sm font-body text-neon-green space-y-2">
-                            <div>Available Coins: <span className="font-score text-base">{coins}</span></div>
+                            <div className="flex items-center gap-2">
+                                <img src="/coin.png" alt="coin" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 0 4px #00ff00)' }} />
+                                <span>Available: <span className="font-score text-base font-bold">{coins}</span> coins</span>
+                            </div>
                             <div className="text-xs opacity-60">Rate: 10 coins per 1 STRK</div>
                             {buyStatus !== 'idle' && (
                                 <div className={`text-xs px-3 py-2 border ${
@@ -1565,22 +1568,25 @@ function LandingPage() {
                                 </div>
                             )}
                         </div>
-                        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="mt-5 grid grid-cols-2 gap-3">
                             {[
-                                { amount: 10,  label: 'Buy 10 Coins',  strk: '1 STRK' },
-                                { amount: 20,  label: 'Buy 20 Coins',  strk: '2 STRK' },
-                                { amount: 50,  label: 'Buy 50 Coins',  strk: '5 STRK' },
-                                { amount: 100, label: 'Buy 100 Coins', strk: '10 STRK' },
+                                { amount: 100,  label: '100 Coins',  strk: '10 STRK' },
+                                { amount: 200,  label: '200 Coins',  strk: '20 STRK' },
+                                { amount: 500,  label: '500 Coins',  strk: '50 STRK' },
+                                { amount: 1000, label: '1000 Coins', strk: '100 STRK' },
                             ].map((item) => (
                                 <button
                                     key={item.amount}
-                                    className={`retro-button font-menu text-sm px-6 py-3 ${
+                                    className={`retro-button font-menu text-sm px-4 py-3 ${
                                         buyStatus === 'pending' ? 'opacity-50 cursor-not-allowed' : ''
                                     }`}
                                     onClick={() => handleBuyCoins(item.amount)}
                                     disabled={buyStatus === 'pending'}
                                 >
-                                    {item.label}
+                                    <span className="flex items-center justify-center gap-1">
+                                        <img src="/coin.png" alt="" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+                                        {item.label}
+                                    </span>
                                     <span className="block text-xs opacity-70 mt-0.5">{item.strk}</span>
                                 </button>
                             ))}
