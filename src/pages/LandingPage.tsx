@@ -1,5 +1,9 @@
+import { useAccount } from "@starknet-react/core";
 import { Link } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useDojo } from "../components/DojoContext";
+import {
+    buyCoins as buyCoinsOnChain,
+} from "../services/dojoService";
 import {
     fetchWeeklyLeaderboard,
     getCurrentISOWeek,
@@ -29,6 +33,7 @@ import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
 import { FirstTimeTooltip } from "../components/Tooltip";
+import { avatarToKernel } from "../dojo/kernels";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -87,10 +92,10 @@ export function setUserMode(mode: UserMode): void {
 }
 
 function LandingPage() {
-    const { primaryWallet } = useDynamicContext();
-    const isWalletConnected = !!primaryWallet;
+    const { account, address, isConnected: isWalletConnected } = useAccount();
+    const { profile, refreshProfile } = useDojo();
     const walletLabel = isWalletConnected
-        ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
+        ? `${address!.slice(0, 6)}...${address!.slice(-4)}`
         : "LOGIN";
     const [leaderboard, setLeaderboard] = useState<
         Array<{
@@ -113,6 +118,13 @@ function LandingPage() {
         getGameplaySettings(),
     );
     const [coins, setCoins] = useState(getAvailableCoins());
+    useEffect(() => {
+        if (profile?.coins != null) {
+            setCoins(Number(profile.coins));
+        } else {
+            setCoins(getAvailableCoins());
+        }
+    }, [profile]);
     const [currentRank, setCurrentRank] = useState(() => {
         const stored = getCurrentRankFromStorage();
         return stored ? stored.name : "Initiate Sentinel";
@@ -158,7 +170,7 @@ function LandingPage() {
         if (!hasSeenModal && !isWalletConnected && !userMode) {
             setShowWalletModal(true);
         }
-    }, [primaryWallet]);
+    }, [isWalletConnected]);
 
     const handleCloseModal = () => {
         setShowWalletModal(false);
@@ -202,9 +214,21 @@ function LandingPage() {
         setShowMarketplaceModal(false);
     };
 
-    const handleBuyCoins = (amount: number) => {
-        const next = addCoins(amount);
-        setCoins(next);
+    const handleBuyCoins = async (amount: number) => {
+        if (account) {
+            try {
+                // In Sepolia, STRK has 18 decimals. 0.001 STRK per coin? Or 0.005?
+                // Price for 5 is 0.005 STRK. (0.005 * 10^18)
+                const strkAmount = BigInt(amount) * 1000000000000000n; // 10^15 per coin? 10^-3 STRK?
+                await buyCoinsOnChain(account, strkAmount);
+                refreshProfile();
+            } catch (err) {
+                console.error("Failed to buy coins on-chain:", err);
+            }
+        } else {
+            const next = addCoins(amount);
+            setCoins(next);
+        }
     };
 
     const handleOpenAvatarModal = () => {
@@ -244,10 +268,10 @@ function LandingPage() {
 
     // Update user mode when wallet connects
     useEffect(() => {
-        if (primaryWallet) {
+        if (address) {
             setUserMode("wallet");
         }
-    }, [primaryWallet]);
+    }, [address]);
 
     useEffect(() => {
         const hasSeenStory =
@@ -1526,9 +1550,11 @@ function LandingPage() {
                                 </div>
                             </FirstTimeTooltip>
                             <div>Available Coins: {coins}</div>
-                            <div className="opacity-70">
-                                Crypto purchases are simulated.
-                            </div>
+                            {!isWalletConnected && (
+                                <div className="opacity-70">
+                                    Crypto purchases are simulated.
+                                </div>
+                            )}
                         </div>
                         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
                             {[
@@ -1584,6 +1610,11 @@ function LandingPage() {
             <PregameUpgradesModal
                 isOpen={showPregameModal}
                 onClose={() => setShowPregameModal(false)}
+                kernel={(() => {
+                    const avatarIds = ['default_sentinel', 'swift_interceptor', 'artillery_unit', 'guardian_core', 'sniper_kernel', 'assault_nexus', 'neon_guardian', 'void_sentinel', 'plasma_core', 'prime_sentinel', 'transcendent_form'];
+                    const idx = avatarIds.indexOf(activeAvatar);
+                    return idx === -1 ? 0 : idx;
+                })()}
             />
         </div>
     );

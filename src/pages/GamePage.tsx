@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useAccount } from "@starknet-react/core";
 import { initGame } from "../game/Game";
 import { getGameplaySettings } from "../services/settingsService";
 import { getAvailableCoins } from "../services/coinService";
@@ -15,7 +15,7 @@ import "./GamePage.css";
 function GamePage() {
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const gameInstanceRef = useRef<Phaser.Game | null>(null);
-    const { primaryWallet } = useDynamicContext();
+    const { address, account } = useAccount();
     const navigate = useNavigate();
     const location = useLocation();
     const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -61,6 +61,15 @@ function GamePage() {
         const pregameIds = (location.state as { pregameUpgrades?: PregameUpgradeId[] } | null)?.pregameUpgrades ?? [];
         const pregameEffects = mergePregameEffects(pregameIds);
         game.registry.set("pregameSessionEffects", pregameEffects);
+
+        // Load the cached run ID (written by PregameUpgradesModal after tx confirmed)
+        const cachedRunId = sessionStorage.getItem("activeRunId");
+        if (cachedRunId) {
+            game.registry.set("activeRunId", cachedRunId);
+            // NOTE: do NOT remove from sessionStorage here — React StrictMode can double-mount
+            // GameScene will clear it from sessionStorage after successful on-chain submission
+            console.log("[GamePage] Loaded cached activeRunId:", cachedRunId);
+        }
 
         // Listen for return to menu event
         const handleReturnToMenu = () => {
@@ -113,18 +122,18 @@ function GamePage() {
         };
     }, [navigate]);
 
-    // Expose wallet address to game scenes via game registry
+    // Expose wallet address and account to game scenes via game registry
     useEffect(() => {
-        if (gameInstanceRef.current && primaryWallet) {
-            const walletAddress = primaryWallet.address;
-            gameInstanceRef.current.registry.set(
-                "walletAddress",
-                walletAddress
-            );
-        } else if (gameInstanceRef.current) {
-            gameInstanceRef.current.registry.set("walletAddress", undefined);
+        if (gameInstanceRef.current) {
+            if (address) {
+                gameInstanceRef.current.registry.set("walletAddress", address);
+                gameInstanceRef.current.registry.set("starknetAccount", account);
+            } else {
+                gameInstanceRef.current.registry.set("walletAddress", undefined);
+                gameInstanceRef.current.registry.set("starknetAccount", undefined);
+            }
         }
-    }, [primaryWallet]);
+    }, [address, account]);
 
     const handleMiniMeActivate = (type: MiniMeType) => {
         // Spawn mini-me in game

@@ -4,22 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/diagnose_vite.mjs && vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dynamic-labs/ethereum": "^4",
-    "@dynamic-labs/sdk-react-core": "^4",
-    "@dynamic-labs/wagmi-connector": "^4",
+    "@cartridge/connector": "^0.11.3-alpha.1",
+    "@cartridge/controller": "^0.11.3-alpha.1",
+    "@starknet-react/chains": "^5.0.1",
+    "@starknet-react/core": "^5.0.1",
     "@tanstack/react-query": "^5.74.4",
     "phaser": "^3.90.0",
     "react": "^18",
     "react-dom": "^18",
     "react-router-dom": "^7.12.0",
-    "viem": "^2.28.0",
-    "wagmi": "^2.15.0",
+    "starknet": "^8.1.2",
     "workbox-window": "^7.1.0"
   },
   "devDependencies": {
@@ -29,16 +29,32 @@
     "@types/react-dom": "^18",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.4.1",
-    "vite-plugin-pwa": "^0.20.0",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.25.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "eventemitter3": "5.0.4",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.4",
     "typescript-eslint": "^8.46.4",
-    "vite": "^5.1.4"
+    "vite": "^5.1.4",
+    "vite-plugin-mkcert": "^1.17.8",
+    "vite-plugin-node-polyfills": "^0.25.0",
+    "vite-plugin-pwa": "^0.20.0",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "eventemitter3": "5.0.4"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "bufferutil",
+      "utf-8-validate",
+      "cbor-extract"
+    ]
   }
 }

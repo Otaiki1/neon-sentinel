@@ -1,155 +1,61 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useAccount } from '@starknet-react/core';
 import logoImage from '../assets/logo.png';
 import {
-  fetchWeeklyCategoryLeaderboard,
-  fetchAllTimeCategoryLeaderboard,
-  fetchWeeklyChallengeLeaderboard,
-  getFeaturedWeeklyCategories,
-  getCurrentISOWeek,
-  getOverallRanking,
-  getWeeklyRanking,
-  type LeaderboardCategoryKey,
-  type ScoreEntry,
-} from '../services/scoreService';
-import { LEADERBOARD_CATEGORIES, FEATURED_LEADERBOARD_COUNT } from '../game/config';
-import {
-  getUnlockedBadges,
-  getUnlockedCosmetics,
-  getSelectedCosmetic,
-  setSelectedCosmetic,
-} from '../services/achievementService';
+  getLeaderboardEntries,
+  getPlayerLeaderboardEntries,
+  normalizeAddress,
+  type LeaderboardEntryNode,
+} from '../services/dojoService';
+import { useDojo } from '../components/DojoContext';
 import './LandingPage.css';
+import './ProfilePage.css';
 
-type CategoryBoard = { key: LeaderboardCategoryKey; entries: ScoreEntry[] };
+function shortAddr(addr: string) {
+  if (!addr) return 'Anonymous';
+  const a = addr.replace(/^0x0*/, '0x');
+  return `${a.slice(0, 6)}...${a.slice(-4)}`;
+}
+
+function hexScore(hex: string | number): number {
+  if (typeof hex === 'number') return hex;
+  return parseInt(String(hex), 16) || 0;
+}
 
 function LeaderboardPage() {
-  const { primaryWallet } = useDynamicContext();
-  const [currentWeek, setCurrentWeek] = useState<number>(1);
-  const [featuredBoards, setFeaturedBoards] = useState<CategoryBoard[]>([]);
-  const [allTimeBoards, setAllTimeBoards] = useState<CategoryBoard[]>([]);
-  const [challengeLeaders, setChallengeLeaders] = useState<ScoreEntry[]>([]);
-  const [badges, setBadges] = useState<string[]>([]);
-  const [cosmetics, setCosmetics] = useState<string[]>([]);
-  const [selectedCosmetic, setSelectedCosmeticState] = useState<string>('none');
-  const overallRanking = primaryWallet
-    ? getOverallRanking({ walletAddress: primaryWallet.address })
-    : null;
-  const weeklyRanking = primaryWallet
-    ? getWeeklyRanking({ walletAddress: primaryWallet.address })
-    : null;
+  // Use DojoContext — profile is already loaded & address is resolved
+  const { profile } = useDojo();
+  const { address, isConnected } = useAccount();
+
+  const [globalEntries, setGlobalEntries] = useState<LeaderboardEntryNode[]>([]);
+  const [myEntries, setMyEntries] = useState<LeaderboardEntryNode[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const week = getCurrentISOWeek();
-    setCurrentWeek(week);
-    const featured = getFeaturedWeeklyCategories(week, FEATURED_LEADERBOARD_COUNT);
-    setFeaturedBoards(
-      featured.map((key) => ({
-        key,
-        entries: fetchWeeklyCategoryLeaderboard(key),
-      }))
-    );
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      getLeaderboardEntries(50),
+      address ? getPlayerLeaderboardEntries(address) : Promise.resolve([]),
+    ]).then(([global, mine]) => {
+      if (cancelled) return;
+      setGlobalEntries(global);
+      setMyEntries(mine);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [address]);
 
-    const inactive = Object.keys(LEADERBOARD_CATEGORIES).filter(
-      (key) => !featured.includes(key as LeaderboardCategoryKey)
-    ) as LeaderboardCategoryKey[];
-    setAllTimeBoards(
-      inactive.map((key) => ({
-        key,
-        entries: fetchAllTimeCategoryLeaderboard(key),
-      }))
-    );
-    setChallengeLeaders(fetchWeeklyChallengeLeaderboard());
-    setBadges(getUnlockedBadges());
-    setCosmetics(getUnlockedCosmetics());
-    setSelectedCosmeticState(getSelectedCosmetic());
-  }, []);
-
-  const getValueLabel = (key: LeaderboardCategoryKey, entry: ScoreEntry) => {
-    switch (key) {
-      case 'highestScore':
-        return `${(entry.finalScore ?? entry.score ?? 0).toLocaleString()} pts`;
-      case 'longestSurvival':
-        return `${Math.round(entry.survivalTime ?? 0)}s`;
-      case 'highestCorruption':
-        return `${Math.round(entry.maxCorruptionReached ?? 0)}%`;
-      case 'mostEnemiesDefeated':
-        return `${entry.totalEnemiesDefeated ?? 0} kills`;
-      case 'cleanRuns':
-        return entry.runsWithoutDamage ? 'Flawless' : '0';
-      case 'highestCombo':
-        return `${Number(entry.peakComboMultiplier ?? 0).toFixed(1)}x`;
-      case 'deepestLayer': {
-        const depth =
-          entry.deepestLayerWithPrestige ??
-          (entry.deepestLayer ?? 0) + (entry.prestigeLevel ?? 0);
-        return `Depth ${depth}`;
-      }
-      case 'speedrun':
-        return entry.timeToReachLayer6
-          ? `${Math.round(entry.timeToReachLayer6)}s`
-          : 'N/A';
-      default:
-        return `${entry.score?.toLocaleString() ?? 0}`;
-    }
-  };
-
-  const renderBoard = (board: CategoryBoard, label: string) => {
-    const category = LEADERBOARD_CATEGORIES[board.key];
-    const entries = board.entries.slice(0, 5);
-    return (
-      <div key={`${board.key}-${label}`} className="retro-panel">
-        <div className="flex items-center justify-between mb-3 border-b-2 border-neon-green pb-2">
-          <h2 className="font-menu text-base md:text-lg text-neon-green" style={{ letterSpacing: '0.1em' }}>
-            {category.title}
-          </h2>
-          <span className="font-body text-xs text-neon-green opacity-70">{label}</span>
-        </div>
-        <div className="text-xs text-neon-green opacity-70 mb-3 font-body">
-          Reward: <span className="text-red-500">{category.reward}</span>
-        </div>
-        {("note" in category && (category as any).note) && (
-          <div className="text-xs text-neon-green opacity-60 mb-3 font-body">{(category as any).note}</div>
-        )}
-        {entries.length ? (
-          <div className="space-y-2">
-            {entries.map((entry, index) => (
-              <div key={`${board.key}-${label}-${index}`} className="leaderboard-entry">
-                <div className="flex items-center justify-between">
-                  <span>
-                    <span className="rank-badge font-score text-base">{index + 1}</span>
-                    <span className="font-score text-base md:text-lg">
-                      {entry.playerName || 'Anonymous'}
-                    </span>
-                    <span className="font-score text-xs md:text-sm text-red-500 ml-2">
-                      P{entry.prestigeLevel ?? 0}
-                    </span>
-                    {entry.currentRank && (
-                      <span className="font-score text-xs md:text-sm text-cyan-400 ml-2">
-                        {entry.currentRank}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-score text-base md:text-lg text-neon-green">
-                    {getValueLabel(board.key, entry)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="leaderboard-entry text-center py-4">
-            <div className="font-body text-sm text-neon-green opacity-50">NO RUNS YET</div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const myBestScore = myEntries.length > 0 ? hexScore(myEntries[0].final_score) : 0;
+  const myRank = myBestScore > 0
+    ? globalEntries.findIndex(e =>
+        normalizeAddress(e.player_address) === normalizeAddress(address ?? '')) + 1
+    : null;
 
   return (
-    <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
-      {/* Background Image */}
+    <div className="profile-page min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+      {/* Background — matches ProfilePage */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
@@ -159,171 +65,114 @@ function LeaderboardPage() {
           backgroundRepeat: 'no-repeat',
         }}
       />
-      {/* Animated Grid Background Overlay */}
-      <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid">
-        <div
-          className="w-full h-full"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(0, 255, 0, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 0, 0.1) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
-      </div>
       <div
-        className="fixed inset-0 pointer-events-none z-40"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%)',
-        }}
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: 'rgba(0, 0, 0, 0.82)' }}
+        aria-hidden
       />
+      <div className="fixed inset-0 opacity-8 pointer-events-none animated-grid" />
 
-      <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-6xl">
-        <div className="flex items-center justify-between mb-8">
-          <Link to="/" className="font-menu text-base text-neon-green hover:text-red-500">
-            &lt; RETURN TO MENU
-          </Link>
-          <div className="text-center">
-            <img
-              src={logoImage}
-              alt="Neon Sentinel"
-              className="max-w-full h-auto"
-              style={{ maxHeight: '90px', imageRendering: 'auto' }}
-            />
-          </div>
-          <div className="font-body text-xs text-neon-green opacity-70">
-            Week {currentWeek}
-          </div>
-        </div>
+      <div className="relative z-10 profile-container">
+        {/* Header */}
+        <header className="profile-header">
+          <h1 className="profile-title">HALL OF FAME</h1>
+          <Link to="/" className="profile-back">&gt; BACK</Link>
+        </header>
 
-        <div className="retro-panel mb-8">
-          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
-            MY RANKING
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-body">
-            <div>
-              <div className="text-xs text-neon-green opacity-70 mb-1">Weekly Rank</div>
-              <div className="font-score text-lg text-neon-green">
-                {weeklyRanking ? `#${weeklyRanking.rank}` : 'LOGIN TO VIEW'}
-              </div>
-              {weeklyRanking && (
-                <div className="text-xs text-neon-green opacity-60">
-                  Score: {weeklyRanking.score.toLocaleString()}
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="text-xs text-neon-green opacity-70 mb-1">Overall Rank</div>
-              <div className="font-score text-lg text-neon-green">
-                {overallRanking ? `#${overallRanking.rank}` : 'LOGIN TO VIEW'}
-              </div>
-              {overallRanking && (
-                <div className="text-xs text-neon-green opacity-60">
-                  Score: {overallRanking.score.toLocaleString()}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="retro-panel mb-8">
-          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
-            YOUR ACHIEVEMENTS
-          </h2>
-          <div className="mb-4">
-            <div className="font-body text-xs text-neon-green opacity-70 mb-2">Badges</div>
-            {badges.length ? (
-              <div className="flex flex-wrap gap-2">
-                {badges.map((badge) => (
-                  <span
-                    key={badge}
-                    className="font-score text-xs text-neon-green border border-neon-green px-2 py-1"
-                  >
-                    {badge.replace('badge_', '').replace(/_/g, ' ').toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="font-body text-sm text-neon-green opacity-50">NO BADGES YET</div>
-            )}
-          </div>
-          <div>
-            <div className="font-body text-xs text-neon-green opacity-70 mb-2">Cosmetic Loadout</div>
-            <select
-              className="bg-black text-neon-green border border-neon-green px-2 py-1 font-body text-sm"
-              value={selectedCosmetic}
-              onChange={(event) => {
-                const value = event.target.value;
-                setSelectedCosmeticState(value);
-                setSelectedCosmetic(value);
-              }}
-            >
-              <option value="none">NONE</option>
-              {cosmetics.map((cosmetic) => (
-                <option key={cosmetic} value={cosmetic}>
-                  {cosmetic.replace('cosmetic_', '').replace(/_/g, ' ').toUpperCase()}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="retro-panel mb-8">
-          <h2 className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2">
-            CHALLENGE LEADERBOARD
-          </h2>
-          {challengeLeaders.length ? (
-            <div className="space-y-2">
-              {challengeLeaders.map((entry, index) => (
-                <div key={`${entry.playerName}-${index}`} className="leaderboard-entry">
-                  <div className="flex items-center justify-between">
-                    <span>
-                      <span className="rank-badge font-score text-base">{index + 1}</span>
-                      <span className="font-score text-base md:text-lg">
-                        {entry.playerName || 'Anonymous'}
-                      </span>
-                      <span className="font-score text-xs md:text-sm text-red-500 ml-2">
-                        P{entry.prestigeLevel ?? 0}
-                      </span>
-                    </span>
-                    <span className="font-score text-base md:text-lg text-neon-green">
-                      {entry.score.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="font-body text-xs text-neon-green opacity-60 mt-1">
-                    Modifier: {entry.modifierKey ?? 'standard'}
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* MY RANKING */}
+        <div className="profile-panel mb-4">
+          <h2 className="profile-panel-title">MY RANKING</h2>
+          {loading ? (
+            <div className="profile-value-dim">Loading on-chain data...</div>
+          ) : !isConnected || !address ? (
+            <div className="profile-value-dim">Connect your wallet to see your ranking.</div>
+          ) : !profile && myEntries.length === 0 ? (
+            <div className="profile-value-dim">No runs found on-chain yet. Play a run to appear here.</div>
           ) : (
-            <div className="leaderboard-entry text-center py-4">
-              <div className="font-body text-sm text-neon-green opacity-50">NO RUNS YET</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <div className="profile-label">Global Rank</div>
+                <div className="profile-value">{myRank ? `#${myRank}` : '--'}</div>
+              </div>
+              <div>
+                <div className="profile-label">Best Score</div>
+                <div className="profile-value">
+                  {profile?.best_run_score
+                    ? hexScore(profile.best_run_score).toLocaleString()
+                    : myBestScore > 0 ? myBestScore.toLocaleString() : '--'}
+                </div>
+              </div>
+              <div>
+                <div className="profile-label">Total Runs</div>
+                <div className="profile-value">{profile?.total_runs ?? '--'}</div>
+              </div>
+              <div>
+                <div className="profile-label">Lifetime Score</div>
+                <div className="profile-value">
+                  {profile?.lifetime_score
+                    ? hexScore(profile.lifetime_score).toLocaleString()
+                    : '--'}
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        <div className="text-center mb-10">
-          <h1 className="font-menu text-2xl md:text-3xl text-neon-green tracking-widest">
-            HALL OF FAME
-          </h1>
-          <p className="font-body text-sm text-neon-green opacity-70 mt-2">
-            Featured categories rotate weekly. All-time records stay locked in.
-          </p>
+        {/* MY RUNS */}
+        {isConnected && myEntries.length > 0 && (
+          <div className="profile-panel mb-4">
+            <h2 className="profile-panel-title">MY RUNS</h2>
+            <div className="profile-stat-list">
+              {myEntries.slice(0, 5).map((e, i) => (
+                <div key={e.run_id || i} className="flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0">
+                  <span>
+                    <span className="rank-badge font-score text-base mr-2">{i + 1}</span>
+                    <span className="profile-label">Week {e.week}</span>
+                  </span>
+                  <span className="profile-value">{hexScore(e.final_score).toLocaleString()} pts</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ALL-TIME LEADERBOARD */}
+        <div className="text-center mb-4">
+          <p className="font-body text-sm text-neon-green opacity-60">Top players · On-chain verified</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
-          {featuredBoards.map((board) => renderBoard(board, `Week ${currentWeek}`))}
-        </div>
-
-        <div className="text-center mb-6">
-          <h2 className="font-menu text-xl text-neon-green tracking-widest">
-            ALL-TIME RECORDS
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {allTimeBoards.map((board) => renderBoard(board, 'All-Time'))}
+        <div className="profile-panel">
+          <h2 className="profile-panel-title">ALL-TIME LEADERBOARD</h2>
+          {loading ? (
+            <div className="profile-value-dim text-center py-4">Loading...</div>
+          ) : globalEntries.length === 0 ? (
+            <div className="profile-value-dim text-center py-4">NO RUNS YET</div>
+          ) : (
+            <div className="profile-stat-list">
+              {globalEntries.slice(0, 20).map((entry, index) => {
+                const isMe = address &&
+                  normalizeAddress(entry.player_address) === normalizeAddress(address);
+                return (
+                  <div
+                    key={entry.run_id || index}
+                    className={`flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0 ${isMe ? 'bg-neon-green bg-opacity-5' : ''}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="rank-badge font-score text-base">{index + 1}</span>
+                      <span className={`font-score text-sm ${isMe ? 'text-yellow-400' : 'text-neon-green'}`}>
+                        {shortAddr(entry.player_address)}
+                        {isMe && <span className="ml-2 text-xs opacity-80">▶ YOU</span>}
+                      </span>
+                    </span>
+                    <span className="flex flex-col items-end">
+                      <span className="profile-value">{hexScore(entry.final_score).toLocaleString()} pts</span>
+                      <span className="profile-label text-[10px]">Wk {entry.week}</span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -331,4 +180,3 @@ function LeaderboardPage() {
 }
 
 export default LeaderboardPage;
-

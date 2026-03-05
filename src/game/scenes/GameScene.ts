@@ -97,6 +97,8 @@ import {
     calculateRankMilestone,
 } from "../../services/rankService";
 import { markFinalBossDefeated } from "../../services/avatarService";
+import { dojoService } from "../../services/dojoService";
+import type { AccountInterface } from "starknet";
 import {
     getDialogueForTrigger,
     type DialogueState,
@@ -5148,7 +5150,35 @@ export class GameScene extends Phaser.Scene {
         
         // After fade, trigger victory sequence
         this.time.delayedCall(2000, () => {
-            // Game complete - can show victory screen via React component
+            // Game complete - trigger on-chain run conclusion for final boss victory
+            const account = this.registry.get("starknetAccount") as AccountInterface;
+            const walletAddress = this.registry.get("walletAddress") as string;
+            if (account && walletAddress) {
+                (async () => {
+                    try {
+                        // Check registry first, then sessionStorage (survives React double-mount)
+                        let runId = (this.registry.get("activeRunId") as string | undefined)
+                            || sessionStorage.getItem("activeRunId") || undefined;
+                        if (!runId) {
+                            console.log("[OnChain] No cached runId – querying Torii...");
+                            runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
+                        }
+                        if (runId) {
+                            console.log("[OnChain] Final boss victory – ending run:", runId);
+                            await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            console.log("[OnChain] Run ended. Submitting to leaderboard...");
+                            await dojoService.submitToLeaderboard(account, runId);
+                            console.log("[OnChain] Final boss run concluded and submitted. RunId:", runId);
+                            this.registry.remove("activeRunId");
+                            sessionStorage.removeItem("activeRunId");
+                        } else {
+                            console.warn("[OnChain] No active run found for final boss victory.");
+                        }
+                    } catch (err) {
+                        console.error("[OnChain] Failed to conclude final boss run on-chain:", err);
+                    }
+                })();
+            }
             this.gameOver = true;
             this.registry.set("gameOver", true);
             this.registry.set("finalBossVictory", true);
@@ -5784,6 +5814,39 @@ export class GameScene extends Phaser.Scene {
         if (this.healthBars === 0) {
             // Game over
             this.gameOver = true;
+
+            // Handle on-chain run conclusion
+            const account = this.registry.get("starknetAccount") as AccountInterface;
+            const walletAddress = this.registry.get("walletAddress") as string;
+            if (account && walletAddress) {
+                (async () => {
+                    try {
+                        // Check registry first, then sessionStorage (survives React double-mount)
+                        let runId = (this.registry.get("activeRunId") as string | undefined)
+                            || sessionStorage.getItem("activeRunId") || undefined;
+                        if (!runId) {
+                            console.log("[OnChain] No cached runId in registry or sessionStorage – querying Torii...");
+                            runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
+                        }
+                        if (runId) {
+                            console.log("[OnChain] Ending run:", runId);
+                            await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            console.log("[OnChain] Run ended. Submitting to leaderboard...");
+                            await dojoService.submitToLeaderboard(account, runId);
+                            console.log("[OnChain] Run concluded and submitted to leaderboard. RunId:", runId);
+                            // Clear both sources so it's not reused on the next run
+                            this.registry.remove("activeRunId");
+                            sessionStorage.removeItem("activeRunId");
+                        } else {
+                            console.warn("[OnChain] No active run found – skipping end_run/submit_leaderboard.");
+                        }
+                    } catch (err) {
+                        console.error("[OnChain] Failed to conclude run on-chain:", err);
+                    }
+                })();
+            } else {
+                console.warn("[OnChain] No wallet connected – skipping end_run/submit_leaderboard.");
+            }
             
             // Clean up mini-mes on game over
             this.cleanupMiniMes();

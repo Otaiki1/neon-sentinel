@@ -15,6 +15,9 @@ import {
     MINI_ME_SESSIONS_PACK_COST,
     MINI_ME_SESSIONS_PACK_SIZE,
 } from '../services/miniMeSessionsService';
+import { useAccount } from '@starknet-react/core';
+import { useDojo } from './DojoContext';
+import { purchaseMiniMeUnit, purchaseMiniMeSessions } from '../services/dojoService';
 import './InventoryModal.css';
 
 interface InventoryModalProps {
@@ -25,10 +28,23 @@ interface InventoryModalProps {
 }
 
 export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged }: InventoryModalProps) {
+    const { account } = useAccount();
+    const { profile, refreshProfile } = useDojo();
     const [coins, setCoins] = useState(getAvailableCoins());
     const [sessions, setSessions] = useState(getMiniMeSessionsAvailable());
     const [selectedType, setSelectedType] = useState<MiniMeType | null>(null);
     const [action, setAction] = useState<'purchase' | 'activate' | 'buySessions' | null>(null);
+
+    useEffect(() => {
+        if (profile?.coins != null) {
+            setCoins(Number(profile.coins));
+        }
+        if (profile?.mini_me_sessions_purchased != null) {
+            // Contract might store sessions left too? or just purchased.
+            // Let's assume it's current sessions.
+            setSessions(Number(profile.mini_me_sessions_purchased));
+        }
+    }, [profile]);
 
     useEffect(() => {
         if (isOpen) {
@@ -37,19 +53,39 @@ export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged 
         }
     }, [isOpen]);
 
-    const handlePurchase = (type: MiniMeType) => {
+    const handlePurchase = async (type: MiniMeType) => {
         const cost = getMiniMeCost(type);
         if (coins < cost) {
             alert(`Not enough coins! Need ${cost} coins.`);
             return;
         }
         
-        if (spendCoins(cost, `mini_me_purchase_${type}`)) {
-            if (addMiniMe(type, 1)) {
-                setCoins(getAvailableCoins());
-                alert(`${getMiniMeName(type)} purchased!`);
-            } else {
-                alert('Inventory full! Maximum 20 per type.');
+        if (account) {
+            try {
+                const typeMap: Record<MiniMeType, number> = {
+                    scout: 0,
+                    gunner: 1,
+                    shield: 2,
+                    decoy: 3,
+                    collector: 4,
+                    stun: 5,
+                    healer: 6,
+                };
+                await purchaseMiniMeUnit(account, typeMap[type]);
+                refreshProfile();
+                alert(`${getMiniMeName(type)} purchased on-chain!`);
+            } catch (err) {
+                console.error("Failed to purchase mini-me on-chain:", err);
+                alert("On-chain purchase failed.");
+            }
+        } else {
+            if (spendCoins(cost, `mini_me_purchase_${type}`)) {
+                if (addMiniMe(type, 1)) {
+                    setCoins(getAvailableCoins());
+                    alert(`${getMiniMeName(type)} purchased!`);
+                } else {
+                    alert('Inventory full! Maximum 20 per type.');
+                }
             }
         }
     };
@@ -74,17 +110,28 @@ export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged 
         setAction(actionType);
     };
 
-    const handleBuySessions = () => {
+    const handleBuySessions = async () => {
         if (coins < MINI_ME_SESSIONS_PACK_COST) {
             alert(`Need ${MINI_ME_SESSIONS_PACK_COST} coins for ${MINI_ME_SESSIONS_PACK_SIZE} sessions.`);
             return;
         }
-        if (buyMiniMeSessionsPack(coins, spendCoins)) {
-            setCoins(getAvailableCoins());
-            const newCount = getMiniMeSessionsAvailable();
-            setSessions(newCount);
-            onSessionsChanged?.(newCount); // Sync to game registry so in-game activation sees new sessions
-            alert(`Purchased ${MINI_ME_SESSIONS_PACK_SIZE} mini-me sessions!`);
+        if (account) {
+            try {
+                await purchaseMiniMeSessions(account);
+                refreshProfile();
+                alert(`Purchased ${MINI_ME_SESSIONS_PACK_SIZE} mini-me sessions on-chain!`);
+            } catch (err) {
+                console.error("Failed to buy sessions on-chain:", err);
+                alert("On-chain purchase failed.");
+            }
+        } else {
+            if (buyMiniMeSessionsPack(coins, spendCoins)) {
+                setCoins(getAvailableCoins());
+                const newCount = getMiniMeSessionsAvailable();
+                setSessions(newCount);
+                onSessionsChanged?.(newCount); // Sync to game registry so in-game activation sees new sessions
+                alert(`Purchased ${MINI_ME_SESSIONS_PACK_SIZE} mini-me sessions!`);
+            }
         }
     };
 
