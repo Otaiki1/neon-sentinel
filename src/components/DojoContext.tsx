@@ -1,11 +1,12 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAccount } from "@starknet-react/core";
-import { 
-    getPlayerProfileOnChain, 
-    getMiniMeInventory, 
+import {
+    getPlayerProfileOnChain,
+    getMiniMeInventory,
     getCoinPurchases,
-    normalizeAddress
+    normalizeAddress,
 } from "../services/dojoService";
+import TxLoadingModal from "./TxLoadingModal";
 
 interface DojoContextType {
     profile: any | null;
@@ -14,6 +15,10 @@ interface DojoContextType {
     loading: boolean;
     error: string | null;
     refreshProfile: () => Promise<void>;
+    /** Show the global transaction loading overlay */
+    showTx: (message?: string) => void;
+    /** Hide the global transaction loading overlay */
+    hideTx: () => void;
 }
 
 const DojoContext = createContext<DojoContextType | undefined>(undefined);
@@ -26,7 +31,21 @@ export const DojoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const refreshProfile = async () => {
+    // ── Global TX overlay ───────────────────────────────────
+    const [txVisible, setTxVisible] = useState(false);
+    const [txMessage, setTxMessage] = useState("Processing transaction…");
+
+    const showTx = useCallback((message = "Processing transaction…") => {
+        setTxMessage(message);
+        setTxVisible(true);
+    }, []);
+
+    const hideTx = useCallback(() => {
+        setTxVisible(false);
+    }, []);
+
+    // ── Profile fetch ───────────────────────────────────────
+    const refreshProfile = useCallback(async () => {
         if (!address) return;
         const normalized = normalizeAddress(address);
         setLoading(true);
@@ -34,9 +53,8 @@ export const DojoProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const [onChainProfile, onChainInventory, onChainPurchases] = await Promise.all([
                 getPlayerProfileOnChain(normalized),
                 getMiniMeInventory(normalized),
-                getCoinPurchases(normalized)
+                getCoinPurchases(normalized),
             ]);
-            
             setProfile(onChainProfile);
             setInventory(onChainInventory);
             setPurchases(onChainPurchases);
@@ -47,7 +65,7 @@ export const DojoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } finally {
             setLoading(false);
         }
-    };
+    }, [address]);
 
     useEffect(() => {
         if (isConnected && address) {
@@ -60,7 +78,9 @@ export const DojoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [address, isConnected]);
 
     return (
-        <DojoContext.Provider value={{ profile, inventory, purchases, loading, error, refreshProfile }}>
+        <DojoContext.Provider value={{ profile, inventory, purchases, loading, error, refreshProfile, showTx, hideTx }}>
+            {/* Global transaction loading modal — shown for any on-chain call except end_run */}
+            <TxLoadingModal visible={txVisible} message={txMessage} />
             {children}
         </DojoContext.Provider>
     );

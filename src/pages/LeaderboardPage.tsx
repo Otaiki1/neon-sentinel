@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@starknet-react/core';
 import logoImage from '../assets/logo.png';
 import {
@@ -31,21 +31,35 @@ function LeaderboardPage() {
   const [globalEntries, setGlobalEntries] = useState<LeaderboardEntryNode[]>([]);
   const [myEntries, setMyEntries] = useState<LeaderboardEntryNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      getLeaderboardEntries(50),
-      address ? getPlayerLeaderboardEntries(address) : Promise.resolve([]),
-    ]).then(([global, mine]) => {
-      if (cancelled) return;
+  const fetchData = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      const [global, mine] = await Promise.all([
+        getLeaderboardEntries(50),
+        address ? getPlayerLeaderboardEntries(address) : Promise.resolve([]),
+      ]);
       setGlobalEntries(global);
       setMyEntries(mine);
+      setLastUpdated(new Date());
+    } catch {
+      // silently ignore poll errors
+    } finally {
       setLoading(false);
-    });
-    return () => { cancelled = true; };
+    }
   }, [address]);
+
+  // Initial fetch + re-fetch when address changes
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  // Real-time polling every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => fetchData(false), 30_000);
+    return () => clearInterval(id);
+  }, [fetchData]);
 
   const myBestScore = myEntries.length > 0 ? hexScore(myEntries[0].final_score) : 0;
   const myRank = myBestScore > 0

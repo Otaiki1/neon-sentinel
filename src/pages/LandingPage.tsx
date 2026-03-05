@@ -31,6 +31,7 @@ import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
 import { FirstTimeTooltip } from "../components/Tooltip";
+import TxLoadingModal from "../components/TxLoadingModal";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -90,7 +91,7 @@ export function setUserMode(mode: UserMode): void {
 
 function LandingPage() {
     const { account, address, isConnected: isWalletConnected } = useAccount();
-    const { profile, refreshProfile } = useDojo();
+    const { profile, refreshProfile, showTx, hideTx } = useDojo();
     const walletLabel = isWalletConnected
         ? `${address!.slice(0, 6)}...${address!.slice(-4)}`
         : "LOGIN";
@@ -224,9 +225,12 @@ function LandingPage() {
             return;
         }
         setBuyStatus('pending');
-        setBuyStatusMsg(`Buying ${coinAmount} coins…`);
+        const msg = `Buying ${coinAmount} coins…`;
+        setBuyStatusMsg(msg);
+        showTx(msg);
         try {
             await buyCoinsOnChain(account, coinAmount);
+            hideTx();
             setBuyStatus('success');
             setBuyStatusMsg(`✓ ${coinAmount} coins purchased!`);
             // Optimistically update balance immediately so the user sees the change now
@@ -240,6 +244,7 @@ function LandingPage() {
                 if (attempts >= 6) clearInterval(poll);
             }, 3000);
         } catch (err: any) {
+            hideTx();
             console.error('Failed to buy coins on-chain:', err);
             const msg = err?.message?.includes('Approve') ? 'STRK approval failed' :
                         err?.message?.includes('balance') ? 'Insufficient STRK balance' :

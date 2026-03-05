@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   getProfileStats,
@@ -44,7 +44,13 @@ function StatItem({ iconType, label, value }: { iconType?: 'target' | 'rocket' |
 }
 
 function ProfilePage() {
-  const { profile, inventory: onChainInventory, purchases: onChainPurchases } = useDojo();
+  const { profile, inventory: onChainInventory, purchases: onChainPurchases, refreshProfile } = useDojo();
+
+  // Keep profile in sync with on-chain data — poll every 30 s
+  useEffect(() => {
+    const id = setInterval(() => { refreshProfile().catch(() => {}); }, 30_000);
+    return () => clearInterval(id);
+  }, [refreshProfile]);
   const stats = getProfileStats();
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
   const rankHistory = getRankHistory();
