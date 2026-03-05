@@ -269,14 +269,52 @@ export async function purchaseMiniMeSessions(account: AccountInterface) {
     return await account.execute(call);
 }
 
-export async function buyCoins(account: AccountInterface, amountStrk: string | number | bigint) {
-    const u256Strk = uint256.bnToUint256(amountStrk);
-    const call = {
+// STRK token address on Starknet Sepolia
+const STRK_TOKEN_ADDRESS = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+// Exchange rate: 10 coins per 1 STRK unit (confirmed from on-chain TokenPurchaseConfig).
+// The buy_coins contract receives `amount_strk` as a SMALL INTEGER (whole STRK units), NOT wei.
+// ValidateStrkAmountTrait enforces amount_strk ≤ 1000 (would overflow as wei).
+// Formula: coins = amount_strk * rate  →  amount_strk = coinAmount / rate
+export const COIN_EXCHANGE_RATE = 10;
+
+/**
+ * Buy in-game coins with STRK.
+ * Sends a multicall: [approve STRK, buy_coins].
+ * The contract works with whole STRK token units (NOT 18-decimal wei).
+ * @param account - Connected Starknet account
+ * @param coinAmount - Number of coins to buy (must be a multiple of COIN_EXCHANGE_RATE)
+ */
+export async function buyCoins(account: AccountInterface, coinAmount: number) {
+    // amount_strk is in whole units: 10 coins / 10 rate = 1 unit
+    const strkUnits = Math.ceil(coinAmount / COIN_EXCHANGE_RATE);
+    const u256Strk = uint256.bnToUint256(BigInt(strkUnits));
+
+    // 1. Approve the buy_coins contract to spend the STRK units
+    const approveCall = {
+        contractAddress: STRK_TOKEN_ADDRESS,
+        entrypoint: "approve",
+        calldata: [
+            SYSTEMS.BUY_COINS,  // spender
+            u256Strk.low,       // amount.low
+            u256Strk.high,      // amount.high
+        ],
+    };
+
+    // 2. Buy the coins
+    const buyCall = {
         contractAddress: SYSTEMS.BUY_COINS,
         entrypoint: "buy_coins",
         calldata: [u256Strk.low, u256Strk.high],
     };
-    return await account.execute(call);
+
+    return await account.execute([approveCall, buyCall]);
+}
+
+/**
+ * Returns STRK units needed for a coin purchase.
+ */
+export function coinsToStrk(coinAmount: number): { strkUnits: number } {
+    return { strkUnits: Math.ceil(coinAmount / COIN_EXCHANGE_RATE) };
 }
 
 /**

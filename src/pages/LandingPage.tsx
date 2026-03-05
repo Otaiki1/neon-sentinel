@@ -15,9 +15,7 @@ import {
     type GameplaySettings,
 } from "../services/settingsService";
 import {
-    addCoins,
     getAvailableCoins,
-    getDailyCoins,
 } from "../services/coinService";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import logoImage from "../assets/logo.png";
@@ -33,7 +31,6 @@ import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
 import { FirstTimeTooltip } from "../components/Tooltip";
-import { avatarToKernel } from "../dojo/kernels";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -214,20 +211,40 @@ function LandingPage() {
         setShowMarketplaceModal(false);
     };
 
-    const handleBuyCoins = async (amount: number) => {
-        if (account) {
-            try {
-                // In Sepolia, STRK has 18 decimals. 0.001 STRK per coin? Or 0.005?
-                // Price for 5 is 0.005 STRK. (0.005 * 10^18)
-                const strkAmount = BigInt(amount) * 1000000000000000n; // 10^15 per coin? 10^-3 STRK?
-                await buyCoinsOnChain(account, strkAmount);
-                refreshProfile();
-            } catch (err) {
-                console.error("Failed to buy coins on-chain:", err);
-            }
-        } else {
-            const next = addCoins(amount);
-            setCoins(next);
+    const [buyStatus, setBuyStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [buyStatusMsg, setBuyStatusMsg] = useState('');
+
+    const handleBuyCoins = async (coinAmount: number) => {
+        if (!account) {
+            setBuyStatusMsg('Connect your wallet to buy coins.');
+            setBuyStatus('error');
+            setTimeout(() => setBuyStatus('idle'), 3000);
+            return;
+        }
+        setBuyStatus('pending');
+        setBuyStatusMsg(`Buying ${coinAmount} coins…`);
+        try {
+            await buyCoinsOnChain(account, coinAmount);
+            setBuyStatus('success');
+            setBuyStatusMsg(`✓ ${coinAmount} coins purchased!`);
+            // Optimistically update balance immediately so the user sees the change now
+            setCoins(prev => prev + coinAmount);
+            setTimeout(() => setBuyStatus('idle'), 4000);
+            // Poll Torii in the background until the indexed profile reflects the new balance
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                await refreshProfile();
+                if (attempts >= 6) clearInterval(poll);
+            }, 3000);
+        } catch (err: any) {
+            console.error('Failed to buy coins on-chain:', err);
+            const msg = err?.message?.includes('Approve') ? 'STRK approval failed' :
+                        err?.message?.includes('balance') ? 'Insufficient STRK balance' :
+                        'Transaction failed. Try again.';
+            setBuyStatus('error');
+            setBuyStatusMsg(msg);
+            setTimeout(() => setBuyStatus('idle'), 5000);
         }
     };
 
@@ -1536,45 +1553,35 @@ function LandingPage() {
                             MARKETPLACE
                         </h2>
                         <div className="text-sm font-body text-neon-green space-y-2">
-                            <FirstTimeTooltip
-                                id="marketplace-daily-coins"
-                                content="Daily Coins - You receive 3 coins every day. Use them to purchase items in the marketplace!"
-                                position="bottom"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
-                                <div>
-                                    Daily Coins: {getDailyCoins()}{" "}
-                                    (auto-refresh)
-                                </div>
-                            </FirstTimeTooltip>
-                            <div>Available Coins: {coins}</div>
-                            {!isWalletConnected && (
-                                <div className="opacity-70">
-                                    Crypto purchases are simulated.
+                            <div>Available Coins: <span className="font-score text-base">{coins}</span></div>
+                            <div className="text-xs opacity-60">Rate: 10 coins per 1 STRK</div>
+                            {buyStatus !== 'idle' && (
+                                <div className={`text-xs px-3 py-2 border ${
+                                    buyStatus === 'pending' ? 'border-yellow-400 text-yellow-400' :
+                                    buyStatus === 'success' ? 'border-neon-green text-neon-green' :
+                                    'border-red-500 text-red-500'
+                                }`}>
+                                    {buyStatusMsg}
                                 </div>
                             )}
                         </div>
                         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
                             {[
-                                {
-                                    amount: 5,
-                                    label: "Buy 5 Coins",
-                                    price: "0.005 ETH",
-                                },
-                                {
-                                    amount: 15,
-                                    label: "Buy 15 Coins",
-                                    price: "0.012 ETH",
-                                },
+                                { amount: 10,  label: 'Buy 10 Coins',  strk: '1 STRK' },
+                                { amount: 20,  label: 'Buy 20 Coins',  strk: '2 STRK' },
+                                { amount: 50,  label: 'Buy 50 Coins',  strk: '5 STRK' },
+                                { amount: 100, label: 'Buy 100 Coins', strk: '10 STRK' },
                             ].map((item) => (
                                 <button
                                     key={item.amount}
-                                    className="retro-button font-menu text-sm px-6 py-3"
+                                    className={`retro-button font-menu text-sm px-6 py-3 ${
+                                        buyStatus === 'pending' ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                                     onClick={() => handleBuyCoins(item.amount)}
+                                    disabled={buyStatus === 'pending'}
                                 >
-                                    {item.label} ({item.price})
+                                    {item.label}
+                                    <span className="block text-xs opacity-70 mt-0.5">{item.strk}</span>
                                 </button>
                             ))}
                         </div>

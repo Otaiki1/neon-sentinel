@@ -35,23 +35,19 @@ export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged 
     const [selectedType, setSelectedType] = useState<MiniMeType | null>(null);
     const [action, setAction] = useState<'purchase' | 'activate' | 'buySessions' | null>(null);
 
+    // Always prefer on-chain balance when available; fall back to localStorage
     useEffect(() => {
         if (profile?.coins != null) {
             setCoins(Number(profile.coins));
+        } else if (isOpen) {
+            setCoins(getAvailableCoins());
         }
         if (profile?.mini_me_sessions_purchased != null) {
-            // Contract might store sessions left too? or just purchased.
-            // Let's assume it's current sessions.
             setSessions(Number(profile.mini_me_sessions_purchased));
-        }
-    }, [profile]);
-
-    useEffect(() => {
-        if (isOpen) {
-            setCoins(getAvailableCoins());
+        } else if (isOpen) {
             setSessions(getMiniMeSessionsAvailable());
         }
-    }, [isOpen]);
+    }, [profile, isOpen]);
 
     const handlePurchase = async (type: MiniMeType) => {
         const cost = getMiniMeCost(type);
