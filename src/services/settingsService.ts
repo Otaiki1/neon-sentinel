@@ -15,6 +15,9 @@ export type GameplaySettings = {
     screenShakeIntensity: number;
     gridIntensity: number;
   };
+  audio: {
+    soundEnabled: boolean;
+  };
 };
 
 const STORAGE_KEY = "neon-sentinel-settings";
@@ -34,6 +37,9 @@ const DEFAULT_SETTINGS: GameplaySettings = {
     screenShakeIntensity: 1.0,
     gridIntensity: 1.0,
   },
+  audio: {
+    soundEnabled: true,
+  },
 };
 
 export function getGameplaySettings(): GameplaySettings {
@@ -48,6 +54,7 @@ export function getGameplaySettings(): GameplaySettings {
       ...parsed,
       accessibility: { ...DEFAULT_SETTINGS.accessibility, ...parsed.accessibility },
       visual: { ...DEFAULT_SETTINGS.visual, ...parsed.visual },
+      audio: { ...DEFAULT_SETTINGS.audio, ...parsed.audio },
     };
   } catch (error) {
     console.error("Error loading settings:", error);

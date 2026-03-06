@@ -8,6 +8,9 @@ import {
 } from '../services/avatarService';
 import { getAvailableCoins } from '../services/coinService';
 import { getCurrentPrestigeFromStorage } from '../services/rankService';
+import { useAccount } from '@starknet-react/core';
+import { useDojo } from './DojoContext';
+import { purchaseCosmetic } from '../services/dojoService';
 import './AvatarSelectionModal.css';
 
 interface AvatarSelectionModalProps {
@@ -21,10 +24,18 @@ export default function AvatarSelectionModal({
     onClose,
     onAvatarChange 
 }: AvatarSelectionModalProps) {
+    const { account } = useAccount();
+    const { profile, refreshProfile } = useDojo();
     const [avatars, setAvatars] = useState<ReturnType<typeof getAllAvatarsWithStatus>>([]);
     const [activeAvatarId, setActiveAvatarId] = useState<AvatarId>(getActiveAvatar());
     const [coins, setCoins] = useState(getAvailableCoins());
     const [prestigeLevel, setPrestigeLevel] = useState(0);
+
+    useEffect(() => {
+        if (profile?.coins != null) {
+            setCoins(Number(profile.coins));
+        }
+    }, [profile]);
 
     useEffect(() => {
         if (isOpen) {
@@ -36,21 +47,39 @@ export default function AvatarSelectionModal({
         }
     }, [isOpen]);
 
-    const handlePurchase = (avatarId: AvatarId, cost: number) => {
+    const handlePurchase = async (avatarId: AvatarId, cost: number) => {
         if (coins < cost) {
             alert(`Not enough coins! You need ${cost} coins.`);
             return;
         }
-        
-        const success = purchaseAvatar(avatarId);
-        if (success) {
-            setAvatars(getAllAvatarsWithStatus(prestigeLevel));
-            setCoins(getAvailableCoins());
-            if (onAvatarChange) {
-                onAvatarChange();
+
+        if (account) {
+            try {
+                // Item type 0 = Avatar
+                // Need a map for avatarId -> index.
+                // For now use a simple list map.
+                const avatarIds = ['default_sentinel', 'swift_interceptor', 'artillery_unit', 'guardian_core', 'sniper_kernel', 'assault_nexus', 'neon_guardian', 'void_sentinel', 'plasma_core', 'prime_sentinel', 'transcendent_form'];
+                const idx = avatarIds.indexOf(avatarId);
+                if (idx === -1) throw new Error("Unknown avatar ID");
+                
+                await purchaseCosmetic(account, 0, idx);
+                refreshProfile();
+                alert(`${avatarId} purchased on-chain!`);
+            } catch (err) {
+                console.error("Failed to purchase avatar on-chain:", err);
+                alert("On-chain purchase failed.");
             }
         } else {
-            alert('Failed to purchase avatar. Please try again.');
+            const success = purchaseAvatar(avatarId);
+            if (success) {
+                setAvatars(getAllAvatarsWithStatus(prestigeLevel));
+                setCoins(getAvailableCoins());
+                if (onAvatarChange) {
+                    onAvatarChange();
+                }
+            } else {
+                alert('Failed to purchase avatar. Please try again.');
+            }
         }
     };
 

@@ -43,15 +43,11 @@ const STORAGE_KEY = 'neon_sentinel_scores';
 const WEEK_KEY = 'neon_sentinel_current_week';
 
 /**
- * Calculate ISO week number from a date
- * ISO 8601 week numbering: Week 1 is the week with the year's first Thursday
+ * Calculate the week number exactly as the Cairo contract does:
+ * block.timestamp / SECONDS_PER_WEEK (where SECONDS_PER_WEEK = 604800)
  */
-export function getCurrentISOWeek(date: Date = new Date()): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+export function getCurrentOnchainWeek(): number {
+  return Math.floor(Date.now() / 1000 / 604800) - 2930;
 }
 
 /**
@@ -73,7 +69,7 @@ function setStoredWeek(week: number): void {
  * Check if the leaderboard should be reset (week has changed)
  */
 export function shouldResetLeaderboard(): boolean {
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const storedWeek = getStoredWeek();
   
   if (storedWeek === null) {
@@ -93,7 +89,7 @@ export function shouldResetLeaderboard(): boolean {
  * Reset leaderboard by removing scores from previous weeks
  */
 export function resetWeeklyLeaderboard(): void {
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const allScores = getAllScores();
   const currentWeekScores = allScores.filter(score => score.week === currentWeek);
   
@@ -146,7 +142,7 @@ export function submitScore(
     resetWeeklyLeaderboard();
   }
   
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   
   // Create player name from wallet address or use anonymous
   const playerName = walletAddress 
@@ -196,7 +192,7 @@ export function fetchWeeklyLeaderboard(): ScoreEntry[] {
     resetWeeklyLeaderboard();
   }
   
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const allScores = getAllScores();
   
   // Filter by current week and sort by score (descending)
@@ -213,7 +209,7 @@ export function fetchWeeklyChallengeLeaderboard(): ScoreEntry[] {
     resetWeeklyLeaderboard();
   }
 
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const allScores = getAllScores();
 
   return allScores
@@ -229,7 +225,7 @@ export function fetchWeeklyCategoryLeaderboard(
     resetWeeklyLeaderboard();
   }
 
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const allScores = getAllScores();
 
   return sortScoresByCategory(
@@ -312,7 +308,7 @@ function sortScoresByCategory(
  */
 export function getCurrentWeekNumber(): number {
   // Ensure week is stored
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   if (shouldResetLeaderboard()) {
     resetWeeklyLeaderboard();
   }
@@ -349,7 +345,7 @@ export function getWeeklyRanking(input: {
   if (shouldResetLeaderboard()) {
     resetWeeklyLeaderboard();
   }
-  const currentWeek = getCurrentISOWeek();
+  const currentWeek = getCurrentOnchainWeek();
   const allScores = getAllScores();
   const weeklyScores = allScores
     .filter((score) => score.week === currentWeek)

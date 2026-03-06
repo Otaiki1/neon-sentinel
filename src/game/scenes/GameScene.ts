@@ -97,6 +97,8 @@ import {
     calculateRankMilestone,
 } from "../../services/rankService";
 import { markFinalBossDefeated } from "../../services/avatarService";
+import { dojoService } from "../../services/dojoService";
+import type { AccountInterface } from "starknet";
 import {
     getDialogueForTrigger,
     type DialogueState,
@@ -246,6 +248,9 @@ export class GameScene extends Phaser.Scene {
     private avatarHealthMultiplier = 1;
     private avatarDamageMultiplier = 1;
     private shotsFiredThisRun = 0;
+    
+    // Audio State
+    private currentBGM?: Phaser.Sound.BaseSound;
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
     private enemyUidCounter = 0;
@@ -341,6 +346,13 @@ export class GameScene extends Phaser.Scene {
 
     create() {
         this.applyGameplaySettings();
+        
+        // Sync Phaser audio with React settings
+        const settings = this.registry.get("gameplaySettings") as { audio?: { soundEnabled?: boolean } } | undefined;
+        // Default to true if not set
+        this.sound.mute = settings?.audio?.soundEnabled === false;
+        this.playRandomBGM();
+
         this.applyPregameSessionEffects();
         // Draw background grid
         this.drawBackgroundGrid();
@@ -1953,6 +1965,8 @@ export class GameScene extends Phaser.Scene {
         const playerX = this.player.x + 30;
         const playerY = this.player.y;
 
+        this.sound.play("shoot-bullet", { volume: 0.25 });
+
         // God mode: use fire blasts
         if (this.godModeActive) {
             const bullet = this.bullets.get(
@@ -3253,6 +3267,8 @@ export class GameScene extends Phaser.Scene {
         const enemyArray = this.enemies.children.entries as Phaser.Physics.Arcade.Sprite[];
         const activeEnemies = enemyArray.filter(e => e.active);
         
+        this.sound.play("shockwave", { volume: 0.8 });
+
         // Create blue streak effects that strike all enemies
         this.createShockBombStreaks(activeEnemies);
 
@@ -5148,7 +5164,38 @@ export class GameScene extends Phaser.Scene {
         
         // After fade, trigger victory sequence
         this.time.delayedCall(2000, () => {
-            // Game complete - can show victory screen via React component
+            // Game complete - trigger on-chain run conclusion for final boss victory
+            const account = this.registry.get("starknetAccount") as AccountInterface;
+            const walletAddress = this.registry.get("walletAddress") as string;
+            if (account && walletAddress) {
+                (async () => {
+                    try {
+                        // Check registry first, then sessionStorage (survives React double-mount)
+                        let runId = (this.registry.get("activeRunId") as string | undefined)
+                            || sessionStorage.getItem("activeRunId") || undefined;
+                        if (!runId) {
+                            console.log("[OnChain] No cached runId – querying Torii...");
+                            runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
+                        }
+                        if (runId) {
+                            console.log("[OnChain] Final boss victory – ending run:", runId);
+                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            const endTxHash = endResult?.transaction_hash;
+                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
+                            await dojoService.submitToLeaderboard(account, runId);
+                            console.log("[OnChain] Final boss run concluded and submitted. RunId:", runId);
+                            this.registry.remove("activeRunId");
+                            sessionStorage.removeItem("activeRunId");
+                        } else {
+                            console.warn("[OnChain] No active run found for final boss victory.");
+                        }
+                    } catch (err) {
+                        console.error("[OnChain] Failed to conclude final boss run on-chain:", err);
+                    }
+                })();
+            }
             this.gameOver = true;
             this.registry.set("gameOver", true);
             this.registry.set("finalBossVictory", true);
@@ -5740,6 +5787,7 @@ export class GameScene extends Phaser.Scene {
 
         // Create explosion
         this.createExplosion(this.player.x, this.player.y, "medium");
+        this.sound.play("glitch-effect", { volume: 0.7 });
         this.triggerHaptic(SENSORY_ESCALATION.hapticFeedback.onDamage);
 
         // Calculate health bar damage based on damage multiplier
@@ -5784,6 +5832,42 @@ export class GameScene extends Phaser.Scene {
         if (this.healthBars === 0) {
             // Game over
             this.gameOver = true;
+
+            // Handle on-chain run conclusion
+            const account = this.registry.get("starknetAccount") as AccountInterface;
+            const walletAddress = this.registry.get("walletAddress") as string;
+            if (account && walletAddress) {
+                (async () => {
+                    try {
+                        // Check registry first, then sessionStorage (survives React double-mount)
+                        let runId = (this.registry.get("activeRunId") as string | undefined)
+                            || sessionStorage.getItem("activeRunId") || undefined;
+                        if (!runId) {
+                            console.log("[OnChain] No cached runId in registry or sessionStorage – querying Torii...");
+                            runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
+                        }
+                        if (runId) {
+                            console.log("[OnChain] Ending run:", runId);
+                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                            const endTxHash = endResult?.transaction_hash;
+                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
+                            await dojoService.submitToLeaderboard(account, runId);
+                            console.log("[OnChain] Run concluded and submitted to leaderboard. RunId:", runId);
+                            // Clear both sources so it's not reused on the next run
+                            this.registry.remove("activeRunId");
+                            sessionStorage.removeItem("activeRunId");
+                        } else {
+                            console.warn("[OnChain] No active run found – skipping end_run/submit_leaderboard.");
+                        }
+                    } catch (err) {
+                        console.error("[OnChain] Failed to conclude run on-chain:", err);
+                    }
+                })();
+            } else {
+                console.warn("[OnChain] No wallet connected – skipping end_run/submit_leaderboard.");
+            }
             
             // Clean up mini-mes on game over
             this.cleanupMiniMes();
@@ -6320,6 +6404,8 @@ export class GameScene extends Phaser.Scene {
 
         const explosion = this.add.sprite(x, y, key);
         explosion.setScale(scale * MOBILE_SCALE);
+        
+        this.sound.play("explosion", { volume: size === "large" ? 0.6 : 0.3 });
 
         this.tweens.add({
             targets: explosion,
@@ -6906,6 +6992,7 @@ export class GameScene extends Phaser.Scene {
 
         // Remove power-up
         p.destroy();
+        this.sound.play("absorb-powerup", { volume: 0.6 });
         this.triggerHaptic(
             SENSORY_ESCALATION.hapticFeedback.onPowerUpCollect
         );
@@ -8483,6 +8570,35 @@ export class GameScene extends Phaser.Scene {
                     helper.setData('lastShotTime', time);
                 }
             }
+        });
+    }
+
+    private playRandomBGM() {
+        if (this.currentBGM) {
+            this.currentBGM.stop();
+        }
+
+        const BGM_PLAYLIST = [
+            'game-environment',
+            'game-environment-1',
+            'game-environment-2',
+            'game-environment-3',
+            'game-environment-4',
+            'game-environment-5',
+            'game-scene-1'
+        ];
+        
+        const randomTrack = Phaser.Utils.Array.GetRandom(BGM_PLAYLIST);
+        
+        if (!this.cache.audio.exists(randomTrack)) {
+            console.warn(`Audio track ${randomTrack} missing from cache! Check BootScene.ts or perform a hard refresh.`);
+            return;
+        }
+
+        this.currentBGM = this.sound.add(randomTrack, { volume: 0.2 });
+        this.currentBGM.play();
+        this.currentBGM.once('complete', () => {
+            this.playRandomBGM();
         });
     }
 }

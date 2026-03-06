@@ -1227,6 +1227,34 @@ export const BADGE_ASSETS: AssetMapping[] = [
 ];
 
 /**
+ * Audio Asset Mappings
+ */
+export const AUDIO_ASSETS: AssetMapping[] = [
+    { key: "absorb-powerup", path: "/sounds/absorb-powerup.mp3", required: false },
+    { key: "boss-2-incoming", path: "/sounds/boss-2-incoming.mp3", required: false },
+    { key: "boss-incoming", path: "/sounds/boss-incoming.mp3", required: false },
+    { key: "explosion", path: "/sounds/explosion.mp3", required: false },
+    { key: "fire-burn", path: "/sounds/fire-burn.mp3", required: false },
+    { key: "game-environment-1", path: "/sounds/game-environment-1.mp3", required: false },
+    { key: "game-environment-2", path: "/sounds/game-environment-2.mp3", required: false },
+    { key: "game-environment-3", path: "/sounds/game-environment-3.mp3", required: false },
+    { key: "game-environment-4", path: "/sounds/game-environment-4.mp3", required: false },
+    { key: "game-environment-5", path: "/sounds/game-environment-5.mp3", required: false },
+    { key: "game-environment", path: "/sounds/game-environment.mp3", required: false },
+    { key: "game-scene-1", path: "/sounds/game-scene-1.mp3", required: false },
+    { key: "glitch-effect", path: "/sounds/glitch-effect.mp3", required: false },
+    { key: "laser-gun", path: "/sounds/laser-gun.mp3", required: false },
+    { key: "laser-heavy", path: "/sounds/laser-heavy.mp3", required: false },
+    { key: "prestige-boss-coming", path: "/sounds/prestige-boss-coming.mp3", required: false },
+    { key: "shockwave-2", path: "/sounds/shockwave-2.mp3", required: false },
+    { key: "shockwave", path: "/sounds/shockwave.mp3", required: false },
+    { key: "shoot-bullet-2", path: "/sounds/shoot-bullet-2.mp3", required: false },
+    { key: "shoot-bullet", path: "/sounds/shoot-bullet.mp3", required: false },
+    { key: "static-corruption", path: "/sounds/static-corruption.mp3", required: false },
+    { key: "ui-click", path: "/sounds/ui-click.mp3", required: false },
+];
+
+/**
  * All asset mappings combined
  */
 export const ALL_ASSETS: AssetMapping[] = [
@@ -1240,6 +1268,7 @@ export const ALL_ASSETS: AssetMapping[] = [
     ...UI_ASSETS,
     ...LAYER_BACKGROUND_ASSETS,
     ...BADGE_ASSETS,
+    ...AUDIO_ASSETS,
 ];
 
 /**

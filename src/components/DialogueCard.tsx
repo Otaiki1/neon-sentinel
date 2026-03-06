@@ -29,8 +29,8 @@ export const DialogueCard: React.FC<DialogueCardProps> = ({
     const [displayedText, setDisplayedText] = useState('');
     const [isVisible, setIsVisible] = useState(true);
     const [isComplete, setIsComplete] = useState(false);
-    const typewriterTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const typewriterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentIndexRef = useRef(0);
 
     // Typewriter effect

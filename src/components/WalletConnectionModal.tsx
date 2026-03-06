@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import './WalletConnectionModal.css';
+import { useEffect, useMemo, useState } from "react";
+import { useAccount, useConnect } from "@starknet-react/core";
+import { ControllerConnector } from "@cartridge/connector";
+import "./WalletConnectionModal.css";
 
 interface WalletConnectionModalProps {
   isOpen: boolean;
@@ -9,21 +10,31 @@ interface WalletConnectionModalProps {
 }
 
 function WalletConnectionModal({ isOpen, onClose, onAnonymous }: WalletConnectionModalProps) {
-  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const { address } = useAccount();
+  const { connect, connectors } = useConnect();
   const [isConnecting, setIsConnecting] = useState(false);
 
   // Close modal if wallet gets connected
   useEffect(() => {
-    if (primaryWallet && isOpen) {
+    if (address && isOpen) {
       onClose();
     }
-  }, [primaryWallet, isOpen, onClose]);
+  }, [address, isOpen, onClose]);
+
+  const controller = useMemo(() => {
+    return connectors.find((c) => c.id === "controller") as ControllerConnector | undefined;
+  }, [connectors]);
 
   if (!isOpen) return null;
 
-  const handleConnectWallet = () => {
+  const handleConnectWallet = async () => {
+    if (!controller) return;
     setIsConnecting(true);
-    setShowAuthFlow(true);
+    try {
+      await Promise.resolve(connect({ connector: controller }));
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   return (
@@ -51,7 +62,7 @@ function WalletConnectionModal({ isOpen, onClose, onAnonymous }: WalletConnectio
             <button 
               className="wallet-modal-button wallet-modal-button-primary retro-button font-logo text-lg px-8 py-4"
               onClick={handleConnectWallet}
-              disabled={isConnecting}
+              disabled={isConnecting || !controller}
             >
               {isConnecting ? 'CONNECTING...' : '>> CONNECT WALLET <<'}
             </button>

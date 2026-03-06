@@ -1,8 +1,12 @@
+import { useAccount } from "@starknet-react/core";
 import { Link } from "react-router-dom";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useDojo } from "../components/DojoContext";
+import {
+    buyCoins as buyCoinsOnChain,
+} from "../services/dojoService";
 import {
     fetchWeeklyLeaderboard,
-    getCurrentISOWeek,
+    getCurrentOnchainWeek,
 } from "../services/scoreService";
 import { CUSTOMIZABLE_SETTINGS } from "../game/config";
 import {
@@ -11,9 +15,7 @@ import {
     type GameplaySettings,
 } from "../services/settingsService";
 import {
-    addCoins,
     getAvailableCoins,
-    getDailyCoins,
 } from "../services/coinService";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import logoImage from "../assets/logo.png";
@@ -24,11 +26,12 @@ import iconMarketplace from "../assets/icons/icon-marketplace.svg";
 import iconInventory from "../assets/icons/icon-inventory.svg";
 import iconLogin from "../assets/icons/icon-login.svg";
 import WalletConnectionModal from "../components/WalletConnectionModal";
-import StoryModal from "../components/StoryModal";
+
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
-import { FirstTimeTooltip } from "../components/Tooltip";
+import CommanderWalkthrough from "../components/CommanderWalkthrough";
+import { soundManager } from "../utils/soundUtils";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -58,22 +61,9 @@ function getHeroPortraitPath(spriteKey: string): string {
 
 const WALLET_MODAL_SEEN_KEY = "neon-sentinel-wallet-modal-seen";
 const USER_MODE_KEY = "neon-sentinel-user-mode";
-const STORY_MODAL_SEEN_KEY = "neon-sentinel-story-modal-seen";
-const TOOLTIP_KEYS = [
-    "nav-hall",
-    "nav-profile",
-    "nav-settings",
-    "nav-marketplace",
-    "nav-login",
-    "start-game",
-    "kernel-selection",
-    "weekly-leaderboard",
-    "system-depth",
-    "champions",
-    "daily-coins",
-    "marketplace-daily-coins",
-];
-const TOOLTIP_SEEN_PREFIX = "neon-sentinel-tooltip-seen-";
+
+
+
 
 export type UserMode = "wallet" | "anonymous";
 
@@ -87,10 +77,10 @@ export function setUserMode(mode: UserMode): void {
 }
 
 function LandingPage() {
-    const { primaryWallet } = useDynamicContext();
-    const isWalletConnected = !!primaryWallet;
+    const { account, address, isConnected: isWalletConnected } = useAccount();
+    const { profile, refreshProfile, showTx, hideTx } = useDojo();
     const walletLabel = isWalletConnected
-        ? `${primaryWallet!.address.slice(0, 6)}...${primaryWallet!.address.slice(-4)}`
+        ? `${address!.slice(0, 6)}...${address!.slice(-4)}`
         : "LOGIN";
     const [leaderboard, setLeaderboard] = useState<
         Array<{
@@ -102,8 +92,7 @@ function LandingPage() {
     >([]);
     const [currentWeek, setCurrentWeek] = useState<number>(1);
     const [showWalletModal, setShowWalletModal] = useState(false);
-    const [showStoryModal, setShowStoryModal] = useState(false);
-    const [showSettingsModal, setShowSettingsModal] = useState(false);
+        const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showMarketplaceModal, setShowMarketplaceModal] = useState(false);
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
@@ -113,27 +102,24 @@ function LandingPage() {
         getGameplaySettings(),
     );
     const [coins, setCoins] = useState(getAvailableCoins());
+    useEffect(() => {
+        if (profile?.coins != null) {
+            setCoins(Number(profile.coins));
+        } else {
+            setCoins(getAvailableCoins());
+        }
+    }, [profile]);
     const [currentRank, setCurrentRank] = useState(() => {
         const stored = getCurrentRankFromStorage();
         return stored ? stored.name : "Initiate Sentinel";
     });
-    const [currentTooltipId, setCurrentTooltipId] = useState<string | null>(
-        () => {
-            const unseen = TOOLTIP_KEYS.find(
-                (id) =>
-                    localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !==
-                    "true",
-            );
-            return unseen ?? null;
-        },
-    );
 
     useEffect(() => {
         const scores = fetchWeeklyLeaderboard();
         setLeaderboard(scores.slice(0, 3)); // Top 3
-        setCurrentWeek(getCurrentISOWeek());
+        setCurrentWeek(getCurrentOnchainWeek());
         setSettings(getGameplaySettings());
-        setCoins(getAvailableCoins());
+        // Don't reset coins here — allow profile useEffect to set on-chain balance
 
         // Update rank display
         const stored = getCurrentRankFromStorage();
@@ -158,111 +144,124 @@ function LandingPage() {
         if (!hasSeenModal && !isWalletConnected && !userMode) {
             setShowWalletModal(true);
         }
-    }, [primaryWallet]);
+    }, [isWalletConnected]);
+
+    // Start UI ambient BGM
+    useEffect(() => {
+        soundManager.playBGM();
+        return () => soundManager.stopBGM();
+    }, []);
 
     const handleCloseModal = () => {
+        soundManager.playClick();
         setShowWalletModal(false);
         localStorage.setItem(WALLET_MODAL_SEEN_KEY, "true");
     };
 
     const handleOpenWalletModal = () => {
+        soundManager.playClick();
         setShowWalletModal(true);
     };
 
     const handleAnonymous = () => {
+        soundManager.playClick();
         setUserMode("anonymous");
         handleCloseModal();
     };
 
-    const handleCloseStoryModal = () => {
-        setShowStoryModal(false);
-        localStorage.setItem(STORY_MODAL_SEEN_KEY, "true");
-    };
-
     const handleOpenSettings = () => {
+        soundManager.playClick();
         setSettings(getGameplaySettings());
         setShowSettingsModal(true);
     };
 
     const handleCloseSettings = () => {
+        soundManager.playClick();
         setShowSettingsModal(false);
     };
 
     const handleSaveSettings = () => {
+        soundManager.playClick();
         saveGameplaySettings(settings);
         setShowSettingsModal(false);
     };
 
     const handleOpenMarketplace = () => {
-        setCoins(getAvailableCoins());
+        soundManager.playClick();
         setShowMarketplaceModal(true);
     };
 
     const handleCloseMarketplace = () => {
+        soundManager.playClick();
         setShowMarketplaceModal(false);
     };
 
-    const handleBuyCoins = (amount: number) => {
-        const next = addCoins(amount);
-        setCoins(next);
+    const [buyStatus, setBuyStatus] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [buyStatusMsg, setBuyStatusMsg] = useState('');
+
+    const handleBuyCoins = async (coinAmount: number) => {
+        soundManager.playClick();
+        if (!account) {
+            setBuyStatusMsg('Connect your wallet to buy coins.');
+            setBuyStatus('error');
+            setTimeout(() => setBuyStatus('idle'), 3000);
+            return;
+        }
+        setBuyStatus('pending');
+        const msg = `Buying ${coinAmount} coins…`;
+        setBuyStatusMsg(msg);
+        showTx(msg);
+        try {
+            await buyCoinsOnChain(account, coinAmount);
+            hideTx();
+            setBuyStatus('success');
+            setBuyStatusMsg(`✓ ${coinAmount} coins purchased!`);
+            // Optimistically update balance immediately so the user sees the change now
+            setCoins(prev => prev + coinAmount);
+            setTimeout(() => setBuyStatus('idle'), 4000);
+            // Poll Torii in the background until the indexed profile reflects the new balance
+            let attempts = 0;
+            const poll = setInterval(async () => {
+                attempts++;
+                await refreshProfile();
+                if (attempts >= 6) clearInterval(poll);
+            }, 3000);
+        } catch (err: any) {
+            hideTx();
+            console.error('Failed to buy coins on-chain:', err);
+            const msg = err?.message?.includes('Approve') ? 'STRK approval failed' :
+                        err?.message?.includes('balance') ? 'Insufficient STRK balance' :
+                        'Transaction failed. Try again.';
+            setBuyStatus('error');
+            setBuyStatusMsg(msg);
+            setTimeout(() => setBuyStatus('idle'), 5000);
+        }
     };
 
     const handleOpenAvatarModal = () => {
-        setCoins(getAvailableCoins());
+        soundManager.playClick();
         setShowAvatarModal(true);
     };
 
     const handleCloseAvatarModal = () => {
+        soundManager.playClick();
         setShowAvatarModal(false);
     };
 
     const handleAvatarChange = () => {
         setActiveAvatar(getActiveAvatar());
-        setCoins(getAvailableCoins());
     };
 
-    const advanceTooltip = () => {
-        if (currentTooltipId === null) return;
-        localStorage.setItem(
-            `${TOOLTIP_SEEN_PREFIX}${currentTooltipId}`,
-            "true",
-        );
-        const currentIndex = TOOLTIP_KEYS.indexOf(currentTooltipId);
-        const next = TOOLTIP_KEYS.slice(currentIndex + 1).find(
-            (id) =>
-                localStorage.getItem(`${TOOLTIP_SEEN_PREFIX}${id}`) !== "true",
-        );
-        setCurrentTooltipId(next ?? null);
-    };
-
-    const skipTour = () => {
-        TOOLTIP_KEYS.forEach((id) =>
-            localStorage.setItem(`${TOOLTIP_SEEN_PREFIX}${id}`, "true"),
-        );
-        setCurrentTooltipId(null);
-    };
+    
 
     // Update user mode when wallet connects
     useEffect(() => {
-        if (primaryWallet) {
+        if (address) {
             setUserMode("wallet");
         }
-    }, [primaryWallet]);
+    }, [address]);
 
-    useEffect(() => {
-        const hasSeenStory =
-            localStorage.getItem(STORY_MODAL_SEEN_KEY) === "true";
-        const userMode = getUserMode();
-
-        if (
-            !hasSeenStory &&
-            !showWalletModal &&
-            (userMode || isWalletConnected)
-        ) {
-            setShowStoryModal(true);
-        }
-    }, [isWalletConnected, showWalletModal]);
-
+    
     // Generate weekly sector name based on week number
     const weeklySectorNames = [
         "Crimson Virus",
@@ -379,17 +378,10 @@ function LandingPage() {
         return list;
     }, [activeAvatar]);
 
-    const storyText = [
-        "> BOOT SECTOR ONLINE...",
-        "> THE GRID IS COLLAPSING UNDER A CORRUPTION KNOWN AS THE SWARM.",
-        "> YOU ARE A NEON SENTINEL, A SECURITY PROGRAM BUILT TO CONTAIN IT.",
-        "> EACH LAYER YOU ENTER IS DEEPER, DARKER, AND MORE DEADLY.",
-        "> DESTROY CORRUPTED ENTITIES. SURVIVE. PUSH THE SYSTEM BACK.",
-        "> SIGNAL LOST IN: 00:00:03...",
-    ].join("\n");
-
     return (
         <div className="min-h-screen bg-black text-neon-green relative overflow-hidden scanlines">
+            <CommanderWalkthrough onComplete={() => {}} />
+
             {/* Background Image */}
             <div
                 className="fixed inset-0 pointer-events-none z-0"
@@ -414,18 +406,6 @@ function LandingPage() {
                 aria-hidden
             />
 
-            {currentTooltipId && (
-                <div className="fixed top-4 right-4 z-50 flex gap-2">
-                    <button
-                        type="button"
-                        onClick={skipTour}
-                        className="font-body text-xs px-3 py-2 border border-neon-green text-neon-green bg-black bg-opacity-70 hover:bg-neon-green hover:text-black transition-all duration-150"
-                    >
-                        Skip tutorial
-                    </button>
-                </div>
-            )}
-
             <div className="relative z-10 container mx-auto px-4 md:px-8 py-8 md:py-12 max-w-7xl">
                 <header className="landing-header mb-8 md:mb-10">
                     <nav
@@ -433,14 +413,7 @@ function LandingPage() {
                         aria-label="Main navigation"
                     >
                         <span className="nav-scan-line" aria-hidden />
-                        <FirstTimeTooltip
-                            id="nav-hall"
-                            content="View the Hall of Fame - see top players across all leaderboard categories and your achievements."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <Link
                                 to="/leaderboards"
                                 className="nav-icon-button"
@@ -453,15 +426,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">HALL</span>
                             </Link>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-profile"
-                            content="View your profile - see your stats, achievements, unlocked kernels, and progression."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <Link
                                 to="/profile"
                                 className="nav-icon-button"
@@ -474,15 +440,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">PROFILE</span>
                             </Link>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-settings"
-                            content="Adjust game settings - control volume, UI scale, accessibility options, and gameplay preferences."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -496,15 +455,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">SETTINGS</span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-marketplace"
-                            content="Visit the marketplace - spend coins to unlock cosmetics, heroes, and other items."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -518,15 +470,8 @@ function LandingPage() {
                                 />
                                 <span className="nav-icon-label">MARKET</span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-inventory"
-                            content="Manage your Mini-Me inventory - purchase and activate companions to help you in battle."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -542,15 +487,8 @@ function LandingPage() {
                                     INVENTORY
                                 </span>
                             </button>
-                        </FirstTimeTooltip>
-                        <FirstTimeTooltip
-                            id="nav-login"
-                            content="Connect your wallet or play anonymously. Wallet connection enables additional features."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
+                        
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -566,7 +504,7 @@ function LandingPage() {
                                     {walletLabel}
                                 </span>
                             </button>
-                        </FirstTimeTooltip>
+                        
                     </nav>
                     <section
                         className="landing-logo-section text-center mb-8 md:mb-10"
@@ -617,14 +555,7 @@ function LandingPage() {
                         className="start-game-on-card mb-4"
                         aria-label="Start game"
                     >
-                        <FirstTimeTooltip
-                            id="start-game"
-                            content="Click to start playing! Use arrow keys or WASD to move, Spacebar to shoot. Destroy enemies to score points and survive as long as possible."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <button
                                 type="button"
                                 className="start-game-btn-link start-game-btn-wide font-display"
@@ -638,7 +569,7 @@ function LandingPage() {
                                     Liberate the Neon Terminal
                                 </p>
                             </button>
-                        </FirstTimeTooltip>
+                        
                     </section>
 
                     {/* Hero Panel: character left, two big buttons right */}
@@ -794,14 +725,7 @@ function LandingPage() {
                                 &gt;&gt; EQUIP MINIMES &gt;&gt;
                             </button>
                         </div>
-                        <FirstTimeTooltip
-                            id="kernel-selection"
-                            content="Choose your character. Each has different stats. Unlock more by reaching prestige levels and spending coins."
-                            position="bottom"
-                            activeId={currentTooltipId}
-                            onNext={advanceTooltip}
-                            onSkip={skipTour}
-                        >
+                        
                             <div className="kernel-selector-panel mb-8 md:mb-10">
                                 <div className="kernel-selector-header">
                                     <h2 className="kernel-selector-title">
@@ -939,7 +863,7 @@ function LandingPage() {
                                             )}
                                         </div>
                             </div>
-                        </FirstTimeTooltip>
+                        
                     </section>
 
                     {/* Bottom panels: UNLOCKED SYSTEMS | SYSTEM DEPTH | CHAMPIONS */}
@@ -949,14 +873,7 @@ function LandingPage() {
                     >
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                             {/* UNLOCKED SYSTEMS - horizontal row of icons */}
-                            <FirstTimeTooltip
-                                id="weekly-leaderboard"
-                                content="Unlocked systems - kernels and features you've unlocked."
-                                position="right"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1015,17 +932,10 @@ function LandingPage() {
                                         ))}
                                     </div>
                                 </div>
-                            </FirstTimeTooltip>
+                            
 
                             {/* SYSTEM DEPTH - numbered 1-5 boxes */}
-                            <FirstTimeTooltip
-                                id="system-depth"
-                                content="System Depth - prestige levels. Hover boxes for glow."
-                                position="right"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1071,17 +981,10 @@ function LandingPage() {
                                         BOOT SECTOR → KERNEL BREACH
                                     </p>
                                 </div>
-                            </FirstTimeTooltip>
+                            
 
                             {/* CHAMPIONS */}
-                            <FirstTimeTooltip
-                                id="champions"
-                                content="Champions - top players for the current sector."
-                                position="left"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
+                            
                                 <div className="retro-panel">
                                     <h2
                                         className="font-menu text-base md:text-lg mb-3 text-neon-green border-b-2 border-neon-green pb-2"
@@ -1116,7 +1019,7 @@ function LandingPage() {
                                         </div>
                                     </div>
                                 </div>
-                            </FirstTimeTooltip>
+                            
                         </div>
                     </section>
 
@@ -1291,6 +1194,28 @@ function LandingPage() {
                                     <option value="easy">Easy</option>
                                     <option value="hard">Hard</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <div className="font-menu text-xs mb-2">
+                                    AUDIO
+                                </div>
+                                <label className="flex items-center space-x-3 bg-black border border-neon-green px-3 py-2 cursor-pointer hover:bg-[#001a00] transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.audio?.soundEnabled ?? true}
+                                        onChange={(e) => {
+                                            const enabled = e.target.checked;
+                                            soundManager.setMuted(!enabled);
+                                            setSettings({
+                                                ...settings,
+                                                audio: { soundEnabled: enabled }
+                                            });
+                                        }}
+                                        className="form-checkbox text-neon-green border-neon-green bg-black w-4 h-4"
+                                    />
+                                    <span className="font-body text-neon-green">Enable Sound & Music</span>
+                                </label>
                             </div>
 
                             <div>
@@ -1512,43 +1437,41 @@ function LandingPage() {
                             MARKETPLACE
                         </h2>
                         <div className="text-sm font-body text-neon-green space-y-2">
-                            <FirstTimeTooltip
-                                id="marketplace-daily-coins"
-                                content="Daily Coins - You receive 3 coins every day. Use them to purchase items in the marketplace!"
-                                position="bottom"
-                                activeId={currentTooltipId}
-                                onNext={advanceTooltip}
-                                onSkip={skipTour}
-                            >
-                                <div>
-                                    Daily Coins: {getDailyCoins()}{" "}
-                                    (auto-refresh)
-                                </div>
-                            </FirstTimeTooltip>
-                            <div>Available Coins: {coins}</div>
-                            <div className="opacity-70">
-                                Crypto purchases are simulated.
+                            <div className="flex items-center gap-2">
+                                <img src="/coin.png" alt="coin" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 0 4px #00ff00)' }} />
+                                <span>Available: <span className="font-score text-base font-bold">{coins}</span> coins</span>
                             </div>
+                            <div className="text-xs opacity-60">Rate: 10 coins per 1 STRK</div>
+                            {buyStatus !== 'idle' && (
+                                <div className={`text-xs px-3 py-2 border ${
+                                    buyStatus === 'pending' ? 'border-yellow-400 text-yellow-400' :
+                                    buyStatus === 'success' ? 'border-neon-green text-neon-green' :
+                                    'border-red-500 text-red-500'
+                                }`}>
+                                    {buyStatusMsg}
+                                </div>
+                            )}
                         </div>
-                        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="mt-5 grid grid-cols-2 gap-3">
                             {[
-                                {
-                                    amount: 5,
-                                    label: "Buy 5 Coins",
-                                    price: "0.005 ETH",
-                                },
-                                {
-                                    amount: 15,
-                                    label: "Buy 15 Coins",
-                                    price: "0.012 ETH",
-                                },
+                                { amount: 100,  label: '100 Coins',  strk: '10 STRK' },
+                                { amount: 200,  label: '200 Coins',  strk: '20 STRK' },
+                                { amount: 500,  label: '500 Coins',  strk: '50 STRK' },
+                                { amount: 1000, label: '1000 Coins', strk: '100 STRK' },
                             ].map((item) => (
                                 <button
                                     key={item.amount}
-                                    className="retro-button font-menu text-sm px-6 py-3"
+                                    className={`retro-button font-menu text-sm px-4 py-3 ${
+                                        buyStatus === 'pending' ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                                     onClick={() => handleBuyCoins(item.amount)}
+                                    disabled={buyStatus === 'pending'}
                                 >
-                                    {item.label} ({item.price})
+                                    <span className="flex items-center justify-center gap-1">
+                                        <img src="/coin.png" alt="" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+                                        {item.label}
+                                    </span>
+                                    <span className="block text-xs opacity-70 mt-0.5">{item.strk}</span>
                                 </button>
                             ))}
                         </div>
@@ -1563,11 +1486,7 @@ function LandingPage() {
                     </div>
                 </div>
             )}
-            <StoryModal
-                isOpen={showStoryModal}
-                onClose={handleCloseStoryModal}
-                storyText={storyText}
-            />
+            
             <AvatarSelectionModal
                 isOpen={showAvatarModal}
                 onClose={handleCloseAvatarModal}
@@ -1584,6 +1503,11 @@ function LandingPage() {
             <PregameUpgradesModal
                 isOpen={showPregameModal}
                 onClose={() => setShowPregameModal(false)}
+                kernel={(() => {
+                    const avatarIds = ['default_sentinel', 'swift_interceptor', 'artillery_unit', 'guardian_core', 'sniper_kernel', 'assault_nexus', 'neon_guardian', 'void_sentinel', 'plasma_core', 'prime_sentinel', 'transcendent_form'];
+                    const idx = avatarIds.indexOf(activeAvatar);
+                    return idx === -1 ? 0 : idx;
+                })()}
             />
         </div>
     );

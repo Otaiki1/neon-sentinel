@@ -1,0 +1,329 @@
+/* ============================================================
+   TxLoadingModal — Neon Terminal Transaction Loading Overlay
+   ============================================================ */
+
+/* ── Overlay ─────────────────────────────────────────────── */
+.tx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: tx-fade-in 0.25s ease;
+}
+
+@keyframes tx-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── Scanlines ───────────────────────────────────────────── */
+.tx-scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 255, 0, 0.025) 2px,
+        rgba(0, 255, 0, 0.025) 4px
+    );
+    animation: tx-scan 8s linear infinite;
+}
+
+@keyframes tx-scan {
+    from { background-position: 0 0; }
+    to   { background-position: 0 100vh; }
+}
+
+/* ── Terminal Panel ──────────────────────────────────────── */
+.tx-panel {
+    position: relative;
+    z-index: 10001;
+    width: min(520px, 92vw);
+    background: #020f02;
+    border: 1px solid #00ff41;
+    box-shadow:
+        0 0 8px  #00ff41,
+        0 0 30px rgba(0, 255, 65, 0.25),
+        inset 0 0 40px rgba(0, 255, 65, 0.04);
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    animation: tx-panel-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes tx-panel-in {
+    from { transform: scale(0.88); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ── Header Bar ──────────────────────────────────────────── */
+.tx-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #001a00;
+    border-bottom: 1px solid #00ff41;
+}
+
+.tx-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+.tx-dot.red    { background: #ff3b30; box-shadow: 0 0 4px #ff3b30; }
+.tx-dot.yellow { background: #ffcc00; box-shadow: 0 0 4px #ffcc00; }
+.tx-dot.green  { background: #34c759; box-shadow: 0 0 4px #34c759; }
+
+.tx-header-title {
+    margin-left: 8px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #00ff41;
+    opacity: 0.7;
+    text-shadow: 0 0 6px #00ff41;
+}
+
+/* ── Arena (hero + bullets) ──────────────────────────────── */
+.tx-arena {
+    position: relative;
+    height: 160px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #000a00 0%, #001700 100%);
+    border-bottom: 1px solid rgba(0,255,65,0.2);
+}
+
+/* Scrolling grid floor */
+.tx-grid-floor {
+    position: absolute;
+    bottom: 0;
+    left: -10%;
+    width: 120%;
+    height: 36px;
+    background-image:
+        linear-gradient(rgba(0,255,65,0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,65,0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+    animation: tx-grid-scroll 1.2s linear infinite;
+}
+
+@keyframes tx-grid-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-32px); }
+}
+
+/* Hero sprite */
+.tx-hero-wrap {
+    position: absolute;
+    left: 8%;
+    bottom: 32px;
+    animation: tx-hero-bob 0.9s ease-in-out infinite alternate;
+}
+
+.tx-hero {
+    width: 90px;
+    height: auto;
+    filter:
+        drop-shadow(0 0 8px rgba(0, 255, 65, 0.8))
+        drop-shadow(0 0 20px rgba(0, 255, 65, 0.4))
+        brightness(1.1);
+    /* Face right (default SVG faces right already in this asset) */
+    image-rendering: pixelated;
+}
+
+@keyframes tx-hero-bob {
+    from { transform: translateY(0px) rotate(0deg); }
+    to   { transform: translateY(-6px) rotate(1deg); }
+}
+
+/* Muzzle flash */
+.tx-muzzle {
+    position: absolute;
+    right: -14px;
+    top: 45%;
+    width: 16px;
+    height: 8px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, #ffffff 0%, #aaff00 40%, transparent 70%);
+    filter: blur(1px);
+    animation: tx-muzzle-flash 0.15s steps(1) infinite;
+}
+
+@keyframes tx-muzzle-flash {
+    0%, 35%, 70%  { opacity: 1; transform: scaleX(1); }
+    18%, 53%, 88% { opacity: 0; transform: scaleX(0.4); }
+    100%          { opacity: 1; }
+}
+
+/* Bullets */
+.tx-bullet {
+    position: absolute;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #aaff00, #ffffff);
+    box-shadow: 0 0 6px #aaff00, 0 0 12px rgba(170, 255, 0, 0.6);
+    animation: tx-bullet-fly 0.6s linear infinite;
+}
+
+.tx-bullet-1 { width: 28px; top: 46%; animation-delay: 0s;    }
+.tx-bullet-2 { width: 20px; top: 49%; animation-delay: 0.2s;  }
+.tx-bullet-3 { width: 24px; top: 43%; animation-delay: 0.4s;  }
+
+@keyframes tx-bullet-fly {
+    from { left: 22%; opacity: 1; }
+    80%  { opacity: 1; }
+    to   { left: 88%; opacity: 0; }
+}
+
+/* Target reticle on the right */
+.tx-reticle {
+    position: absolute;
+    right: 7%;
+    top: 50%;
+    width: 40px;
+    height: 40px;
+    transform: translate(50%, -50%);
+    animation: tx-reticle-pulse 1.4s ease-in-out infinite;
+}
+
+.tx-reticle-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 80, 0, 0.7);
+    box-shadow: 0 0 8px rgba(255, 80, 0, 0.5);
+    animation: tx-reticle-spin 2s linear infinite;
+}
+
+.tx-reticle-cross {
+    position: absolute;
+    background: rgba(255, 80, 0, 0.6);
+}
+.tx-reticle-cross.h {
+    left: 0; right: 0;
+    top: 50%; height: 1px;
+    transform: translateY(-50%);
+}
+.tx-reticle-cross.v {
+    top: 0; bottom: 0;
+    left: 50%; width: 1px;
+    transform: translateX(-50%);
+}
+
+@keyframes tx-reticle-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+@keyframes tx-reticle-pulse {
+    0%, 100% { opacity: 1; transform: translate(50%, -50%) scale(1); }
+    50%      { opacity: 0.5; transform: translate(50%, -50%) scale(0.85); }
+}
+
+/* ── Terminal Log ────────────────────────────────────────── */
+.tx-log {
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid rgba(0, 255, 65, 0.15);
+}
+
+.tx-log-line {
+    color: #00ff41;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    margin: 4px 0;
+    text-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+}
+
+.tx-log-line.dim {
+    opacity: 0.45;
+    font-size: 10px;
+}
+
+.tx-prompt {
+    color: #aaff00;
+    text-shadow: 0 0 6px #aaff00;
+    flex-shrink: 0;
+}
+
+/* Typewriter cursor effect */
+.tx-typewriter {
+    border-right: 2px solid #00ff41;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: tx-cursor-blink 0.7s step-end infinite;
+}
+
+@keyframes tx-cursor-blink {
+    from, to { border-color: transparent; }
+    50%      { border-color: #00ff41; }
+}
+
+.blink-slow {
+    animation: tx-blink-slow 1.5s step-end infinite;
+}
+
+@keyframes tx-blink-slow {
+    0%, 49% { opacity: 0.45; }
+    50%, 100%{ opacity: 0; }
+}
+
+/* ── Progress Bar ────────────────────────────────────────── */
+.tx-progress-bar {
+    height: 3px;
+    background: rgba(0, 255, 65, 0.1);
+    overflow: hidden;
+    border-bottom: 1px solid rgba(0, 255, 65, 0.1);
+}
+
+.tx-progress-fill {
+    height: 100%;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, #00ff41, #aaff00, transparent);
+    animation: tx-progress-sweep 1.6s ease-in-out infinite;
+    box-shadow: 0 0 8px #00ff41;
+}
+
+@keyframes tx-progress-sweep {
+    from { margin-left: -30%; }
+    to   { margin-left: 110%; }
+}
+
+/* ── Status Row ──────────────────────────────────────────── */
+.tx-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+}
+
+.tx-dot-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #00ff41;
+    box-shadow: 0 0 8px #00ff41;
+    animation: tx-dot-pulse-anim 1s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+@keyframes tx-dot-pulse-anim {
+    0%, 100% { transform: scale(1);   opacity: 1; }
+    50%      { transform: scale(1.5); opacity: 0.5; }
+}
+
+.tx-status-text {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: #00ff41;
+    text-shadow: 0 0 8px #00ff41;
+    opacity: 0.8;
+}

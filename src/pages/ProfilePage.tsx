@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   getProfileStats,
@@ -12,6 +12,7 @@ import { isAchievementUnlocked } from "../services/achievementService";
 import { getAllAvatarsWithStatus, getActiveAvatar } from "../services/avatarService";
 import { getTotalEarnedFromSource, getTotalSpentOnPurpose } from "../services/coinService";
 import { getInventory } from "../services/inventoryService";
+import { useDojo } from "../components/DojoContext";
 import "./LandingPage.css";
 import "./ProfilePage.css";
 
@@ -43,15 +44,32 @@ function StatItem({ iconType, label, value }: { iconType?: 'target' | 'rocket' |
 }
 
 function ProfilePage() {
+  const { profile, inventory: onChainInventory, purchases: onChainPurchases, refreshProfile } = useDojo();
+
+  // Keep profile in sync with on-chain data — poll every 30 s
+  useEffect(() => {
+    const id = setInterval(() => { refreshProfile().catch(() => {}); }, 30_000);
+    return () => clearInterval(id);
+  }, [refreshProfile]);
   const stats = getProfileStats();
   const [selectedHero, setSelectedHeroState] = useState(getSelectedHero());
   const rankHistory = getRankHistory();
-  const currentRank = getCurrentRankFromStorage();
-  const isPrimeSentinel = isAchievementUnlocked("prime_sentinel");
+  const isPrimeSentinel = profile ? profile.is_prime_sentinel : isAchievementUnlocked("prime_sentinel");
 
   // Player's actual prestige/layer (for unlocks); rank object holds rank definition, not player progress
-  const currentPrestige = getCurrentPrestigeFromStorage();
-  const currentLayer = getCurrentLayerFromStorage();
+  const currentPrestige = profile ? Number(profile.current_prestige) : getCurrentPrestigeFromStorage();
+  const currentLayer = profile ? Number(profile.current_layer) : getCurrentLayerFromStorage();
+  
+  // Use on-chain score if available
+  if (profile) {
+    stats.lifetimeScore = Number(profile.lifetime_score);
+    // best_run_score is also available
+    if (stats.bestRunStats) {
+        stats.bestRunStats.finalScore = Number(profile.best_run_score);
+    }
+  }
+
+  const currentRank = getCurrentRankFromStorage(); // Still use local for rank names for now, or map highest_rank_id
   const currentBulletTier = getCurrentBulletTier(currentPrestige);
   const tierProgress = getTierProgress(currentPrestige);
 
@@ -63,12 +81,13 @@ function ProfilePage() {
   const activeAvatar = getActiveAvatar();
   
   // Get coin statistics
-  const totalCoinsEarned = getTotalEarnedFromSource('prestige') + getTotalEarnedFromSource('daily') + getTotalEarnedFromSource('prime_sentinel');
-  const totalCoinsSpent = getTotalSpentOnPurpose('avatar') + getTotalSpentOnPurpose('revive') + getTotalSpentOnPurpose('mini_me');
+  const totalCoinsEarned = profile ? Number(profile.coins) : (getTotalEarnedFromSource('prestige') + getTotalEarnedFromSource('daily') + getTotalEarnedFromSource('prime_sentinel'));
+  const totalSpentLocal = getTotalSpentOnPurpose('avatar') + getTotalSpentOnPurpose('revive') + getTotalSpentOnPurpose('mini_me');
+  const totalCoinsSpent = onChainPurchases ? onChainPurchases.length * 10 : totalSpentLocal; // Assuming avg 10 coins per purchase for stats if on-chain
   
   // Get mini-me statistics
-  const miniMeInventory = getInventory();
-  const totalMiniMesUsed = Object.values(miniMeInventory).reduce((sum, count) => sum + (20 - count), 0); // Assuming max 20 per type
+  const miniMeInv = onChainInventory ? onChainInventory.reduce((acc, item) => ({ ...acc, [item.unit_type]: item.count }), {}) : getInventory();
+  const totalMiniMesUsed = Object.values(miniMeInv as any).reduce((sum: number, count: any) => sum + (20 - Number(count || 0)), 0); 
 
   const heroOptions = [
     {
