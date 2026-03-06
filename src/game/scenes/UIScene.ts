@@ -21,6 +21,7 @@ import {
 import { getTierProgress } from "../../services/bulletUpgradeService";
 import { getAvailableCoins } from "../../services/coinService";
 import { getMiniMeSessionsAvailable } from "../../services/miniMeSessionsService";
+import { getGameplaySettings, saveGameplaySettings } from "../../services/settingsService";
 import { GameScene } from "./GameScene";
 import { TooltipManager } from "./TooltipManager";
 import { DialogueManager } from "../dialogue/DialogueManager";
@@ -1276,7 +1277,7 @@ export class UIScene extends Phaser.Scene {
         const uiScale = MOBILE_SCALE < 1.0 ? 0.8 : 1.0;
 
         const panelWidth = 320 * uiScale;
-        const panelHeight = 200 * uiScale;
+        const panelHeight = 280 * uiScale;
         const panelX = width / 2;
         const panelY = height / 2 - 40 * uiScale;
 
@@ -1351,6 +1352,29 @@ export class UIScene extends Phaser.Scene {
         minusBg.on("pointerdown", () => this.adjustSensitivity(-0.1));
         plusBg.on("pointerdown", () => this.adjustSensitivity(0.1));
 
+        const initialSoundEnabled = getGameplaySettings().audio.soundEnabled;
+        const soundLabel = initialSoundEnabled ? "SOUND: ON" : "SOUND: OFF";
+        const soundButton = this.createButton(
+            panelX,
+            panelY + 130 * uiScale,
+            soundLabel,
+            160,
+            40,
+            16,
+        );
+        const soundBg = soundButton.list[0] as Phaser.GameObjects.Rectangle;
+        const soundText = soundButton.list[1] as Phaser.GameObjects.Text;
+        
+        soundBg.on("pointerdown", () => {
+            const settings = getGameplaySettings();
+            const newState = !settings.audio.soundEnabled;
+            settings.audio.soundEnabled = newState;
+            saveGameplaySettings(settings);
+            
+            this.sound.mute = !newState;
+            soundText.setText(newState ? "SOUND: ON" : "SOUND: OFF");
+        });
+
         this.settingsContainer = this.add.container(0, 0, [
             panelBg,
             title,
@@ -1358,6 +1382,7 @@ export class UIScene extends Phaser.Scene {
             this.sensitivityValueText,
             minusButton,
             plusButton,
+            soundButton,
         ]);
         this.settingsContainer.setVisible(false);
     }
@@ -1547,7 +1572,17 @@ export class UIScene extends Phaser.Scene {
             bg.setStrokeStyle(2, 0x00ff00);
         });
 
-        return button;
+        bg.on("pointerdown", () => {
+            if (this.scene.isActive()) {
+                if (this.cache.audio.exists("ui-click")) {
+                    this.sound.play("ui-click", { volume: 0.8 });
+                } else {
+                    console.warn('ui-click missing from cache, skip');
+                }
+            }
+        });
+
+    return button;
     }
 
     // Create pause button (optionally at headboard position)

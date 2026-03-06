@@ -248,6 +248,9 @@ export class GameScene extends Phaser.Scene {
     private avatarHealthMultiplier = 1;
     private avatarDamageMultiplier = 1;
     private shotsFiredThisRun = 0;
+    
+    // Audio State
+    private currentBGM?: Phaser.Sound.BaseSound;
     private shotsHitThisRun = 0;
     private hitsTakenThisRun = 0;
     private enemyUidCounter = 0;
@@ -343,6 +346,13 @@ export class GameScene extends Phaser.Scene {
 
     create() {
         this.applyGameplaySettings();
+        
+        // Sync Phaser audio with React settings
+        const settings = this.registry.get("gameplaySettings") as { audio?: { soundEnabled?: boolean } } | undefined;
+        // Default to true if not set
+        this.sound.mute = settings?.audio?.soundEnabled === false;
+        this.playRandomBGM();
+
         this.applyPregameSessionEffects();
         // Draw background grid
         this.drawBackgroundGrid();
@@ -1955,6 +1965,8 @@ export class GameScene extends Phaser.Scene {
         const playerX = this.player.x + 30;
         const playerY = this.player.y;
 
+        this.sound.play("shoot-bullet", { volume: 0.25 });
+
         // God mode: use fire blasts
         if (this.godModeActive) {
             const bullet = this.bullets.get(
@@ -3255,6 +3267,8 @@ export class GameScene extends Phaser.Scene {
         const enemyArray = this.enemies.children.entries as Phaser.Physics.Arcade.Sprite[];
         const activeEnemies = enemyArray.filter(e => e.active);
         
+        this.sound.play("shockwave", { volume: 0.8 });
+
         // Create blue streak effects that strike all enemies
         this.createShockBombStreaks(activeEnemies);
 
@@ -5773,6 +5787,7 @@ export class GameScene extends Phaser.Scene {
 
         // Create explosion
         this.createExplosion(this.player.x, this.player.y, "medium");
+        this.sound.play("glitch-effect", { volume: 0.7 });
         this.triggerHaptic(SENSORY_ESCALATION.hapticFeedback.onDamage);
 
         // Calculate health bar damage based on damage multiplier
@@ -6389,6 +6404,8 @@ export class GameScene extends Phaser.Scene {
 
         const explosion = this.add.sprite(x, y, key);
         explosion.setScale(scale * MOBILE_SCALE);
+        
+        this.sound.play("explosion", { volume: size === "large" ? 0.6 : 0.3 });
 
         this.tweens.add({
             targets: explosion,
@@ -6975,6 +6992,7 @@ export class GameScene extends Phaser.Scene {
 
         // Remove power-up
         p.destroy();
+        this.sound.play("absorb-powerup", { volume: 0.6 });
         this.triggerHaptic(
             SENSORY_ESCALATION.hapticFeedback.onPowerUpCollect
         );
@@ -8552,6 +8570,35 @@ export class GameScene extends Phaser.Scene {
                     helper.setData('lastShotTime', time);
                 }
             }
+        });
+    }
+
+    private playRandomBGM() {
+        if (this.currentBGM) {
+            this.currentBGM.stop();
+        }
+
+        const BGM_PLAYLIST = [
+            'game-environment',
+            'game-environment-1',
+            'game-environment-2',
+            'game-environment-3',
+            'game-environment-4',
+            'game-environment-5',
+            'game-scene-1'
+        ];
+        
+        const randomTrack = Phaser.Utils.Array.GetRandom(BGM_PLAYLIST);
+        
+        if (!this.cache.audio.exists(randomTrack)) {
+            console.warn(`Audio track ${randomTrack} missing from cache! Check BootScene.ts or perform a hard refresh.`);
+            return;
+        }
+
+        this.currentBGM = this.sound.add(randomTrack, { volume: 0.2 });
+        this.currentBGM.play();
+        this.currentBGM.once('complete', () => {
+            this.playRandomBGM();
         });
     }
 }

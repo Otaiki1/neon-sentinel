@@ -30,9 +30,8 @@ import WalletConnectionModal from "../components/WalletConnectionModal";
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
-
-
 import CommanderWalkthrough from "../components/CommanderWalkthrough";
+import { soundManager } from "../utils/soundUtils";
 import {
     getActiveAvatar,
     getAvatarConfig,
@@ -147,43 +146,53 @@ function LandingPage() {
         }
     }, [isWalletConnected]);
 
+    // Start UI ambient BGM
+    useEffect(() => {
+        soundManager.playBGM();
+        return () => soundManager.stopBGM();
+    }, []);
+
     const handleCloseModal = () => {
+        soundManager.playClick();
         setShowWalletModal(false);
         localStorage.setItem(WALLET_MODAL_SEEN_KEY, "true");
     };
 
     const handleOpenWalletModal = () => {
+        soundManager.playClick();
         setShowWalletModal(true);
     };
 
     const handleAnonymous = () => {
+        soundManager.playClick();
         setUserMode("anonymous");
         handleCloseModal();
     };
 
-    
     const handleOpenSettings = () => {
+        soundManager.playClick();
         setSettings(getGameplaySettings());
         setShowSettingsModal(true);
     };
 
     const handleCloseSettings = () => {
+        soundManager.playClick();
         setShowSettingsModal(false);
     };
 
     const handleSaveSettings = () => {
+        soundManager.playClick();
         saveGameplaySettings(settings);
         setShowSettingsModal(false);
     };
 
     const handleOpenMarketplace = () => {
-        // Don't overwrite coins here — the useEffect on [profile] already keeps
-        // coins in sync with the on-chain balance. Calling getAvailableCoins()
-        // here would reset it to the localStorage fallback (3).
+        soundManager.playClick();
         setShowMarketplaceModal(true);
     };
 
     const handleCloseMarketplace = () => {
+        soundManager.playClick();
         setShowMarketplaceModal(false);
     };
 
@@ -191,6 +200,7 @@ function LandingPage() {
     const [buyStatusMsg, setBuyStatusMsg] = useState('');
 
     const handleBuyCoins = async (coinAmount: number) => {
+        soundManager.playClick();
         if (!account) {
             setBuyStatusMsg('Connect your wallet to buy coins.');
             setBuyStatus('error');
@@ -229,10 +239,12 @@ function LandingPage() {
     };
 
     const handleOpenAvatarModal = () => {
+        soundManager.playClick();
         setShowAvatarModal(true);
     };
 
     const handleCloseAvatarModal = () => {
+        soundManager.playClick();
         setShowAvatarModal(false);
     };
 
@@ -1182,6 +1194,28 @@ function LandingPage() {
                                     <option value="easy">Easy</option>
                                     <option value="hard">Hard</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <div className="font-menu text-xs mb-2">
+                                    AUDIO
+                                </div>
+                                <label className="flex items-center space-x-3 bg-black border border-neon-green px-3 py-2 cursor-pointer hover:bg-[#001a00] transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.audio?.soundEnabled ?? true}
+                                        onChange={(e) => {
+                                            const enabled = e.target.checked;
+                                            soundManager.setMuted(!enabled);
+                                            setSettings({
+                                                ...settings,
+                                                audio: { soundEnabled: enabled }
+                                            });
+                                        }}
+                                        className="form-checkbox text-neon-green border-neon-green bg-black w-4 h-4"
+                                    />
+                                    <span className="font-body text-neon-green">Enable Sound & Music</span>
+                                </label>
                             </div>
 
                             <div>

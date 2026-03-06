@@ -11,6 +11,7 @@ import {
     UI_ASSETS,
     LAYER_BACKGROUND_ASSETS,
     BADGE_ASSETS,
+    AUDIO_ASSETS,
     getFallbackAsset,
     isAssetRequired,
 } from '../assets/assetMap';
@@ -67,6 +68,14 @@ export class BootScene extends Phaser.Scene {
     });
     assetText.setOrigin(0.5, 0.5);
 
+    // Dedicated loading song using native HTML5 to bypass Phaser cache waiting
+    const loadingAudio = new Audio('/sounds/game-environment-5.mp3');
+    loadingAudio.volume = 0.2;
+    loadingAudio.loop = true;
+    
+    // Play the loading track; catch needed for browser autoplay policies
+    loadingAudio.play().catch(e => console.warn("Loading audio blocked by autoplay rules", e));
+
     // Update progress bar
     this.load.on('progress', (value: number) => {
       progressBar.clear();
@@ -115,6 +124,9 @@ export class BootScene extends Phaser.Scene {
             });
         }
         
+        loadingAudio.pause();
+        loadingAudio.currentTime = 0;
+
         progressBar.destroy();
         progressBox.destroy();
         loadingText.destroy();
@@ -151,6 +163,13 @@ export class BootScene extends Phaser.Scene {
     
     // Load layer background images
     this.loadAssets(LAYER_BACKGROUND_ASSETS);
+    
+    // Load audio assets
+    for (const asset of AUDIO_ASSETS) {
+      if (!this.loadedAssets.has(asset.key)) {
+        this.load.audio(asset.key, asset.path);
+      }
+    }
   }
 
   /**
