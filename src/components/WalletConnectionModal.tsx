@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useConnect } from "@starknet-react/core";
-import type { Connector } from "@starknet-react/core";
 import { ControllerConnector } from "@cartridge/connector";
 import "./WalletConnectionModal.css";
 

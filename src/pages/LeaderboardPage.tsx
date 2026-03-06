@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@starknet-react/core';
-import logoImage from '../assets/logo.png';
 import {
   getLeaderboardEntries,
   getPlayerLeaderboardEntries,
@@ -31,7 +30,6 @@ function LeaderboardPage() {
   const [globalEntries, setGlobalEntries] = useState<LeaderboardEntryNode[]>([]);
   const [myEntries, setMyEntries] = useState<LeaderboardEntryNode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -42,7 +40,6 @@ function LeaderboardPage() {
       ]);
       setGlobalEntries(global);
       setMyEntries(mine);
-      setLastUpdated(new Date());
     } catch {
       // silently ignore poll errors
     } finally {
