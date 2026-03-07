@@ -3,6 +3,7 @@ import './CommanderWalkthrough.css';
 
 interface CommanderWalkthroughProps {
     onComplete: () => void;
+    type?: "landing" | "game";
 }
 
 const DIALOG_STEPS = [
@@ -28,9 +29,37 @@ const DIALOG_STEPS = [
     }
 ];
 
-const WALKTHROUGH_SEEN_KEY = "neon-sentinel-walkthrough-seen";
+const GAME_DIALOG_STEPS = [
+    {
+        title: "COMBAT HUD INITIALIZED",
+        text: "Grid deployed. Your Sentinel is online. Use Arrow Keys to move and spacebar or click to fire, on mobile use on screen controls.",
+    },
+    {
+        title: "TACTICAL ADVANTAGE",
+        text: "Defeated enemies may drop power-ups. Collect them to enhance your firepower, restore health, or gain temporary advantages.",
+    },
+    {
+        title: "SYSTEM ABILITIES",
+        text: "If you need a moment, press ESC or use the Pause button. Use Q for God Mode, and B for Shock Bomb once unlocked.",
+    },
+    {
+        title: "SUPPORT UNITS",
+        text: "Equipped Mini-Mes provide tactical support. Press Tab or the Inventory button to pause, open your inventory, and select a Mini-Me to deploy. You can also press M to quickly activate your selected Mini-Me.",
+    },
+    {
+        title: "PERFORMANCE METRICS",
+        text: "Defeating enemies increases your Score and Combo multiplier. A higher Combo means more points. Take damage, and your Combo resets.",
+    },
+    {
+        title: "SURVIVAL PROTOCOLS",
+        text: "Stay moving to avoid being surrounded. Prioritize targets. Your mission is to survive and eliminate corrupted code. Go get 'em, Sentinel.",
+    }
+];
 
-const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete }) => {
+const WALKTHROUGH_SEEN_KEY = "neon-sentinel-walkthrough-seen";
+const GAME_WALKTHROUGH_SEEN_KEY = "neon-sentinel-game-walkthrough-seen";
+
+const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete, type = "landing" }) => {
     const [step, setStep] = useState(0);
     const [typedText, setTypedText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -40,7 +69,8 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
 
     // Initial check if we should show
     useEffect(() => {
-        const hasSeen = localStorage.getItem(WALKTHROUGH_SEEN_KEY) === "true";
+        const key = type === "landing" ? WALKTHROUGH_SEEN_KEY : GAME_WALKTHROUGH_SEEN_KEY;
+        const hasSeen = localStorage.getItem(key) === "true";
         if (!hasSeen) {
             setIsVisible(true);
         } else {
@@ -52,7 +82,8 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
     useEffect(() => {
         if (!isVisible) return;
 
-        const currentText = DIALOG_STEPS[step].text;
+        const steps = type === "landing" ? DIALOG_STEPS : GAME_DIALOG_STEPS;
+        const currentText = steps[step].text;
         setTypedText('');
         setIsTyping(true);
 
@@ -82,7 +113,8 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
             setIsTyping(false);
         } else {
             // Advance to next step or finish
-            if (step < DIALOG_STEPS.length - 1) {
+            const steps = type === "landing" ? DIALOG_STEPS : GAME_DIALOG_STEPS;
+            if (step < steps.length - 1) {
                 setStep(step + 1);
             } else {
                 finishWalkthrough();
@@ -92,7 +124,8 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
 
     const finishWalkthrough = () => {
         setIsVisible(false);
-        localStorage.setItem(WALKTHROUGH_SEEN_KEY, "true");
+        const key = type === "landing" ? WALKTHROUGH_SEEN_KEY : GAME_WALKTHROUGH_SEEN_KEY;
+        localStorage.setItem(key, "true");
         onComplete();
     };
 
@@ -112,7 +145,7 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
                         <span className="Walkthrough-dot yellow" />
                         <span className="Walkthrough-dot green" />
                         <span className="walkthrough-title font-menu text-xs text-neon-green tracking-widest ml-2">
-                            {DIALOG_STEPS[step].title}
+                            {type === "landing" ? DIALOG_STEPS[step].title : GAME_DIALOG_STEPS[step].title}
                         </span>
                     </div>
 
@@ -126,7 +159,7 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
                     {/* Actions */}
                     <div className="walkthrough-actions flex items-center justify-between mt-4 border-t border-neon-green border-opacity-30 pt-3">
                         <div className="text-xs text-neon-green opacity-50 font-menu tracking-wider">
-                            STEP 0{step + 1} / 0{DIALOG_STEPS.length}
+                            STEP 0{step + 1} / 0{type === "landing" ? DIALOG_STEPS.length : GAME_DIALOG_STEPS.length}
                         </div>
                         <div className="flex gap-4">
                             <button
@@ -139,7 +172,7 @@ const CommanderWalkthrough: React.FC<CommanderWalkthroughProps> = ({ onComplete 
                                 onClick={handleNext}
                                 className="retro-button font-menu text-xs px-6 py-2"
                             >
-                                {isTyping ? "SKIP TYPE" : (step === DIALOG_STEPS.length - 1 ? "ACKNOWLEDGE" : "NEXT >")}
+                                {isTyping ? "SKIP TYPE" : (step === (type === "landing" ? DIALOG_STEPS.length : GAME_DIALOG_STEPS.length) - 1 ? "ACKNOWLEDGE" : "NEXT >")}
                             </button>
                         </div>
                     </div>

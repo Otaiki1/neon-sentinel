@@ -468,27 +468,6 @@ export class GameScene extends Phaser.Scene {
             Phaser.Input.Keyboard.KeyCodes[OVERCLOCK_CONFIG.activationKey]
         );
         
-        // Hide tooltips when player starts playing
-        let tooltipsHidden = false;
-        const hideTooltips = () => {
-            if (!tooltipsHidden) {
-                const uiScene = this.scene.get('UIScene');
-                if (uiScene) {
-                    uiScene.events.emit('hide-tooltips');
-                    tooltipsHidden = true;
-                }
-            }
-        };
-        this.spaceKey.on("down", hideTooltips);
-        this.cursors.left?.on("down", hideTooltips);
-        this.cursors.right?.on("down", hideTooltips);
-        this.cursors.up?.on("down", hideTooltips);
-        this.cursors.down?.on("down", hideTooltips);
-        this.wasd.A?.on("down", hideTooltips);
-        this.wasd.D?.on("down", hideTooltips);
-        this.wasd.W?.on("down", hideTooltips);
-        this.wasd.S?.on("down", hideTooltips);
-        
         this.overclockKey.on("down", () => {
             this.tryActivateOverclock();
         });
