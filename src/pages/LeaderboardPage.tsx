@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount } from '@starknet-react/core';
+import { lookupAddresses } from '@cartridge/controller';
 import {
   getLeaderboardEntries,
   getPlayerLeaderboardEntries,
@@ -22,6 +23,53 @@ function hexScore(hex: string | number): number {
   return parseInt(String(hex), 16) || 0;
 }
 
+interface LeaderboardRowProps {
+  entry: LeaderboardEntryNode;
+  index?: number; // For rank
+  isGlobal?: boolean;
+  address?: string;
+  username?: string;
+}
+
+function LeaderboardRow({ entry, index, isGlobal, address, username }: LeaderboardRowProps) {
+  const isMe = address && normalizeAddress(entry.player_address) === normalizeAddress(address);
+
+  // If we have a Cartridge username, use it. Otherwise, use the short address fallback
+  const displayName = username || shortAddr(entry.player_address);
+
+  if (!isGlobal) {
+    return (
+      <div className="flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0">
+        <span>
+          <span className="rank-badge font-score text-base mr-2">{index !== undefined ? index + 1 : '--'}</span>
+          <span className="profile-label">Week {entry.week}</span>
+        </span>
+        <span className="profile-value">{hexScore(entry.final_score).toLocaleString()} pts</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0 ${
+        isMe ? 'bg-neon-green bg-opacity-5' : ''
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        <span className="rank-badge font-score text-base">{index !== undefined ? index + 1 : '--'}</span>
+        <span className={`font-score text-sm ${isMe ? 'text-yellow-400' : 'text-neon-green'}`}>
+          {displayName}
+          {isMe && <span className="ml-2 text-xs opacity-80">▶ YOU</span>}
+        </span>
+      </span>
+      <span className="flex flex-col items-end">
+        <span className="profile-value">{hexScore(entry.final_score).toLocaleString()} pts</span>
+        <span className="profile-label text-[10px]">Wk {entry.week}</span>
+      </span>
+    </div>
+  );
+}
+
 function LeaderboardPage() {
   // Use DojoContext — profile is already loaded & address is resolved
   const { profile } = useDojo();
@@ -29,6 +77,7 @@ function LeaderboardPage() {
 
   const [globalEntries, setGlobalEntries] = useState<LeaderboardEntryNode[]>([]);
   const [myEntries, setMyEntries] = useState<LeaderboardEntryNode[]>([]);
+  const [usernames, setUsernames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async (showLoading = false) => {
@@ -40,6 +89,16 @@ function LeaderboardPage() {
       ]);
       setGlobalEntries(global);
       setMyEntries(mine);
+
+      const uniqueAddresses = Array.from(new Set([...global, ...mine].map(e => e.player_address)));
+      if (uniqueAddresses.length > 0) {
+        try {
+          const namesMap = await lookupAddresses(uniqueAddresses);
+          setUsernames(namesMap);
+        } catch (e) {
+          console.error("Failed to lookup Cartridge usernames:", e);
+        }
+      }
     } catch {
       // silently ignore poll errors
     } finally {
@@ -135,13 +194,13 @@ function LeaderboardPage() {
             <h2 className="profile-panel-title">MY RUNS</h2>
             <div className="profile-stat-list">
               {myEntries.slice(0, 5).map((e, i) => (
-                <div key={e.run_id || i} className="flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0">
-                  <span>
-                    <span className="rank-badge font-score text-base mr-2">{i + 1}</span>
-                    <span className="profile-label">Week {e.week}</span>
-                  </span>
-                  <span className="profile-value">{hexScore(e.final_score).toLocaleString()} pts</span>
-                </div>
+                <LeaderboardRow
+                  key={e.run_id || i}
+                  entry={e}
+                  index={i}
+                  isGlobal={false}
+                  username={usernames.get(e.player_address)}
+                />
               ))}
             </div>
           </div>
@@ -160,28 +219,16 @@ function LeaderboardPage() {
             <div className="profile-value-dim text-center py-4">NO RUNS YET</div>
           ) : (
             <div className="profile-stat-list">
-              {globalEntries.slice(0, 20).map((entry, index) => {
-                const isMe = address &&
-                  normalizeAddress(entry.player_address) === normalizeAddress(address);
-                return (
-                  <div
-                    key={entry.run_id || index}
-                    className={`flex items-center justify-between py-2 border-b border-neon-green border-opacity-20 last:border-0 ${isMe ? 'bg-neon-green bg-opacity-5' : ''}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span className="rank-badge font-score text-base">{index + 1}</span>
-                      <span className={`font-score text-sm ${isMe ? 'text-yellow-400' : 'text-neon-green'}`}>
-                        {shortAddr(entry.player_address)}
-                        {isMe && <span className="ml-2 text-xs opacity-80">▶ YOU</span>}
-                      </span>
-                    </span>
-                    <span className="flex flex-col items-end">
-                      <span className="profile-value">{hexScore(entry.final_score).toLocaleString()} pts</span>
-                      <span className="profile-label text-[10px]">Wk {entry.week}</span>
-                    </span>
-                  </div>
-                );
-              })}
+              {globalEntries.slice(0, 20).map((entry, index) => (
+                <LeaderboardRow
+                  key={entry.run_id || index}
+                  entry={entry}
+                  index={index}
+                  isGlobal={true}
+                  address={address}
+                  username={usernames.get(entry.player_address)}
+                />
+              ))}
             </div>
           )}
         </div>
