@@ -35,9 +35,9 @@ Neon Sentinel is a 2D retro web arcade shooter where you play as an autonomous s
 -   **Run Stats HUD**: Live survival time, accuracy, and dodge tracking
 -   **Floating Combat Text**: Damage numbers, combo pings, and milestones
 -   **Lives System**: Collect Life Orbs (capped at 20 lives = 4 orbs)
--   **Weekly Leaderboards**: In-game top scores with prestige level tracked
--   **Hall of Fame**: Dedicated leaderboard page with rotating categories
--   **Wallet Integration**: Connect wallet or play anonymously
+-   **Weekly Leaderboards**: On-chain via Torii, automatically tracking Top 10 with Cartridge username resolution
+-   **Hall of Fame**: Dedicated leaderboard page with historical records
+-   **Wallet Integration**: Login gasless with passkeys via Cartridge Controller
 -   **Mobile Support**: On-screen joystick + fire button with adjustable sensitivity
 -   **Neon Aesthetic**: Retro brutalist design with neon green theme
 -   **PWA Ready**: Installable app with service worker auto-updates
@@ -147,9 +147,9 @@ neon-sentinel/
 -   **Game Engine**: Phaser 3.90.0
 -   **Build Tool**: Vite 5.1.4
 -   **Styling**: Tailwind CSS 3.4.0
--   **Wallet**: Dynamic Labs SDK v4 + Wagmi + viem
+-   **Wallet & Blockchain**: Cartridge Controller, Starknet React, Dojo, Torii
 -   **Routing**: React Router DOM 7.12.0
--   **Data**: TanStack Query 5
+-   **Data**: TanStack Query 5, Torii GraphQL
 -   **PWA**: Vite PWA + Workbox
 
 ---
@@ -332,12 +332,11 @@ The game is fully optimized for mobile devices:
 
 ## 🏆 Leaderboards
 
--   **Weekly Reset**: Leaderboards reset every ISO week (localStorage)
--   **In-Game Top 10**: Displayed on game over screen with auto-hide (includes prestige)
--   **Hall of Fame**: `/leaderboards` page with weekly featured categories + all-time records
--   **Challenge Leaderboard**: Weekly modifier runs (non-standard layers) in Hall of Fame
--   **Wallet Integration**: Connect wallet to attach address to scores
--   **Anonymous Mode**: Play without wallet (scores show as "Anonymous")
+-   **Weekly Reset**: Leaderboards reset every ISO week (stored on-chain and indexed via Torii)
+-   **In-Game Top 10**: Displayed securely from the Torii indexer on game over
+-   **Hall of Fame**: `/leaderboard` page highlighting the top players alongside their Cartridge username
+-   **Wallet Integration**: Connect with Cartridge (passkey/session) to attach on-chain records to your profile
+-   **Anonymous Mode**: Play without wallet (scores show as "Anonymous" and won't be committed on-chain)
 
 ---
 
@@ -368,11 +367,7 @@ yarn preview
 
 ### Environment Variables
 
-Create a `.env` file with:
-
-```
-VITE_DYNAMIC_ENVIRONMENT_ID=your_dynamic_labs_environment_id
-```
+If connecting to a custom Torii deploy or Katana node, you configure details in `src/dojo/config.ts`. Otherwise, it points to the standard Cartridge endpoints.
 
 ### Code Style
 
@@ -394,8 +389,7 @@ Currently no automated tests. Manual testing recommended for:
 
 ## 🐛 Known Issues
 
--   Leaderboard uses localStorage (mock implementation)
--   Anonymous scores still appear as "Anonymous" on the local leaderboard
+-   Anonymous scores do not participate in the global on-chain leaderboard
 -   No sound effects or music
 -   Limited sprite variety for some power-ups
 -   Overclock and God Mode both use Q key (whichever is ready activates)
@@ -432,7 +426,8 @@ Currently no automated tests. Manual testing recommended for:
 ## 🙏 Acknowledgments
 
 -   Phaser.js for the excellent game framework
--   Dynamic Labs for wallet integration
+-   Cartridge for seamless zero-gas wallet onboarding and passkey sessions
+-   Dojo Engine for the underlying on-chain state components and indexing
 -   All sprite artists and designers
 
 ---

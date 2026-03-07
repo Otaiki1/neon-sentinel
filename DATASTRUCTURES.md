@@ -18,10 +18,10 @@ All keys and their JSON shapes. Services merge with defaults on load; types belo
 
 | Key | Service / Location | Shape |
 |-----|--------------------|--------|
-| `neon-sentinel-rank-history` | `rankService.ts` | `Rank[]` |
-| `neon-sentinel-current-rank` | `rankService.ts` | `Rank` |
+| `neon-sentinel-rank-history` | `rankService.ts` | `Rank[]` (local cache, backed by Torii) |
+| `neon-sentinel-current-rank` | `rankService.ts` | `Rank` (local cache, backed by Dojo) |
 | `neon-sentinel-current-progress` | `rankService.ts` | `{ prestige: number; layer: number }` |
-| `neon_sentinel_scores` | `scoreService.ts` | `Record<string, ScoreEntry[]>` (week string → entries) |
+| `neon_sentinel_scores` | `scoreService.ts` | `Record<string, ScoreEntry[]>` (local cache, authoritative state on Torii) |
 | `neon_sentinel_current_week` | `scoreService.ts` | `string` (number as string) |
 | `neonSentinel_coins` | `coinService.ts` | `CoinState` |
 | `neonSentinel_miniMeInventory` | `inventoryService.ts` | `MiniMeInventory` |
@@ -70,8 +70,8 @@ interface Rank {
 interface ScoreEntry {
   score: number;
   finalScore: number;
-  walletAddress?: string;
-  playerName: string;
+  walletAddress?: string; // Sourced via Torii or Starknet React
+  playerName: string; // Cartridge Username
   timestamp: number;
   week: number;
   deepestLayer?: number;
@@ -393,7 +393,7 @@ Enemy **color** and **sprite** mapping (including red / flameRed for layers 5 an
 1. **Boot (GamePage)**  
    - Reads `getGameplaySettings()`, `getAvailableCoins()`, `location.state?.pregameUpgrades`.  
    - Sets `gameplaySettings`, `coins`, `pregameSessionEffects` in registry.  
-   - Wallet address (if any) set in registry for score submission.
+   - Wallet → Game: Connected `Account` (via Starknet React / Cartridge) is used selectively to sign transactions. for score submission.
 
 2. **GameScene create()**  
    - Reads `gameplaySettings`, `pregameSessionEffects` from registry.  
@@ -406,7 +406,7 @@ Enemy **color** and **sprite** mapping (including red / flameRed for layers 5 an
    - UIScene (and React overlays) read registry for display and modals.
 
 4. **Game over**  
-   - GameScene sets `gameOver`, `finalScore`, `runMetrics`, submits score to scoreService, updates achievements, hero grade, kernel stats, rank (updateCurrentRank → saves CURRENT_PROGRESS_KEY and current rank), coins, session rewards, etc.  
+   - GameScene sets `gameOver`, `finalScore`, `runMetrics`, optionally dispatching scores via `dojoService.ts` representing on-chain interactions or `scoreService` for local metrics. Updates achievements, hero grade, kernel stats, rank (updateCurrentRank → saves CURRENT_PROGRESS_KEY and current rank), coins, session rewards, etc.  
    - All persistence is via service calls from game or React; no direct localStorage in GameScene except joystick sensitivity.
 
 5. **Unlock checks (avatars, kernels, etc.)**  
