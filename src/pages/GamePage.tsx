@@ -9,6 +9,7 @@ import type { PregameUpgradeId } from "../services/pregameUpgradeService";
 import { InventoryModal } from "../components/InventoryModal";
 import { DialogueCard } from "../components/DialogueCard";
 import { VictoryScreen } from "../components/VictoryScreen";
+import CommanderWalkthrough from "../components/CommanderWalkthrough";
 import type { MiniMeType } from "../services/inventoryService";
 import "./GamePage.css";
 
@@ -26,6 +27,9 @@ function GamePage() {
         speakerColor: string;
     } | null>(null);
     const [showVictoryScreen, setShowVictoryScreen] = useState(false);
+    const [isWalkthroughActive, setIsWalkthroughActive] = useState(() => {
+        return localStorage.getItem("neon-sentinel-game-walkthrough-seen") !== "true";
+    });
 
     useEffect(() => {
         if (!gameContainerRef.current) return;
@@ -78,6 +82,21 @@ function GamePage() {
 
         // Expose navigation function to game
         (game as any).returnToMenu = handleReturnToMenu;
+        
+        // Pause game if walkthrough is active
+        if (isWalkthroughActive) {
+            // Need a fast loop because the scene might not be fully initialized when this runs
+            const pauseInterval = setInterval(() => {
+                const gameScene = game.scene.getScene('GameScene');
+                if (gameScene && gameScene.scene.isActive()) {
+                    gameScene.scene.pause();
+                    clearInterval(pauseInterval);
+                }
+            }, 50);
+            
+            // Cleanup timeout to prevent infinite looping just in case
+            setTimeout(() => clearInterval(pauseInterval), 5000);
+        }
         
         // Listen for inventory open on game's global events (so it works from pause menu regardless of scene timing)
         game.events.on('open-inventory', () => {
@@ -145,9 +164,26 @@ function GamePage() {
         }
     };
 
+    const handleWalkthroughComplete = () => {
+        setIsWalkthroughActive(false);
+        if (gameInstanceRef.current) {
+            const gameScene = gameInstanceRef.current.scene.getScene('GameScene');
+            if (gameScene && gameScene.scene.isPaused()) {
+                gameScene.scene.resume();
+            }
+        }
+    };
+
     return (
         <div className="game-page-container">
             <div ref={gameContainerRef} className="game-container" />
+            
+            {isWalkthroughActive && (
+                <div style={{ position: "absolute", zIndex: 1000, inset: 0 }}>
+                    <CommanderWalkthrough type="game" onComplete={handleWalkthroughComplete} />
+                </div>
+            )}
+            
             <InventoryModal
                 isOpen={showInventoryModal}
                 onClose={() => {

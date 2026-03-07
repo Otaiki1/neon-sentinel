@@ -23,7 +23,6 @@ import { getAvailableCoins } from "../../services/coinService";
 import { getMiniMeSessionsAvailable } from "../../services/miniMeSessionsService";
 import { getGameplaySettings, saveGameplaySettings } from "../../services/settingsService";
 import { GameScene } from "./GameScene";
-import { TooltipManager } from "./TooltipManager";
 import { DialogueManager } from "../dialogue/DialogueManager";
 
 export class UIScene extends Phaser.Scene {
@@ -103,7 +102,6 @@ export class UIScene extends Phaser.Scene {
     private revivePromptCountdownText!: Phaser.GameObjects.Text;
     private revivePromptButton!: Phaser.GameObjects.Container;
     private revivePromptTimer?: Phaser.Time.TimerEvent;
-    private tooltipManager!: TooltipManager;
     private dialogueManager!: DialogueManager;
     // Headboard (unified HUD panel)
     private headboardContainer!: Phaser.GameObjects.Container;
@@ -133,11 +131,6 @@ export class UIScene extends Phaser.Scene {
     }
 
     create() {
-        // Initialize tooltip manager
-        this.tooltipManager = new TooltipManager(this);
-        // Allow GameScene to request tooltip hide
-        this.events.on("hide-tooltips", () => this.tooltipManager.skipAll());
-
         // Initialize dialogue manager
         this.dialogueManager = new DialogueManager(this);
 
@@ -200,39 +193,9 @@ export class UIScene extends Phaser.Scene {
         // Create shock bomb and god mode meters (positioned at headboard right edge)
         if (isShockBombUnlocked()) {
             this.createShockBombMeter();
-            this.tooltipManager.enqueueTooltip(
-                {
-                    id: "game-shockbomb",
-                    targetX:
-                        this.headboardCoinBoxX -
-                        3 * this.HEADBOARD_RIGHT_ICON_SPACING,
-                    targetY:
-                        this.headboardTop + this.HEADBOARD_PANEL_HEIGHT / 2,
-                    content:
-                        "Your Shock Bomb meter fills over time. When ready, press B to instantly destroy 70% of enemies on screen! This ability unlocks at 10,000 lifetime score.",
-                    position: "left",
-                    width: 280,
-                },
-                6000,
-            );
         }
         if (isGodModeUnlocked()) {
             this.createGodModeMeter();
-            this.tooltipManager.enqueueTooltip(
-                {
-                    id: "game-godmode",
-                    targetX:
-                        this.headboardCoinBoxX -
-                        4 * this.HEADBOARD_RIGHT_ICON_SPACING,
-                    targetY:
-                        this.headboardTop + this.HEADBOARD_PANEL_HEIGHT / 2,
-                    content:
-                        "Your God Mode meter fills over time. When ready, press Q for 10 seconds of invincibility! This powerful ability unlocks at 25,000 lifetime score.",
-                    position: "left",
-                    width: 280,
-                },
-                7000,
-            );
         }
 
         // Pause button last so it draws on top of meters and stays clickable
@@ -641,31 +604,6 @@ export class UIScene extends Phaser.Scene {
         this.miniMeSessionsText.setText(String(initialSessions));
 
         this.registerUiGlitchTargets([this.scoreText, this.prestigeText]);
-
-        this.tooltipManager.enqueueTooltip(
-            {
-                id: "game-prestige",
-                targetX: cx + 80,
-                targetY: panelTop + this.HEADBOARD_PANEL_HEIGHT / 2,
-                content:
-                    "After completing Layer 6, you can prestige to loop back with increased difficulty and score multipliers. This is how true Sentinels progress!",
-                position: "right",
-                width: 280,
-            },
-            4000,
-        );
-        this.tooltipManager.enqueueTooltip(
-            {
-                id: "game-health",
-                targetX: this.headboardHealthBarX + 80,
-                targetY: this.headboardHealthBarY + 6,
-                content:
-                    "You have 5 health bars. Each enemy collision or bullet hit removes health bars. Collect Life Orbs to restore health. Game over when all health bars are depleted!",
-                position: "right",
-                width: 280,
-            },
-            5000,
-        );
     }
 
     update(time: number) {
@@ -1617,19 +1555,6 @@ export class UIScene extends Phaser.Scene {
         if (this.headboardContainer) {
             this.headboardContainer.add(this.pauseButton);
         }
-
-        // Show tooltip for pause button (first time only)
-        this.time.delayedCall(8000, () => {
-            this.tooltipManager.enqueueTooltip({
-                id: "game-pause",
-                targetX: posX,
-                targetY: posY,
-                content:
-                    "Click this button or press ESC to pause the game. From the pause menu, you can access settings, leaderboard, and more!",
-                position: "left",
-                width: 280,
-            });
-        });
 
         bg.setInteractive({ useHandCursor: true });
         bg.on("pointerover", () => {
@@ -2779,18 +2704,10 @@ export class UIScene extends Phaser.Scene {
         this.hideLeaderboard();
         this.registry.set("gameOver", false);
         this.registry.set("isPaused", false);
-        // Hide tooltips when restarting
-        if (this.tooltipManager) {
-            this.tooltipManager.hideAllTooltips();
-        }
     }
 
     // Cleanup on scene shutdown
     shutdown() {
-        // Cleanup tooltip manager
-        if (this.tooltipManager) {
-            this.tooltipManager.destroy();
-        }
         // Cleanup dialogue manager
         if (this.dialogueManager) {
             this.dialogueManager.destroy();

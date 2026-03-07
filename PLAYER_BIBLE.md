@@ -487,8 +487,8 @@ Final Score = Base Points × Combo Multiplier × Score Multiplier × Corruption 
 ### Leaderboard Features
 
 - **X Button**: Click the X in the top-right to close the leaderboard
-- **Wallet Integration**: Connect your wallet to attach your address to scores
-- **Anonymous Mode**: Play without a wallet (scores display as "Anonymous")
+- **Wallet Integration**: Connect with Cartridge using passkeys to attach your on-chain records to your profile
+- **Anonymous Mode**: Play without a wallet (scores display as "Anonymous" and are only stored temporarily)
 
 ### Titles & Achievements
 

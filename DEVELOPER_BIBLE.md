@@ -32,10 +32,10 @@ This document provides comprehensive technical documentation for developers work
 - **Game Engine**: Phaser 3.90.0
 - **Build Tool**: Vite 5.1.4
 - **Styling**: Tailwind CSS 3.4.0
-- **Wallet Integration**: Dynamic Labs SDK v4 + Wagmi + viem
+- **Wallet & Blockchain**: Cartridge Controller, Starknet React, Dojo, Torii
 - **Routing**: React Router DOM 7.12.0
 - **State Management**: Phaser Registry + React Context
-- **Data**: TanStack Query 5
+- **Data**: TanStack Query 5, Torii GraphQL
 - **PWA**: Vite PWA + Workbox
 
 ### Project Structure
@@ -125,7 +125,8 @@ neon-sentinel/
 - **GameScene ↔ UIScene**: Phaser Registry (cross-scene state)
 - **GameScene → React**: Custom events via `window` object
 - **React → GameScene**: Exposed functions on game instance
-- **Wallet → Game**: Wallet address passed via registry
+- **Blockchain ↔ Game**: `dojoService.ts` executes Torii GraphQL queries to fetch on-chain state (leaderboard, stats)
+- **Wallet → Game**: Connected `Account` (via Starknet React / Cartridge) is used selectively to sign transactions.
 
 ---
 
