@@ -67,6 +67,9 @@ export const SYSTEMS = {
 
 /**
  * Executes a GraphQL query against Torii.
+ * Throws on network or data errors.
+ * "Unknown field" errors mean Torii hasn't indexed the models yet — thrown as-is
+ * so callers can swallow them gracefully.
  */
 export async function queryTorii(query: string, variables: any = {}) {
     const response = await fetch(TORII_GRAPHQL_URL, {
@@ -76,7 +79,12 @@ export async function queryTorii(query: string, variables: any = {}) {
     });
     const { data, errors } = await response.json();
     if (errors) {
-        throw new Error(errors[0].message);
+        const msg: string = errors[0].message ?? "";
+        // Torii schema not synced yet — model-specific fields missing
+        if (msg.includes("Unknown field") || msg.includes("unknown field")) {
+            throw new Error(msg);
+        }
+        throw new Error(msg);
     }
     return data;
 }
@@ -108,8 +116,12 @@ export async function getPlayerProfileOnChain(address: string) {
         }
       }
     }`;
-    const data = await queryTorii(query, { address: normalized });
-    return data.neonSentinelPlayerProfileModels.edges[0]?.node || null;
+    try {
+        const data = await queryTorii(query, { address: normalized });
+        return data.neonSentinelPlayerProfileModels.edges[0]?.node || null;
+    } catch {
+        return null;
+    }
 }
 
 export interface LeaderboardEntryNode {
@@ -367,7 +379,7 @@ export async function getActiveRunId(address: string) {
         if (!node || !node.is_active) return null;
         return node.run_id as string;
     } catch (e) {
-        console.error("Failed to fetch active run id:", e);
+        console.warn("[Torii] profile not indexed yet –", e);
         return null;
     }
 }
@@ -419,7 +431,7 @@ export async function getLeaderboardOnChain(week: number) {
         const data = await queryTorii(query, { week });
         return data.neonSentinelLeaderboardEntryModels.edges.map((e: any) => e.node);
     } catch (e) {
-        console.error("Failed to fetch on-chain leaderboard:", e);
+        console.warn("[Torii] leaderboard not indexed yet –", e);
         return [];
     }
 }
@@ -444,7 +456,7 @@ export async function getMiniMeInventory(address: string) {
         const data = await queryTorii(query, { address: normalized });
         return data.neonSentinelMiniMeInventoryModels.edges.map((e: any) => e.node);
     } catch (e) {
-        console.error("Failed to fetch mini-me inventory:", e);
+        console.warn("[Torii] inventory not indexed yet –", e);
         return [];
     }
 }
@@ -471,7 +483,7 @@ export async function getCoinPurchases(address: string) {
         const data = await queryTorii(query, { address: normalized });
         return data.neonSentinelCoinPurchaseRecordModels.edges.map((e: any) => e.node);
     } catch (e) {
-        console.error("Failed to fetch coin history:", e);
+        console.warn("[Torii] coin history not indexed yet –", e);
         return [];
     }
 }

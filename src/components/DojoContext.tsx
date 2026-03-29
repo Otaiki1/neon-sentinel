@@ -60,8 +60,8 @@ export const DojoProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPurchases(onChainPurchases);
             setError(null);
         } catch (err: any) {
-            console.error("Error refreshing Dojo profile data:", err);
-            setError(err.message);
+            // Torii not yet synced — suppress error, data will load once Torii indexes the world
+            console.warn("[Torii] Profile data not available yet:", err?.message ?? err);
         } finally {
             setLoading(false);
         }

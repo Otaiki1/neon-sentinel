@@ -66,13 +66,22 @@ function GamePage() {
         const pregameEffects = mergePregameEffects(pregameIds);
         game.registry.set("pregameSessionEffects", pregameEffects);
 
-        // Load the cached run ID (written by PregameUpgradesModal after tx confirmed)
+        // Load the cached run ID (written by PregameUpgradesModal / AnswerGauntletModal after tx confirmed)
         const cachedRunId = sessionStorage.getItem("activeRunId");
         if (cachedRunId) {
             game.registry.set("activeRunId", cachedRunId);
             // NOTE: do NOT remove from sessionStorage here — React StrictMode can double-mount
             // GameScene will clear it from sessionStorage after successful on-chain submission
             console.log("[GamePage] Loaded cached activeRunId:", cachedRunId);
+        }
+
+        // Gauntlet mode context (written by AnswerGauntletModal)
+        const gauntletBeaconId = sessionStorage.getItem("gauntletBeaconId");
+        const isGauntletRun = sessionStorage.getItem("isGauntletRun") === "true";
+        if (isGauntletRun && gauntletBeaconId) {
+            game.registry.set("isGauntletRun", true);
+            game.registry.set("gauntletBeaconId", gauntletBeaconId);
+            console.log("[GamePage] Gauntlet run detected, beaconId:", gauntletBeaconId);
         }
 
         // Listen for return to menu event
