@@ -100,9 +100,19 @@ export function PregameUpgradesModal({
                 sessionStorage.removeItem("activeRunId");
             }
             return true;
-        } catch (e) {
-            console.error("Failed to init_game on-chain:", e);
-            alert("Failed to initialize on-chain run. Please check your wallet.");
+        } catch (e: any) {
+            // Extract the deepest revert message from the execution trace
+            const revertMsg =
+                e?.data?.execution_error ??
+                e?.data?.revert_error ??
+                e?.message ??
+                "Transaction failed";
+            console.error("Failed to init_game on-chain:", revertMsg, e);
+            // Code 41 = execution error — often a stale session or contract revert
+            const hint = (e?.code === 41 || String(e?.code) === "41")
+                ? "\n\nIf your wallet session is stale, try disconnecting and reconnecting your wallet."
+                : "";
+            alert(`Failed to start run: ${revertMsg}${hint}`);
             return false;
         } finally {
             setIsLaunching(false);

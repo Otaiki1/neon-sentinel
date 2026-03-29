@@ -30,6 +30,7 @@ import WalletConnectionModal from "../components/WalletConnectionModal";
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
+import { GauntletModal } from "../components/GauntletModal";
 import CommanderWalkthrough from "../components/CommanderWalkthrough";
 import { soundManager } from "../utils/soundUtils";
 import {
@@ -97,6 +98,7 @@ function LandingPage() {
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [showPregameModal, setShowPregameModal] = useState(false);
+    const [showGauntletModal, setShowGauntletModal] = useState(false);
     const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
     const [settings, setSettings] = useState<GameplaySettings>(
         getGameplaySettings(),
@@ -489,6 +491,24 @@ function LandingPage() {
                             </button>
                         
                         
+                            <button
+                                type="button"
+                                className="nav-icon-button"
+                                onClick={() => setShowGauntletModal(true)}
+                                aria-label="Gauntlet Protocol"
+                            >
+                                <img
+                                    src={iconMarketplace}
+                                    alt=""
+                                    className="nav-icon-image"
+                                    style={{ filter: "hue-rotate(30deg) saturate(2) brightness(1.2)" }}
+                                />
+                                <span className="nav-icon-label" style={{ color: "#ff6600" }}>
+                                    GAUNTLET
+                                </span>
+                            </button>
+
+
                             <button
                                 type="button"
                                 className="nav-icon-button"
@@ -1508,6 +1528,10 @@ function LandingPage() {
                     const idx = avatarIds.indexOf(activeAvatar);
                     return idx === -1 ? 0 : idx;
                 })()}
+            />
+            <GauntletModal
+                isOpen={showGauntletModal}
+                onClose={() => setShowGauntletModal(false)}
             />
         </div>
     );

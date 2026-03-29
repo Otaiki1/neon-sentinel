@@ -98,6 +98,7 @@ import {
 } from "../../services/rankService";
 import { markFinalBossDefeated } from "../../services/avatarService";
 import { dojoService } from "../../services/dojoService";
+import { submitGauntletResult } from "../../services/gauntletService";
 import type { AccountInterface } from "starknet";
 import {
     getDialogueForTrigger,
@@ -5157,14 +5158,31 @@ export class GameScene extends Phaser.Scene {
                             runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
                         }
                         if (runId) {
-                            console.log("[OnChain] Final boss victory – ending run:", runId);
-                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
-                            const endTxHash = endResult?.transaction_hash;
-                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
-                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
-                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
-                            await dojoService.submitToLeaderboard(account, runId);
-                            console.log("[OnChain] Final boss run concluded and submitted. RunId:", runId);
+                            const isGauntlet = this.registry.get("isGauntletRun") === true
+                                || sessionStorage.getItem("isGauntletRun") === "true";
+                            const beaconId = (this.registry.get("gauntletBeaconId") as string | undefined)
+                                || sessionStorage.getItem("gauntletBeaconId") || undefined;
+
+                            if (isGauntlet && beaconId) {
+                                console.log("[OnChain][Gauntlet] Final boss – submitting gauntlet result, beaconId:", beaconId);
+                                const result = await submitGauntletResult(
+                                    account, beaconId, runId,
+                                    this.score, this.totalEnemiesDefeated, this.currentLayer,
+                                );
+                                if (result?.transaction_hash) await dojoService.waitForTransaction(result.transaction_hash);
+                                console.log("[OnChain][Gauntlet] Result submitted. RunId:", runId);
+                                sessionStorage.removeItem("gauntletBeaconId");
+                                sessionStorage.removeItem("isGauntletRun");
+                            } else {
+                                console.log("[OnChain] Final boss victory – ending run:", runId);
+                                const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                                const endTxHash = endResult?.transaction_hash;
+                                console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                                if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                                console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
+                                await dojoService.submitToLeaderboard(account, runId);
+                                console.log("[OnChain] Final boss run concluded and submitted. RunId:", runId);
+                            }
                             this.registry.remove("activeRunId");
                             sessionStorage.removeItem("activeRunId");
                         } else {
@@ -5826,15 +5844,32 @@ export class GameScene extends Phaser.Scene {
                             runId = await dojoService.getActiveRunId(walletAddress) ?? undefined;
                         }
                         if (runId) {
-                            console.log("[OnChain] Ending run:", runId);
-                            const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
-                            const endTxHash = endResult?.transaction_hash;
-                            console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
-                            if (endTxHash) await dojoService.waitForTransaction(endTxHash);
-                            console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
-                            await dojoService.submitToLeaderboard(account, runId);
-                            console.log("[OnChain] Run concluded and submitted to leaderboard. RunId:", runId);
-                            // Clear both sources so it's not reused on the next run
+                            const isGauntlet = this.registry.get("isGauntletRun") === true
+                                || sessionStorage.getItem("isGauntletRun") === "true";
+                            const beaconId = (this.registry.get("gauntletBeaconId") as string | undefined)
+                                || sessionStorage.getItem("gauntletBeaconId") || undefined;
+
+                            if (isGauntlet && beaconId) {
+                                console.log("[OnChain][Gauntlet] Submitting gauntlet result, beaconId:", beaconId);
+                                const result = await submitGauntletResult(
+                                    account, beaconId, runId,
+                                    this.score, this.totalEnemiesDefeated, this.currentLayer,
+                                );
+                                if (result?.transaction_hash) await dojoService.waitForTransaction(result.transaction_hash);
+                                console.log("[OnChain][Gauntlet] Result submitted. RunId:", runId);
+                                sessionStorage.removeItem("gauntletBeaconId");
+                                sessionStorage.removeItem("isGauntletRun");
+                            } else {
+                                console.log("[OnChain] Ending run:", runId);
+                                const endResult = await dojoService.endRun(account, runId, this.score, this.totalEnemiesDefeated, this.currentLayer);
+                                const endTxHash = endResult?.transaction_hash;
+                                console.log("[OnChain] end_run tx sent:", endTxHash, "– waiting for confirmation...");
+                                if (endTxHash) await dojoService.waitForTransaction(endTxHash);
+                                console.log("[OnChain] Run ended on-chain. Submitting to leaderboard...");
+                                await dojoService.submitToLeaderboard(account, runId);
+                                console.log("[OnChain] Run concluded and submitted to leaderboard. RunId:", runId);
+                            }
+                            // Clear run ID from both sources
                             this.registry.remove("activeRunId");
                             sessionStorage.removeItem("activeRunId");
                         } else {

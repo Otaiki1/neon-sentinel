@@ -1,0 +1,125 @@
+/* ── Overlay / panel reuse gauntlet-modal styles ── */
+
+/* ── Form ── */
+.tg-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+.tg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.tg-label {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.tg-label span {
+    color: #ff6600;
+    margin-left: 4px;
+}
+
+.tg-input {
+    background: #0a0a0a;
+    border: 1px solid #444;
+    color: #fff;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tg-input:focus {
+    border-color: #ff6600;
+}
+
+.tg-input::placeholder {
+    color: #444;
+}
+
+.tg-hint {
+    font-size: 0.7rem;
+    color: #555;
+}
+
+.tg-hint.warning {
+    color: #ffaa00;
+}
+
+/* ── Run selector ── */
+.tg-run-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.tg-run-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #333;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    background: transparent;
+    text-align: left;
+    width: 100%;
+}
+
+.tg-run-option:hover,
+.tg-run-option.selected {
+    border-color: #ff6600;
+    background: rgba(255, 102, 0, 0.08);
+}
+
+.tg-run-score {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1.1rem;
+    color: #fff;
+    font-weight: 700;
+    min-width: 70px;
+}
+
+.tg-run-meta {
+    font-size: 0.72rem;
+    color: #666;
+}
+
+/* ── Summary ── */
+.tg-summary {
+    background: rgba(255, 102, 0, 0.05);
+    border: 1px solid #ff6600;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.tg-summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+}
+
+.tg-summary-label { color: #888; }
+.tg-summary-value { color: #ccc; font-family: "Rajdhani", sans-serif; font-weight: 600; }
+.tg-summary-value.strk { color: #ffd700; }
+
+/* ── Footer ── */
+.tg-footer {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+}

@@ -1,6 +1,6 @@
 import { DOJO_SEPOLIA } from "../dojo/config";
 
-// STRK token on Sepolia — needed for approve() in buy_coins multicall
+// STRK token on Sepolia — needed for approve() in buy_coins and gauntlet multicalls
 const STRK_TOKEN = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
 
 // Max STRK spend pre-approved per session: 1000 units (matches contract max)
@@ -9,10 +9,10 @@ const MAX_STRK_SESSION = "0x3e8";
 
 export const neonSentinelPolicies = {
   contracts: {
-    // STRK token – allow approve() up to the session spending cap
+    // STRK token – allow approve() for coin shop and gauntlet staking
     [STRK_TOKEN]: {
       name: "STRK Token",
-      description: "Approve STRK spending for coin purchases",
+      description: "Approve STRK spending for coin purchases and gauntlet staking",
       methods: [
         {
           name: "Approve STRK for Coin Shop",
@@ -20,6 +20,20 @@ export const neonSentinelPolicies = {
           spender: DOJO_SEPOLIA.systems.buy_coins,
           amount: MAX_STRK_SESSION,
           description: "Approve STRK token transfer",
+        },
+        {
+          name: "Approve STRK for Gauntlet",
+          entrypoint: "approve",
+          spender: DOJO_SEPOLIA.systems.throw_gauntlet,
+          amount: MAX_STRK_SESSION,
+          description: "Approve STRK for gauntlet sentinel stake",
+        },
+        {
+          name: "Approve STRK for Gauntlet Challenge",
+          entrypoint: "approve",
+          spender: DOJO_SEPOLIA.systems.answer_gauntlet,
+          amount: MAX_STRK_SESSION,
+          description: "Approve STRK for gauntlet challenger stake",
         },
       ],
     },
@@ -80,6 +94,73 @@ export const neonSentinelPolicies = {
           name: "purchase_mini_me_sessions",
           entrypoint: "purchase_mini_me_sessions",
           description: "Buy Mini-Me session pack",
+        },
+      ],
+    },
+    // Gauntlet Protocol
+    [DOJO_SEPOLIA.systems.throw_gauntlet.toLowerCase()]: {
+      name: "Neon Sentinel – Throw Gauntlet",
+      description: "Stake STRK and publish a gauntlet beacon",
+      methods: [
+        {
+          name: "throw_gauntlet",
+          entrypoint: "throw_gauntlet",
+          description: "Publish a gauntlet beacon with STRK stake",
+        },
+      ],
+    },
+    [DOJO_SEPOLIA.systems.answer_gauntlet.toLowerCase()]: {
+      name: "Neon Sentinel – Answer Gauntlet",
+      description: "Accept a gauntlet challenge and stake STRK",
+      methods: [
+        {
+          name: "answer_gauntlet",
+          entrypoint: "answer_gauntlet",
+          description: "Ante up and start a gauntlet run",
+        },
+      ],
+    },
+    [DOJO_SEPOLIA.systems.submit_gauntlet_result.toLowerCase()]: {
+      name: "Neon Sentinel – Submit Gauntlet Result",
+      description: "End a gauntlet run and resolve the stake",
+      methods: [
+        {
+          name: "submit_gauntlet_result",
+          entrypoint: "submit_gauntlet_result",
+          description: "Submit final score and settle the gauntlet",
+        },
+      ],
+    },
+    [DOJO_SEPOLIA.systems.recall_gauntlet.toLowerCase()]: {
+      name: "Neon Sentinel – Recall Gauntlet",
+      description: "Cancel your gauntlet beacon (15% cancellation fee)",
+      methods: [
+        {
+          name: "recall_gauntlet",
+          entrypoint: "recall_gauntlet",
+          description: "Cancel beacon and receive refund minus fee",
+        },
+      ],
+    },
+    [DOJO_SEPOLIA.systems.settle_gauntlet.toLowerCase()]: {
+      name: "Neon Sentinel – Settle Gauntlet",
+      description: "Expire an unbeaten beacon and return stake to sentinel",
+      methods: [
+        {
+          name: "settle_gauntlet",
+          entrypoint: "settle_gauntlet",
+          description: "Settle an expired gauntlet beacon",
+        },
+      ],
+    },
+    [DOJO_SEPOLIA.systems.claim_abandoned_stake.toLowerCase()]: {
+      name: "Neon Sentinel – Claim Abandoned Stake",
+      description: "Claim STRK from an unresolved gauntlet attempt",
+      methods: [
+        {
+          name: "claim_abandoned_stake",
+          entrypoint: "claim_abandoned_stake",
+          description: "Reclaim stake from an abandoned gauntlet attempt",
         },
       ],
     },

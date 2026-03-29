@@ -1,33 +1,46 @@
 export const DOJO_SEPOLIA = {
   chain: "sepolia",
   rpcUrl: "https://api.cartridge.gg/x/starknet/sepolia",
-  toriiBaseUrl: "https://api.cartridge.gg/x/neon-sentinel-test/torii",
-  toriiGraphqlUrl: "https://api.cartridge.gg/x/neon-sentinel-test/torii/graphql",
+  toriiBaseUrl: "https://api.cartridge.gg/x/neon-sentinel-torii/torii",
+  toriiGraphqlUrl: "https://api.cartridge.gg/x/neon-sentinel-torii/torii/graphql",
   worldAddress:
-    "0x07bcbeb6104a77c6c90d7285ba06c2623454a38b501554c0d1645013fe610fc1",
+    "0x0630209d4cb66a85c81be364abd9fd257d766d922d252d1ec8af64bfdc11bf97",
   systems: {
     actions:
-      "0x11501c9707e5d8e11be1ea2382593aca835680687a589b56a8b737aea62e11d",
+      "0x053c4ec475d4722fc76073067163530563ff0edeaa9e7bdd90450f5aeaede16c",
     init_game:
-      "0x7bfc2d91139c0cf95a9b9aeb45be1be5b7da241c2018751b8a4b1b6b4f75a12",
+      "0x02666cb64a3d3f31d407b10e11ec5d03b0babe3c812929120b15e336539819c4",
     end_run:
-      "0x75e9efe4e27dcfd10c92d30971b6fddc67ee5778a6af6917bf0f7f3f864d601",
+      "0x032d5608e59a39bf9d63a9efa9900be2116c3e91b269c39f136f6845e8c446ea",
     submit_leaderboard:
-      "0x7511c7a0575ad7533a1f93c46039ac1956a538223828b49928a3da567d81dc1",
+      "0x07f4a9f231ba97a07fce921e91ed6df985eb62ffd622eef50299a0ff65607cd9",
     claim_coins:
-      "0x2210b7fe00d1366551f5cb70b0c8a5605a631a08f3a152838be22b288769afa",
+      "0x06042da7579cf81e5d74740f7255549587f43cfb2fcb4b08ecb68e80fdb5c485",
     spend_coins:
-      "0x393939f3fb43e93c2f3af3a0c7a0c0a1d76677d6c66afd8437afe246870f05f",
+      "0x008b6b436a9ad81c32dac1aa1e2b711c787772b95f1780177801bcc0fd2bd4ed",
     spend_revive:
-      "0xf9043a3cdd3ceb402fe33b459efe0566008a5680ef2e96fa74414b8063556b",
+      "0x04e9232a1129f9258b63b2951a5c0e791d00defc5a2307083ccf896025a23b31",
     purchase_cosmetic:
-      "0x1eea8a9d7fce403f9ecf491e0cc0682b6b3617f23edb98f746bf996e43b0949",
+      "0x033a809ad5e3ec0507c2bef03301f4cc12ba0add2b32420bceaf44d9e9a85212",
     buy_coins:
-      "0x23fcb5bfa687c332a012898cb916559e54b4e56e83ccfd3c7f5aa1d83614b25",
+      "0x04fdf8467cdd39aebac61733510c6b6ec1d719f5b55a11380564aff15a1c6238",
     purchase_mini_me_unit:
-      "0x23f7c4b3be610071961e3b78e49d79bab439e36952fad9ef3eda72ff4254ded",
+      "0x026138786ee745466b5e66c8c7fafee09e2461ad9de07acc02f961f5515b4430",
     purchase_mini_me_sessions:
-      "0x6d51b77216ea946c0d33cba1667fe7b23130c12387c01429324a79bc1aee8c0",
+      "0x06e6385c694fe3366c276d963aeddada3f6ecd6f9763629a6cde4a8112b9c24c",
+    // Gauntlet Protocol
+    throw_gauntlet:
+      "0x02c1216690920153b2b40105a87ed7cd8f23902689eddbfb9ad384297416683e",
+    answer_gauntlet:
+      "0x02ab89f49c8d1972b515e3b97a9d821318e2a2536ec57039358127426e159bc4",
+    submit_gauntlet_result:
+      "0x04fe57853f2932dffd2bb34becadf006bca05ca5bfac6a8666c5e5419b8bf50c",
+    recall_gauntlet:
+      "0x07d45058502b18667fd44b07796e985537629158fa1ada465aaf6222756d351a",
+    settle_gauntlet:
+      "0x04993e540cb5698580dde93592642a20200784ae7dc52eac0e606e697380bff0",
+    claim_abandoned_stake:
+      "0x01c4737a5f574bdc00d4dbe70a0bccdbf89ef73144b05fe593d5f492a96c8934",
   },
 } as const;
 

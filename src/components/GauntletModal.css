@@ -1,0 +1,312 @@
+/* ── Overlay ── */
+.gauntlet-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(6px);
+}
+
+/* ── Panel ── */
+.gauntlet-modal {
+    background: #000;
+    border: 2px solid #ff6600;
+    padding: 1.5rem 2rem;
+    max-width: 780px;
+    width: 93%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 0 32px rgba(255, 102, 0, 0.5);
+}
+
+/* ── Header ── */
+.gauntlet-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #ff6600;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.gauntlet-modal-title {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1.6rem;
+    color: #ff6600;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.gauntlet-modal-subtitle {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 0;
+}
+
+.gauntlet-modal-close {
+    background: transparent;
+    border: 2px solid #ff6600;
+    color: #ff6600;
+    font-size: 1.75rem;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.gauntlet-modal-close:hover {
+    background: #ff6600;
+    color: #000;
+}
+
+/* ── Tabs ── */
+.gauntlet-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.gauntlet-tab {
+    background: transparent;
+    border: 1px solid #555;
+    color: #aaa;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.4rem 1rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.gauntlet-tab.active {
+    border-color: #ff6600;
+    color: #ff6600;
+    background: rgba(255, 102, 0, 0.1);
+}
+
+.gauntlet-tab:hover:not(.active) {
+    border-color: #888;
+    color: #ccc;
+}
+
+/* ── CTA banner ── */
+.gauntlet-throw-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 102, 0, 0.07);
+    border: 1px solid #ff6600;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    gap: 1rem;
+}
+
+.gauntlet-throw-banner p {
+    font-size: 0.82rem;
+    color: #ccc;
+    margin: 0;
+}
+
+/* ── Buttons ── */
+.gauntlet-btn {
+    font-family: "Rajdhani", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.85rem;
+    padding: 0.45rem 1.1rem;
+    white-space: nowrap;
+}
+
+.gauntlet-btn-primary {
+    background: #ff6600;
+    border: 2px solid #ff6600;
+    color: #000;
+    font-weight: 700;
+}
+
+.gauntlet-btn-primary:hover:not(:disabled) {
+    background: #ff8800;
+    border-color: #ff8800;
+}
+
+.gauntlet-btn-secondary {
+    background: transparent;
+    border: 2px solid #ff6600;
+    color: #ff6600;
+}
+
+.gauntlet-btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 102, 0, 0.15);
+}
+
+.gauntlet-btn-danger {
+    background: transparent;
+    border: 2px solid #ff3333;
+    color: #ff3333;
+}
+
+.gauntlet-btn-danger:hover:not(:disabled) {
+    background: rgba(255, 51, 51, 0.15);
+}
+
+.gauntlet-btn-muted {
+    background: transparent;
+    border: 2px solid #555;
+    color: #888;
+}
+
+.gauntlet-btn-muted:hover:not(:disabled) {
+    border-color: #888;
+    color: #ccc;
+}
+
+.gauntlet-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Beacon list ── */
+.gauntlet-beacon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.gauntlet-empty {
+    text-align: center;
+    color: #555;
+    font-size: 0.9rem;
+    padding: 2rem 0;
+}
+
+.gauntlet-loading {
+    text-align: center;
+    color: #ff6600;
+    font-size: 0.85rem;
+    padding: 1.5rem 0;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.3; }
+}
+
+/* ── Beacon card ── */
+.gauntlet-beacon-card {
+    border: 1px solid #333;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color 0.15s;
+}
+
+.gauntlet-beacon-card:hover {
+    border-color: #ff6600;
+}
+
+.gauntlet-beacon-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.gauntlet-beacon-sentinel {
+    font-size: 0.75rem;
+    color: #888;
+    word-break: break-all;
+}
+
+.gauntlet-beacon-sentinel span {
+    color: #ff6600;
+    font-weight: 600;
+}
+
+.gauntlet-beacon-score {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1.3rem;
+    color: #fff;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.gauntlet-beacon-score small {
+    font-size: 0.7rem;
+    color: #888;
+    margin-left: 2px;
+}
+
+.gauntlet-beacon-stats {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.gauntlet-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.gauntlet-stat-label {
+    font-size: 0.65rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.gauntlet-stat-value {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.95rem;
+    color: #ccc;
+    font-weight: 600;
+}
+
+.gauntlet-stat-value.strk {
+    color: #ffd700;
+}
+
+.gauntlet-beacon-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+}
+
+/* ── Status badges ── */
+.gauntlet-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border: 1px solid;
+    font-family: "Rajdhani", sans-serif;
+    font-weight: 600;
+}
+
+.gauntlet-badge-active { color: #00ff00; border-color: #00ff00; }
+.gauntlet-badge-winner { color: #ffd700; border-color: #ffd700; }
+.gauntlet-badge-expired { color: #888; border-color: #555; }
+.gauntlet-badge-cancelled { color: #ff3333; border-color: #ff3333; }
+
+/* ── Error ── */
+.gauntlet-error {
+    font-size: 0.8rem;
+    color: #ff3333;
+    margin-top: 0.5rem;
+}
