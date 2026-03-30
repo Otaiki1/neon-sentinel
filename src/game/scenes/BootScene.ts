@@ -28,20 +28,29 @@ export class BootScene extends Phaser.Scene {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
 
+    const isHaywire = localStorage.getItem('neon-sentinel-theme') === 'haywire';
+    const hwColors = [0xff00cc, 0xaaff00, 0x00ffff, 0xff5500, 0xaa00ff];
+    let hwIdx = 0;
+    let lastProgress = 0;
+
+    if (isHaywire) {
+        this.cameras.main.setBackgroundColor('#04000a');
+    }
+
     // Loading bar background
     const progressBar = this.add.graphics();
     const progressBox = this.add.graphics();
-    progressBox.fillStyle(0x222222, 0.8);
+    progressBox.fillStyle(isHaywire ? 0x1a0033 : 0x222222, 0.8);
     progressBox.fillRect(width / 2 - 160, height / 2 - 25, 320, 50);
 
     // Loading text
     const loadingText = this.make.text({
       x: width / 2,
       y: height / 2 - 50,
-      text: 'Loading...',
+      text: isHaywire ? '// INITIALIZING //' : 'Loading...',
       style: {
         font: '16px "Press Start 2P"',
-        color: '#00ff00',
+        color: isHaywire ? '#ff00cc' : '#00ff00',
       },
     });
     loadingText.setOrigin(0.5, 0.5);
@@ -52,7 +61,7 @@ export class BootScene extends Phaser.Scene {
       text: '0%',
       style: {
         font: '12px "Press Start 2P"',
-        color: '#00ff00',
+        color: isHaywire ? '#aaff00' : '#00ff00',
       },
     });
     percentText.setOrigin(0.5, 0.5);
@@ -63,35 +72,56 @@ export class BootScene extends Phaser.Scene {
       text: '',
       style: {
         font: '10px "Press Start 2P"',
-        color: '#00ff00',
+        color: isHaywire ? '#00ffff' : '#00ff00',
       },
     });
     assetText.setOrigin(0.5, 0.5);
+
+    // In haywire mode: cycle bar color and label color every 250ms
+    if (isHaywire) {
+        this.time.addEvent({
+            delay: 250,
+            repeat: -1,
+            callback: () => {
+                hwIdx = (hwIdx + 1) % hwColors.length;
+                progressBar.clear();
+                progressBar.fillStyle(hwColors[hwIdx], 1);
+                progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * lastProgress, 30);
+                // Cycle the loading label color
+                const hex = '#' + hwColors[hwIdx].toString(16).padStart(6, '0');
+                loadingText.setColor(hex);
+                percentText.setColor('#' + hwColors[(hwIdx + 2) % hwColors.length].toString(16).padStart(6, '0'));
+            },
+        });
+    }
 
     // Dedicated loading song using native HTML5 to bypass Phaser cache waiting
     const loadingAudio = new Audio('/sounds/game-environment-5.mp3');
     loadingAudio.volume = 0.2;
     loadingAudio.loop = true;
-    
+
     // Play the loading track; catch needed for browser autoplay policies
     loadingAudio.play().catch(e => console.warn("Loading audio blocked by autoplay rules", e));
 
     // Update progress bar
     this.load.on('progress', (value: number) => {
-      progressBar.clear();
-      progressBar.fillStyle(0x00ff00, 1);
-      progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * value, 30);
+      lastProgress = value;
+      if (!isHaywire) {
+          progressBar.clear();
+          progressBar.fillStyle(0x00ff00, 1);
+          progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * value, 30);
+      }
       percentText.setText(Math.round(value * 100) + '%');
     });
 
     this.load.on('fileprogress', (file: Phaser.Loader.File) => {
-      assetText.setText('Loading: ' + file.key);
+      assetText.setText((isHaywire ? '> ' : 'Loading: ') + file.key);
     });
 
     this.load.on('filecomplete', (key: string) => {
         this.loadedAssets.add(key);
     });
-    
+
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
         const key = file.key;
         const fallback = getFallbackAsset(key);

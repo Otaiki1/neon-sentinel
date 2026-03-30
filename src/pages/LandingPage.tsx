@@ -1,5 +1,5 @@
 import { useAccount } from "@starknet-react/core";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDojo } from "../components/DojoContext";
 import {
     buyCoins as buyCoinsOnChain,
@@ -25,12 +25,12 @@ import iconSettings from "../assets/icons/icon-settings.svg";
 import iconMarketplace from "../assets/icons/icon-marketplace.svg";
 import iconInventory from "../assets/icons/icon-inventory.svg";
 import iconLogin from "../assets/icons/icon-login.svg";
+import iconGauntlet from "../assets/icons/icon-gauntlet.svg";
 import WalletConnectionModal from "../components/WalletConnectionModal";
 
 import AvatarSelectionModal from "../components/AvatarSelectionModal";
 import { InventoryModal } from "../components/InventoryModal";
 import { PregameUpgradesModal } from "../components/PregameUpgradesModal";
-import { GauntletModal } from "../components/GauntletModal";
 import CommanderWalkthrough from "../components/CommanderWalkthrough";
 import { soundManager } from "../utils/soundUtils";
 import {
@@ -78,6 +78,7 @@ export function setUserMode(mode: UserMode): void {
 }
 
 function LandingPage() {
+    const navigate = useNavigate();
     const { account, address, isConnected: isWalletConnected } = useAccount();
     const { profile, refreshProfile, showTx, hideTx } = useDojo();
     const walletLabel = isWalletConnected
@@ -98,7 +99,6 @@ function LandingPage() {
     const [showAvatarModal, setShowAvatarModal] = useState(false);
     const [showInventoryModal, setShowInventoryModal] = useState(false);
     const [showPregameModal, setShowPregameModal] = useState(false);
-    const [showGauntletModal, setShowGauntletModal] = useState(false);
     const [activeAvatar, setActiveAvatar] = useState(getActiveAvatar());
     const [settings, setSettings] = useState<GameplaySettings>(
         getGameplaySettings(),
@@ -418,7 +418,7 @@ function LandingPage() {
                         
                             <Link
                                 to="/leaderboards"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-yellow"
                                 aria-label="Hall of Fame"
                             >
                                 <img
@@ -432,7 +432,7 @@ function LandingPage() {
                         
                             <Link
                                 to="/profile"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-blue"
                                 aria-label="Profile"
                             >
                                 <img
@@ -446,7 +446,7 @@ function LandingPage() {
                         
                             <button
                                 type="button"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-green"
                                 onClick={handleOpenSettings}
                                 aria-label="Settings"
                             >
@@ -461,7 +461,7 @@ function LandingPage() {
                         
                             <button
                                 type="button"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-orange"
                                 onClick={handleOpenMarketplace}
                                 aria-label="Marketplace"
                             >
@@ -476,7 +476,7 @@ function LandingPage() {
                         
                             <button
                                 type="button"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-blue"
                                 onClick={() => setShowInventoryModal(true)}
                                 aria-label="Inventory"
                             >
@@ -493,25 +493,7 @@ function LandingPage() {
                         
                             <button
                                 type="button"
-                                className="nav-icon-button"
-                                onClick={() => setShowGauntletModal(true)}
-                                aria-label="Gauntlet Protocol"
-                            >
-                                <img
-                                    src={iconMarketplace}
-                                    alt=""
-                                    className="nav-icon-image"
-                                    style={{ filter: "hue-rotate(30deg) saturate(2) brightness(1.2)" }}
-                                />
-                                <span className="nav-icon-label" style={{ color: "#ff6600" }}>
-                                    GAUNTLET
-                                </span>
-                            </button>
-
-
-                            <button
-                                type="button"
-                                className="nav-icon-button"
+                                className="nav-icon-button nav-tone-green"
                                 onClick={handleOpenWalletModal}
                                 aria-label="Login"
                             >
@@ -573,23 +555,42 @@ function LandingPage() {
                     {/* START GAME - wide, on top of hero card */}
                     <section
                         className="start-game-on-card mb-4"
-                        aria-label="Start game"
+                        aria-label="Primary game modes"
                     >
-                        
+                        <div className="mode-cta-stack">
                             <button
                                 type="button"
                                 className="start-game-btn-link start-game-btn-wide font-display"
                                 onClick={() => setShowPregameModal(true)}
                             >
                                 <span className="start-game-btn-main">
-                                    &gt;&gt; START GAME &lt;&lt;
+                                    &gt;&gt; DEPLOY SENTINEL &lt;&lt;
                                 </span>
                                 <hr className="start-game-btn-divider" />
                                 <p className="start-game-btn-subtitle">
-                                    Liberate the Neon Terminal
+                                    Enter the live defense run
                                 </p>
                             </button>
-                        
+                            <button
+                                type="button"
+                                className="start-game-btn-link start-game-btn-wide gauntlet-mode-btn font-display"
+                                onClick={() => navigate("/gauntlet")}
+                            >
+                                <span className="gauntlet-mode-btn-main">
+                                    <img
+                                        src={iconGauntlet}
+                                        alt=""
+                                        className="gauntlet-mode-btn-icon"
+                                        aria-hidden
+                                    />
+                                    <span>&gt;&gt; GAUNTLET MODE &lt;&lt;</span>
+                                </span>
+                                <hr className="start-game-btn-divider gauntlet-mode-divider" />
+                                <p className="start-game-btn-subtitle gauntlet-mode-subtitle">
+                                    Throw beacons. Defend your score. Absorb challengers.
+                                </p>
+                            </button>
+                        </div>
                     </section>
 
                     {/* Hero Panel: character left, two big buttons right */}
@@ -1185,9 +1186,9 @@ function LandingPage() {
             />
             {showSettingsModal && (
                 <div className="landing-modal-overlay">
-                    <div className="retro-panel landing-modal-panel w-full max-w-2xl">
+                    <div className="retro-panel landing-modal-panel settings-modal-panel w-full max-w-2xl">
                         <h2
-                            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
+                            className="settings-modal-title font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
                             style={{
                                 letterSpacing: "0.1em",
                             }}
@@ -1447,9 +1448,9 @@ function LandingPage() {
             )}
             {showMarketplaceModal && (
                 <div className="landing-modal-overlay">
-                    <div className="retro-panel landing-modal-panel w-full max-w-xl">
+                    <div className="retro-panel landing-modal-panel marketplace-modal-panel w-full max-w-xl">
                         <h2
-                            className="font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
+                            className="marketplace-modal-title font-menu text-base md:text-lg mb-4 text-neon-green border-b-2 border-neon-green pb-2"
                             style={{
                                 letterSpacing: "0.1em",
                             }}
@@ -1528,10 +1529,6 @@ function LandingPage() {
                     const idx = avatarIds.indexOf(activeAvatar);
                     return idx === -1 ? 0 : idx;
                 })()}
-            />
-            <GauntletModal
-                isOpen={showGauntletModal}
-                onClose={() => setShowGauntletModal(false)}
             />
         </div>
     );

@@ -1,0 +1,86 @@
+/* ── Theme Toggle — fixed floating button ── */
+
+.theme-toggle {
+    position: fixed;
+    bottom: 44px; /* above ticker tape */
+    right: 1rem;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+    background: #000;
+    border: 1px solid;
+    transition: all 0.2s;
+    outline: none;
+    white-space: nowrap;
+}
+
+.theme-toggle-icon {
+    font-size: 0.85rem;
+}
+
+/* Default mode button — rainbow border hint */
+.theme-toggle--default {
+    border-image: linear-gradient(135deg, #00ff00, #00aaff, #ff00cc, #ffe500) 1;
+    color: #777;
+}
+
+.theme-toggle--default:hover {
+    color: #fff;
+    border-image: linear-gradient(135deg, #ff00cc, #aaff00, #00ffff, #ff5500) 1;
+    box-shadow: 0 0 16px rgba(255, 0, 204, 0.3);
+}
+
+/* Haywire mode button — pulsing multi-color */
+.theme-toggle--haywire {
+    border-color: #ff00cc;
+    color: #ff00cc;
+    text-shadow: 0 0 8px rgba(255, 0, 204, 0.6);
+    box-shadow: 0 0 12px rgba(255, 0, 204, 0.4);
+    animation: toggle-haywire-pulse 1.2s ease-in-out infinite;
+}
+
+.theme-toggle--haywire:hover {
+    background: #ff00cc;
+    color: #000;
+    text-shadow: none;
+}
+
+@keyframes toggle-haywire-pulse {
+    0%, 100% {
+        border-color: #ff00cc;
+        box-shadow: 0 0 12px rgba(255, 0, 204, 0.4);
+        color: #ff00cc;
+    }
+    25% {
+        border-color: #aaff00;
+        box-shadow: 0 0 12px rgba(170, 255, 0, 0.4);
+        color: #aaff00;
+    }
+    50% {
+        border-color: #00ffff;
+        box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
+        color: #00ffff;
+    }
+    75% {
+        border-color: #ff5500;
+        box-shadow: 0 0 12px rgba(255, 85, 0, 0.4);
+        color: #ff5500;
+    }
+}
+
+@media (max-width: 480px) {
+    .theme-toggle {
+        bottom: 40px;
+        right: 0.5rem;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.65rem;
+    }
+}

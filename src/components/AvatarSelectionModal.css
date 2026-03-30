@@ -10,8 +10,11 @@
 }
 
 .avatar-modal-content {
-    background-color: #000;
-    border: 2px solid #00ff00;
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.08), transparent 24%),
+        linear-gradient(135deg, rgba(0, 255, 0, 0.04), transparent 55%),
+        rgba(3, 8, 12, 0.98);
+    border: 2px solid #00aaff;
     max-width: 90vw;
     max-height: 90vh;
     width: 100%;
@@ -25,13 +28,19 @@
     align-items: center;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 2px solid #00ff00;
+    border-bottom: 2px solid rgba(0, 170, 255, 0.55);
+}
+
+.avatar-modal-header h2 {
+    color: #00ff00 !important;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.42);
+    letter-spacing: 0.12em;
 }
 
 .avatar-modal-close {
     background: none;
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    border: 2px solid #00aaff;
+    color: #00aaff;
     font-size: 1.5rem;
     width: 2rem;
     height: 2rem;
@@ -43,13 +52,16 @@
 }
 
 .avatar-modal-close:hover {
-    background-color: #00ff00;
+    background-color: #ffe500;
     color: #000;
 }
 
 .avatar-modal-coins {
     margin-bottom: 1rem;
     text-align: right;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255, 229, 0, 0.08);
+    border: 1px solid rgba(255, 229, 0, 0.45);
 }
 
 .avatar-modal-grid {
@@ -59,15 +71,17 @@
 }
 
 .avatar-card {
-    border: 2px solid #00ff00;
-    background-color: rgba(0, 0, 0, 0.8);
+    border: 2px solid #00aaff;
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.08), transparent 32%),
+        rgba(3, 8, 12, 0.92);
     padding: 1rem;
     transition: all 0.2s;
 }
 
 .avatar-card.active {
-    border-color: #ffff00;
-    box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+    border-color: #ffe500;
+    box-shadow: 0 0 14px rgba(255, 229, 0, 0.36);
 }
 
 .avatar-card.locked {
@@ -81,9 +95,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0, 255, 0, 0.05);
+    background:
+        radial-gradient(circle at center, rgba(0, 255, 0, 0.07), transparent 70%),
+        rgba(0, 170, 255, 0.04);
     margin-bottom: 0.5rem;
-    border: 1px solid #00ff00;
+    border: 1px solid #00aaff;
 }
 
 .avatar-sprite {
@@ -108,16 +124,22 @@
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.75rem;
+    color: rgba(215, 240, 255, 0.88);
 }
 
 .stat-item {
     display: flex;
     justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.15rem;
+    border-top: 1px solid rgba(0, 170, 255, 0.14);
 }
 
 .avatar-unlock-requirement {
     margin-top: 0.5rem;
     text-align: center;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 77, 61, 0.22);
 }
 
 .avatar-purchase-info {
@@ -129,9 +151,9 @@
 
 .avatar-purchase-btn,
 .avatar-select-btn {
-    background-color: #000;
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    background-color: rgba(2, 7, 10, 0.96);
+    border: 2px solid #00aaff;
+    color: #00aaff;
     padding: 0.5rem 1rem;
     cursor: pointer;
     transition: all 0.2s;
@@ -140,9 +162,18 @@
     text-transform: uppercase;
 }
 
-.avatar-purchase-btn:hover:not(.disabled),
-.avatar-select-btn:hover:not(.active) {
+.avatar-purchase-btn {
+    border-color: #00ff00;
+    color: #00ff00;
+}
+
+.avatar-purchase-btn:hover:not(.disabled) {
     background-color: #00ff00;
+    color: #000;
+}
+
+.avatar-select-btn:hover:not(.active) {
+    background-color: #00aaff;
     color: #000;
 }
 
@@ -152,8 +183,8 @@
 }
 
 .avatar-select-btn.active {
-    background-color: #ffff00;
-    border-color: #ffff00;
+    background-color: #ffe500;
+    border-color: #ffe500;
     color: #000;
 }
 

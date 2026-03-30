@@ -211,14 +211,14 @@ export function InventoryModal({ isOpen, onClose, onActivate, onSessionsChanged 
                                 
                                 <div className="inventory-item-actions">
                                     <button
-                                        className={`inventory-action-btn ${canBuy ? '' : 'disabled'}`}
+                                        className={`inventory-action-btn inventory-action-btn-purchase ${canBuy ? '' : 'disabled'}`}
                                         onClick={() => handleQuickAction(type, 'purchase')}
                                         disabled={!canBuy}
                                     >
                                         Purchase
                                     </button>
                                     <button
-                                        className={`inventory-action-btn ${canAct ? '' : 'disabled'}`}
+                                        className={`inventory-action-btn inventory-action-btn-activate ${canAct ? '' : 'disabled'}`}
                                         onClick={() => handleQuickAction(type, 'activate')}
                                         disabled={!canAct}
                                     >

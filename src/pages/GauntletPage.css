@@ -1,0 +1,426 @@
+/* ── Gauntlet Page — full-page layout, orange identity ── */
+
+.gp-page {
+    min-height: 100vh;
+    background: #000;
+    color: #ccc;
+    display: flex;
+    flex-direction: column;
+    font-family: "JetBrains Mono", monospace;
+}
+
+/* ── Top bar ── */
+.gp-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 2rem;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.gp-back-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.gp-back-btn:hover {
+    border-color: #ff6600;
+    color: #ff6600;
+}
+
+.gp-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: "Orbitron", sans-serif;
+    font-size: 0.7rem;
+    color: #444;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.gp-topbar-dot {
+    width: 6px;
+    height: 6px;
+    background: #ff6600;
+    box-shadow: 0 0 8px rgba(255, 102, 0, 0.8);
+    animation: blink 1.4s step-end infinite;
+}
+
+/* ── Page header ── */
+.gp-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 2px solid #ff6600;
+    background: rgba(255, 102, 0, 0.03);
+}
+
+.gp-header-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.gp-title {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #ff6600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    margin: 0;
+    text-shadow: 0 0 20px rgba(255, 102, 0, 0.5);
+}
+
+.gp-subtitle {
+    font-size: 0.82rem;
+    color: #888;
+    margin: 0;
+    letter-spacing: 0.04em;
+}
+
+.gp-throw-btn {
+    flex-shrink: 0;
+    background: #ff6600;
+    border: 2px solid #ff6600;
+    color: #000;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0.65rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    align-self: center;
+}
+
+.gp-throw-btn:hover:not(:disabled) {
+    background: #ff8800;
+    border-color: #ff8800;
+    box-shadow: 0 0 20px rgba(255, 102, 0, 0.45);
+}
+
+.gp-throw-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ── Tabs ── */
+.gp-tabs-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 2rem;
+    border-bottom: 1px solid #222;
+    background: #050505;
+}
+
+.gp-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.85rem 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+}
+
+.gp-tab:hover:not(:disabled):not(.active) {
+    color: #aaa;
+    border-bottom-color: #444;
+}
+
+.gp-tab.active {
+    color: #ff6600;
+    border-bottom-color: #ff6600;
+    background: rgba(255, 102, 0, 0.05);
+}
+
+.gp-tab:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.gp-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: rgba(255, 102, 0, 0.15);
+    border: 1px solid rgba(255, 102, 0, 0.35);
+    color: #ff6600;
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.gp-tab:not(.active) .gp-tab-count {
+    background: rgba(100, 100, 100, 0.1);
+    border-color: #333;
+    color: #555;
+}
+
+/* ── Content area ── */
+.gp-content {
+    flex: 1;
+    padding: 1.75rem 2rem 3rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+/* ── States ── */
+.gp-loading {
+    text-align: center;
+    color: #ff6600;
+    font-size: 0.85rem;
+    padding: 4rem 0;
+    animation: blink 1s step-end infinite;
+}
+
+.gp-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 0;
+    border: 1px dashed #2a2a2a;
+    color: #444;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.gp-error {
+    font-size: 0.8rem;
+    color: #ff3333;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(255, 51, 51, 0.3);
+    background: rgba(255, 51, 51, 0.05);
+}
+
+/* ── Beacon grid ── */
+.gp-beacon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+/* ── Beacon card ── */
+.gp-beacon-card {
+    border: 1px solid #282828;
+    padding: 1rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    background: #050505;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.gp-beacon-card:hover {
+    border-color: #ff6600;
+    box-shadow: 0 0 16px rgba(255, 102, 0, 0.12);
+}
+
+.gp-beacon-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.gp-beacon-sentinel {
+    font-size: 0.72rem;
+    color: #555;
+    word-break: break-all;
+}
+
+.gp-beacon-sentinel span {
+    color: #ff6600;
+    font-weight: 600;
+}
+
+.gp-beacon-score {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 1.5rem;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.gp-beacon-score small {
+    font-size: 0.7rem;
+    color: #666;
+    margin-left: 4px;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.gp-beacon-stats {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    padding: 0.6rem 0;
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.gp-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gp-stat-label {
+    font-size: 0.6rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.gp-stat-value {
+    font-family: "Rajdhani", sans-serif;
+    font-size: 0.92rem;
+    color: #ccc;
+    font-weight: 600;
+}
+
+.gp-stat-value.strk {
+    color: #ffd700;
+}
+
+/* ── Beacon actions ── */
+.gp-beacon-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.gp-btn {
+    font-family: "Rajdhani", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.82rem;
+    padding: 0.4rem 1rem;
+    white-space: nowrap;
+}
+
+.gp-btn-primary {
+    background: #ff6600;
+    border: 2px solid #ff6600;
+    color: #000;
+    font-weight: 700;
+}
+
+.gp-btn-primary:hover:not(:disabled) {
+    background: #ff8800;
+    border-color: #ff8800;
+    box-shadow: 0 0 14px rgba(255, 102, 0, 0.4);
+}
+
+.gp-btn-danger {
+    background: transparent;
+    border: 2px solid #ff3333;
+    color: #ff3333;
+}
+
+.gp-btn-danger:hover:not(:disabled) {
+    background: rgba(255, 51, 51, 0.12);
+}
+
+.gp-btn-muted {
+    background: transparent;
+    border: 2px solid #333;
+    color: #666;
+}
+
+.gp-btn-muted:hover:not(:disabled) {
+    border-color: #666;
+    color: #aaa;
+}
+
+.gp-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ── Status badges ── */
+.gp-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border: 1px solid;
+    font-family: "Rajdhani", sans-serif;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.gp-badge-active  { color: #00ff00; border-color: rgba(0, 255, 0, 0.5); }
+.gp-badge-winner  { color: #ffd700; border-color: rgba(255, 215, 0, 0.5); }
+.gp-badge-expired { color: #555; border-color: #333; }
+.gp-badge-cancelled { color: #ff3333; border-color: rgba(255, 51, 51, 0.5); }
+.gp-badge-yours   { color: #ff6600; border-color: rgba(255, 102, 0, 0.5); }
+
+/* ── Animations ── */
+@keyframes blink {
+    50% { opacity: 0.25; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .gp-header {
+        flex-direction: column;
+        padding: 1.25rem 1.25rem 1rem;
+    }
+
+    .gp-throw-btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .gp-tabs-bar {
+        padding: 0 1.25rem;
+    }
+
+    .gp-content {
+        padding: 1.25rem 1.25rem 2rem;
+    }
+
+    .gp-topbar {
+        padding: 0.65rem 1.25rem;
+    }
+
+    .gp-title {
+        font-size: 1.6rem;
+    }
+
+    .gp-beacon-grid {
+        grid-template-columns: 1fr;
+    }
+}

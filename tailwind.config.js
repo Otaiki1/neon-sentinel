@@ -10,6 +10,10 @@ export default {
         'neon-green': '#00ff00',
         'neon-green-dark': '#00cc00',
         'neon-green-light': '#33ff33',
+        'neon-blue': '#00aaff',
+        'neon-blue-dark': '#007acc',
+        'neon-yellow': '#ffe500',
+        'neon-yellow-dark': '#ccb800',
       },
       fontFamily: {
         'logo': ['"Orbitron"', 'sans-serif'],      // Logo / brand

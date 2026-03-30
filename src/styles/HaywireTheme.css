@@ -1,0 +1,743 @@
+/* ═══════════════════════════════════════════════════════════════════
+   HAYWIRE THEME — NEOBRUTALIST COLOR FRENZY
+   Everything collides. Nothing matches. All of it glows.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Root variable overrides ──────────────────────────────────────── */
+[data-theme="haywire"] {
+    --neon-primary:       #ff00cc;   /* hot magenta replaces green */
+    --neon-secondary:     #00ffff;   /* cyan stays for victory */
+    --neon-blue:          #aaff00;   /* toxic lime replaces blue */
+    --neon-yellow:        #ff5500;   /* electric orange replaces yellow */
+    --neon-bright:        #ff00ff;
+    --accent-yellow:      #aaff00;
+    --accent-yellow-dim:  rgba(170, 255, 0, 0.4);
+    --neon-yellow-dim:    rgba(255, 85, 0, 0.4);
+    --bg-deep:            #060006;
+    --border-dark:        #3d0033;
+    --border-dark-strong: #2a0025;
+    --brutal-border:      5px solid #3d0033;
+    --brutal-border-inner:4px solid #3d0033;
+    --btn-bg:             #020002;
+    --btn-bg-hover:       #0f000a;
+    --btn-border:         3px solid #ff00cc;
+    --btn-border-thick:   3px solid #ff00cc;
+    --btn-inner-glow:     inset 0 0 0 1px rgba(255, 0, 204, 0.3);
+    --btn-outer-glow:     0 0 20px rgba(255, 0, 204, 0.4);
+    --glow-bright:        0 0 25px rgba(255, 0, 204, 0.5), 0 0 50px rgba(170, 0, 255, 0.25);
+    --glow-bright-subtle: 0 0 15px rgba(255, 0, 204, 0.35);
+    --game-shadow:        6px 6px 0 rgba(60, 0, 40, 0.85);
+    --game-shadow-sm:     4px 4px 0 rgba(50, 0, 30, 0.75);
+    --game-shadow-btn:    4px 4px 0 rgba(45, 0, 25, 0.8);
+    --glass-bg:           rgba(20, 0, 15, 0.02);
+    --glass-bg-strong:    rgba(30, 0, 20, 0.03);
+    --glass-border:       rgba(255, 0, 204, 0.4);
+    --glass-shadow:       0 0 20px rgba(255, 0, 204, 0.06), 0 0 40px rgba(170, 0, 255, 0.02), inset 0 0 15px rgba(255, 0, 204, 0.005);
+    --glass-panel-bg:     rgba(20, 5, 18, 0.7);
+    --neon-tube:          2px solid #ff00cc;
+    --neon-tube-glow:     0 0 8px rgba(255, 0, 204, 0.6), inset 0 0 8px rgba(255, 0, 204, 0.15);
+}
+
+/* ── Body background — deep purple-black ─────────────────────────── */
+[data-theme="haywire"] body,
+[data-theme="haywire"] #root {
+    background: #04000a;
+}
+
+/* ── Scanlines — hot pink sweep ───────────────────────────────────── */
+[data-theme="haywire"] .scanlines::before {
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 0, 204, 0.022),
+        rgba(255, 0, 204, 0.022) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+}
+[data-theme="haywire"] .scanlines::after {
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(170, 255, 0, 0.01) 0px,
+        rgba(170, 255, 0, 0.01) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+}
+
+/* ── Logo — magenta shift ──────────────────────────────────────────── */
+[data-theme="haywire"] .logo-glow {
+    filter: drop-shadow(0 0 14px rgba(255, 0, 204, 0.7)) hue-rotate(150deg);
+}
+
+/* ── Data stream — magenta matrix ─────────────────────────────────── */
+[data-theme="haywire"] .hero-data-stream-inner {
+    color: rgba(255, 0, 204, 0.12);
+}
+
+/* ── Global scrollbar ─────────────────────────────────────────────── */
+[data-theme="haywire"] ::-webkit-scrollbar-track {
+    background: rgba(20, 0, 15, 0.4);
+}
+[data-theme="haywire"] ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #ff00cc, #aaff00, #00ffff, #ff5500);
+    box-shadow: 0 0 8px rgba(255, 0, 204, 0.5);
+}
+
+/* ── Nav icon buttons — each child gets a unique color ────────────── */
+[data-theme="haywire"] .nav-icon-button:hover {
+    background: var(--btn-bg-hover);
+    border-color: #ff00cc;
+    box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.25), 0 0 24px rgba(255, 0, 204, 0.45);
+}
+[data-theme="haywire"] .nav-icon-image {
+    filter: drop-shadow(0 0 6px rgba(255, 0, 204, 0.4));
+}
+[data-theme="haywire"] .nav-icon-label {
+    color: #ff00cc;
+    text-shadow: 0 0 6px rgba(255, 0, 204, 0.5);
+}
+
+/* child 1 = Profile → cyan */
+[data-theme="haywire"] .landing-nav > *:nth-child(1):hover {
+    border-color: #00ffff !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.25), 0 0 24px rgba(0, 255, 255, 0.45) !important;
+}
+[data-theme="haywire"] .landing-nav > *:nth-child(1) .nav-icon-label { color: #00ffff; text-shadow: 0 0 6px rgba(0, 255, 255, 0.6); }
+[data-theme="haywire"] .landing-nav > *:nth-child(1) .nav-icon-image { filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.5)); }
+
+/* child 2 = Settings → toxic lime */
+[data-theme="haywire"] .landing-nav > *:nth-child(2):hover {
+    border-color: #aaff00 !important;
+    box-shadow: inset 0 0 0 1px rgba(170, 255, 0, 0.25), 0 0 24px rgba(170, 255, 0, 0.45) !important;
+}
+[data-theme="haywire"] .landing-nav > *:nth-child(2) .nav-icon-label { color: #aaff00; text-shadow: 0 0 6px rgba(170, 255, 0, 0.6); }
+[data-theme="haywire"] .landing-nav > *:nth-child(2) .nav-icon-image { filter: drop-shadow(0 0 6px rgba(170, 255, 0, 0.5)); }
+
+/* child 3 = Marketplace → violet */
+[data-theme="haywire"] .landing-nav > *:nth-child(3):hover {
+    border-color: #aa00ff !important;
+    box-shadow: inset 0 0 0 1px rgba(170, 0, 255, 0.25), 0 0 24px rgba(170, 0, 255, 0.45) !important;
+}
+[data-theme="haywire"] .landing-nav > *:nth-child(3) .nav-icon-label { color: #aa00ff; text-shadow: 0 0 6px rgba(170, 0, 255, 0.6); }
+[data-theme="haywire"] .landing-nav > *:nth-child(3) .nav-icon-image { filter: drop-shadow(0 0 6px rgba(170, 0, 255, 0.5)); }
+
+/* child 4 = Inventory → hot coral */
+[data-theme="haywire"] .landing-nav > *:nth-child(4):hover {
+    border-color: #ff0055 !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 0, 85, 0.25), 0 0 24px rgba(255, 0, 85, 0.45) !important;
+}
+[data-theme="haywire"] .landing-nav > *:nth-child(4) .nav-icon-label { color: #ff0055; text-shadow: 0 0 6px rgba(255, 0, 85, 0.6); }
+[data-theme="haywire"] .landing-nav > *:nth-child(4) .nav-icon-image { filter: drop-shadow(0 0 6px rgba(255, 0, 85, 0.5)); }
+
+/* child 5 = Gauntlet → stays orange but intensified */
+[data-theme="haywire"] .landing-nav > *:nth-child(5):hover {
+    border-color: #ff6600 !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 102, 0, 0.25), 0 0 28px rgba(255, 102, 0, 0.6), 0 0 50px rgba(255, 0, 204, 0.2) !important;
+}
+
+/* child 6 = Login → hot magenta */
+[data-theme="haywire"] .landing-nav > *:nth-child(6):hover {
+    border-color: #ff00cc !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.25), 0 0 24px rgba(255, 0, 204, 0.45) !important;
+}
+[data-theme="haywire"] .landing-nav > *:nth-child(6) .nav-icon-label { color: #ff00cc; text-shadow: 0 0 6px rgba(255, 0, 204, 0.5); }
+
+/* ── Nav scan line — magenta→lime cycles faster ────────────────────── */
+[data-theme="haywire"] .nav-scan-line {
+    background: linear-gradient(180deg, transparent, #ff00ff, transparent);
+    box-shadow: 0 0 15px rgba(255, 0, 255, 0.9);
+    animation: nav-scan 2.5s linear infinite;
+}
+
+/* ── Hero panel — border cycles through all colors ─────────────────── */
+[data-theme="haywire"] .hero-panel {
+    border-color: #ff00cc !important;
+    animation: hero-panel-glow 2.5s ease-in-out infinite, hw-border-cycle 4s linear infinite !important;
+}
+
+/* ── Corner brackets — each a different color ───────────────────────── */
+[data-theme="haywire"] .hero-corner-bracket.bracket-tl { border-color: #ff00cc; box-shadow: 0 0 12px rgba(255, 0, 204, 0.8); animation-duration: 1.5s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-tr { border-color: #aaff00; box-shadow: 0 0 12px rgba(170, 255, 0, 0.8); animation-duration: 1.5s !important; animation-delay: 0.375s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-bl { border-color: #00ffff; box-shadow: 0 0 12px rgba(0, 255, 255, 0.8); animation-duration: 1.5s !important; animation-delay: 0.75s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-br { border-color: #ff5500; box-shadow: 0 0 12px rgba(255, 85, 0, 0.8); animation-duration: 1.5s !important; animation-delay: 1.125s !important; }
+
+/* ── Hero character name — color-cycling pulse ──────────────────────── */
+[data-theme="haywire"] .hero-character-name {
+    animation: hw-name-cycle 2s linear infinite;
+    letter-spacing: 0.1em;
+}
+
+/* ── Hero rank → cyan, fire line → lime ────────────────────────────── */
+[data-theme="haywire"] .hero-rank-line {
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.65);
+}
+[data-theme="haywire"] .hero-fire-line {
+    color: #aaff00;
+    text-shadow: 0 0 8px rgba(170, 255, 0, 0.65);
+}
+
+/* ── Portrait frame → violet ────────────────────────────────────────── */
+[data-theme="haywire"] .hero-portrait-frame {
+    border-color: #aa00ff;
+    box-shadow: 0 0 14px rgba(170, 0, 255, 0.65), 0 0 30px rgba(170, 0, 255, 0.25), inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+[data-theme="haywire"] .hero-portrait-frame::before,
+[data-theme="haywire"] .hero-portrait-frame::after {
+    border-color: #aa00ff;
+    box-shadow: 0 0 8px rgba(170, 0, 255, 0.6);
+}
+
+/* ── Health dots — cycling rainbow ─────────────────────────────────── */
+[data-theme="haywire"] .health-segment-filled { background: #ff00cc; border-color: #3d0033; box-shadow: 0 0 8px rgba(255, 0, 204, 0.7); }
+[data-theme="haywire"] .health-segment-filled:nth-child(2) { background: #aaff00; border-color: #1a3300; box-shadow: 0 0 8px rgba(170, 255, 0, 0.7); }
+[data-theme="haywire"] .health-segment-filled:nth-child(3) { background: #00ffff; border-color: #003333; box-shadow: 0 0 8px rgba(0, 255, 255, 0.7); }
+[data-theme="haywire"] .health-segment-filled:nth-child(4) { background: #ff5500; border-color: #331100; box-shadow: 0 0 8px rgba(255, 85, 0, 0.7); }
+[data-theme="haywire"] .health-segment-filled:nth-child(5) { background: #aa00ff; border-color: #1a0033; box-shadow: 0 0 8px rgba(170, 0, 255, 0.7); }
+
+/* ── Retro panels — base is magenta ───────────────────────────────── */
+[data-theme="haywire"] .retro-panel {
+    border-color: #3d0033;
+    box-shadow: 0 0 15px rgba(255, 0, 204, 0.25), 6px 6px 0 rgba(60, 0, 40, 0.85);
+}
+[data-theme="haywire"] .retro-panel::before {
+    border-color: rgba(255, 0, 204, 0.15);
+}
+
+/* Bottom panels — each gets its own color ─────────────────────────── */
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(1) {
+    border-color: #1a0044;
+    box-shadow: 0 0 15px rgba(170, 0, 255, 0.28), 6px 6px 0 rgba(30, 0, 60, 0.85);
+}
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(1)::before { border-color: rgba(170, 0, 255, 0.15); }
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(1) h2 { color: #aa00ff; text-shadow: 0 0 12px rgba(170, 0, 255, 0.8); }
+
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(2) {
+    border-color: #002233;
+    box-shadow: 0 0 15px rgba(0, 200, 255, 0.22), 6px 6px 0 rgba(0, 30, 50, 0.85);
+}
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(2)::before { border-color: rgba(0, 200, 255, 0.12); }
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(2) h2 { color: #00ccff; text-shadow: 0 0 12px rgba(0, 200, 255, 0.75); }
+
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(3) {
+    border-color: #332200;
+    box-shadow: 0 0 15px rgba(255, 170, 0, 0.2), 6px 6px 0 rgba(50, 30, 0, 0.85);
+}
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(3)::before { border-color: rgba(255, 170, 0, 0.12); }
+[data-theme="haywire"] .bottom-panels-section .retro-panel:nth-child(3) h2 { color: #ffaa00; text-shadow: 0 0 12px rgba(255, 170, 0, 0.7); }
+
+/* Default retro-panel headers → violet */
+[data-theme="haywire"] .retro-panel > h2,
+[data-theme="haywire"] .how-to-play-section summary {
+    color: #aa00ff;
+    text-shadow: 0 0 12px rgba(170, 0, 255, 0.7);
+}
+
+/* ── Kernel selector → toxic lime ──────────────────────────────────── */
+[data-theme="haywire"] .kernel-selector-panel {
+    border-color: #1a3300;
+    box-shadow: 0 0 15px rgba(170, 255, 0, 0.3), 6px 6px 0 rgba(20, 40, 0, 0.85);
+}
+[data-theme="haywire"] .kernel-selector-title { color: #aaff00; text-shadow: 0 0 14px rgba(170, 255, 0, 0.7); }
+[data-theme="haywire"] .kernel-selector-subtitle { color: rgba(170, 255, 0, 0.65); }
+
+/* Kernel cards → lime */
+[data-theme="haywire"] .kernel-card { border-color: #1a3300 !important; box-shadow: 0 0 14px rgba(170, 255, 0, 0.2), 4px 4px 0 rgba(20, 40, 0, 0.8); }
+[data-theme="haywire"] .kernel-card-frame { border-color: #1a3300; }
+[data-theme="haywire"] .kernel-card-name { color: #aaff00; text-shadow: 0 0 6px rgba(170, 255, 0, 0.6); }
+[data-theme="haywire"] .kernel-card-status { color: rgba(170, 255, 0, 0.7); }
+[data-theme="haywire"] .kernel-card-cost { color: rgba(170, 255, 0, 0.85); }
+[data-theme="haywire"] .kernel-card-lock { color: rgba(170, 255, 0, 0.45); }
+[data-theme="haywire"] .kernel-card-portrait { box-shadow: 0 0 15px rgba(170, 255, 0, 0.3), 3px 3px 0 rgba(20, 40, 0, 0.85), inset 0 0 10px rgba(0, 0, 0, 0.5); }
+[data-theme="haywire"] .kernel-card-available:hover { box-shadow: 0 0 22px rgba(170, 255, 0, 0.5), 5px 5px 0 rgba(20, 40, 0, 0.85) !important; }
+[data-theme="haywire"] .character-selector::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #ff00cc, #aaff00); }
+
+/* ── Depth gauge → magenta fill, orange active ──────────────────────── */
+[data-theme="haywire"] .depth-gauge-bar.filled {
+    border-color: #ff00cc;
+    background: linear-gradient(180deg, #ff00cc, #aa0088);
+    box-shadow: 0 0 10px rgba(255, 0, 204, 0.55);
+}
+[data-theme="haywire"] .depth-gauge-bar.active {
+    border-color: #ff5500;
+    box-shadow: 0 0 14px rgba(255, 85, 0, 0.6);
+}
+[data-theme="haywire"] .depth-box-active {
+    border-color: #ff00cc !important;
+    box-shadow: 0 0 20px rgba(255, 0, 204, 0.5), 4px 4px 0 rgba(60, 0, 40, 0.4);
+}
+
+/* ── START GAME button → magenta fire ───────────────────────────────── */
+[data-theme="haywire"] .start-game-btn-link {
+    border-color: #ff00cc;
+    color: #ff00cc;
+    text-shadow: 0 0 12px rgba(255, 0, 204, 0.8);
+    box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.3), 0 0 20px rgba(255, 0, 204, 0.4);
+    animation: hw-start-pulse 1.8s ease-in-out infinite;
+}
+[data-theme="haywire"] .start-game-btn-link:hover {
+    background: #0a000a;
+    box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.3), 0 0 45px rgba(255, 0, 204, 0.7), 0 0 80px rgba(170, 0, 255, 0.3);
+}
+[data-theme="haywire"] .start-game-btn-link:hover::before { border-color: #ff00cc; box-shadow: 0 0 20px rgba(255, 0, 204, 0.8); }
+[data-theme="haywire"] .start-game-btn-main { text-shadow: 0 0 14px rgba(255, 0, 204, 0.9); animation: hw-name-cycle 2s linear infinite; }
+[data-theme="haywire"] .start-game-btn-subtitle { color: rgba(255, 0, 204, 0.8); }
+[data-theme="haywire"] .start-game-btn-divider { border-color: #ff00cc; }
+
+/* Hero big buttons */
+[data-theme="haywire"] .hero-big-btn:nth-child(1) { border-color: #ff00cc !important; color: #ff00cc !important; }
+[data-theme="haywire"] .hero-big-btn:nth-child(2) { border-color: #aaff00 !important; color: #aaff00 !important; }
+
+/* ── btn-secondary → toxic lime ─────────────────────────────────────── */
+[data-theme="haywire"] .btn-secondary,
+[data-theme="haywire"] .equip-minimes-btn {
+    border-color: #aaff00 !important;
+    color: #aaff00 !important;
+    text-shadow: 0 0 10px rgba(170, 255, 0, 0.5) !important;
+    box-shadow: inset 0 0 0 1px rgba(170, 255, 0, 0.2), 0 0 20px rgba(170, 255, 0, 0.25) !important;
+}
+[data-theme="haywire"] .btn-secondary:hover {
+    border-color: #aaff00 !important;
+    box-shadow: inset 0 0 0 1px rgba(170, 255, 0, 0.2), 0 0 32px rgba(170, 255, 0, 0.45) !important;
+    background: var(--btn-bg-hover) !important;
+}
+
+/* ── Circuit nodes → lime ────────────────────────────────────────────── */
+[data-theme="haywire"] .unlocked-systems-circuit .circuit-node + .circuit-node::before {
+    background: linear-gradient(90deg, transparent, #aaff00);
+    box-shadow: 0 0 6px rgba(170, 255, 0, 0.55);
+}
+[data-theme="haywire"] .unlocked-systems-circuit .circuit-node.unlocked .circuit-node-icon {
+    border-color: #aaff00;
+    box-shadow: 0 0 12px rgba(170, 255, 0, 0.4);
+}
+[data-theme="haywire"] .unlocked-systems-circuit .circuit-node.unlocked + .circuit-node::before {
+    box-shadow: 0 0 10px rgba(170, 255, 0, 0.65);
+}
+
+/* ── Landing modal panel → violet ───────────────────────────────────── */
+[data-theme="haywire"] .landing-modal-panel {
+    border: 2px solid #aa00ff !important;
+    box-shadow: 0 0 22px rgba(170, 0, 255, 0.5) !important;
+}
+
+/* ── Leaderboard entries → violet ───────────────────────────────────── */
+[data-theme="haywire"] .leaderboard-entry {
+    background: rgba(170, 0, 255, 0.02);
+    border-left-color: rgba(170, 0, 255, 0.3);
+}
+[data-theme="haywire"] .leaderboard-entry:hover {
+    background: rgba(170, 0, 255, 0.07);
+    border-left-color: #aa00ff;
+}
+
+/* Rank badge → magenta */
+[data-theme="haywire"] .rank-badge {
+    background: rgba(255, 0, 204, 0.08);
+    border-color: #ff00cc;
+    color: #ff00cc;
+}
+
+/* ── Ticker tape → magenta text, dark-purple bg ──────────────────────── */
+[data-theme="haywire"] .ticker-tape-wrap {
+    border-top-color: #3d0033;
+    background: rgba(12, 0, 10, 0.92);
+}
+[data-theme="haywire"] .ticker-tape-content {
+    color: rgba(255, 0, 204, 0.7);
+    text-shadow: 0 0 4px rgba(255, 0, 204, 0.4);
+}
+
+/* ── Glass panels ────────────────────────────────────────────────────── */
+[data-theme="haywire"] .glass-panel {
+    border-color: rgba(255, 0, 204, 0.35);
+}
+
+/* ── Hover glow helper ───────────────────────────────────────────────── */
+[data-theme="haywire"] .hover\:shadow-glow-neon:hover {
+    box-shadow: 0 0 20px rgba(255, 0, 204, 0.4), inset 0 0 15px rgba(255, 0, 204, 0.03);
+}
+
+/* ── Profile page → hot coral/orange ─────────────────────────────────── */
+[data-theme="haywire"] .profile-page .profile-title { color: #ff5500; text-shadow: 0 0 12px rgba(255, 85, 0, 0.8); }
+[data-theme="haywire"] .profile-page .profile-back { border-color: #ff5500; color: #ff5500; }
+[data-theme="haywire"] .profile-page .profile-back:hover { background: #ff5500; color: #000; }
+[data-theme="haywire"] .profile-page .profile-panel { border-color: #ff5500; box-shadow: 0 0 16px rgba(255, 85, 0, 0.2); }
+[data-theme="haywire"] .profile-page .profile-panel-title { color: #ff5500; text-shadow: 0 0 8px rgba(255, 85, 0, 0.6); border-bottom-color: rgba(255, 85, 0, 0.45); }
+[data-theme="haywire"] .profile-page .profile-label { color: rgba(255, 85, 0, 0.8); }
+[data-theme="haywire"] .profile-page .profile-value { color: #ff5500; text-shadow: 0 0 6px rgba(255, 85, 0, 0.5); }
+[data-theme="haywire"] .profile-page .profile-value-dim { color: rgba(255, 85, 0, 0.72); }
+[data-theme="haywire"] .profile-page .profile-stat-row { border-bottom-color: rgba(255, 85, 0, 0.18); }
+[data-theme="haywire"] .profile-page .profile-stat-list > div { border-bottom-color: rgba(255, 85, 0, 0.18); }
+[data-theme="haywire"] .profile-page .profile-stat-list .text-xs { color: rgba(255, 85, 0, 0.8); }
+[data-theme="haywire"] .profile-page .profile-stat-list .text-sm { color: #ff5500; }
+[data-theme="haywire"] .profile-page .profile-rank-number { border-color: #ff5500; color: #aaff00; text-shadow: 0 0 8px rgba(170, 255, 0, 0.5); }
+[data-theme="haywire"] .profile-page .profile-rank-name { color: #ff5500; }
+[data-theme="haywire"] .profile-page .profile-rank-meta { color: rgba(255, 85, 0, 0.75); }
+[data-theme="haywire"] .profile-page .profile-progress-bar { background: #1a0800; border-color: rgba(255, 85, 0, 0.32); }
+[data-theme="haywire"] .profile-page .profile-progress-fill { background: linear-gradient(90deg, #cc3300, #ff5500); box-shadow: 0 0 8px rgba(255, 85, 0, 0.5); }
+[data-theme="haywire"] .profile-page .profile-card { border-color: rgba(255, 85, 0, 0.38); }
+[data-theme="haywire"] .profile-page .profile-card.active { border-color: #aaff00; box-shadow: 0 0 12px rgba(170, 255, 0, 0.3); }
+[data-theme="haywire"] .profile-page .profile-card.unlocked:not(.active):hover { border-color: #ff5500; box-shadow: 0 0 8px rgba(255, 85, 0, 0.3); }
+[data-theme="haywire"] .profile-page .profile-card-icon-cell { border-color: rgba(255, 85, 0, 0.22); }
+[data-theme="haywire"] .profile-page .profile-card-label { color: #ff5500; }
+[data-theme="haywire"] .profile-page .profile-card-meta { color: rgba(255, 85, 0, 0.72); }
+
+/* ── Wallet modal → magenta ───────────────────────────────────────────── */
+[data-theme="haywire"] .wallet-modal-content { border-color: #ff00cc; box-shadow: 0 0 32px rgba(255, 0, 204, 0.35); }
+[data-theme="haywire"] .wallet-modal-header { border-bottom-color: #ff00cc; background: rgba(255, 0, 204, 0.04); }
+[data-theme="haywire"] .wallet-modal-close { border-color: #ff00cc; color: #ff00cc; }
+[data-theme="haywire"] .wallet-modal-close:hover { background: #ff00cc; color: #000; }
+[data-theme="haywire"] .wallet-modal-button { border-color: #ff00cc; color: #ff00cc; }
+[data-theme="haywire"] .wallet-modal-button-primary { background: rgba(255, 0, 204, 0.1); }
+[data-theme="haywire"] .wallet-modal-button-primary:hover:not(:disabled) { background: #ff00cc; color: #000; box-shadow: 0 0 20px rgba(255, 0, 204, 0.55); }
+[data-theme="haywire"] .wallet-modal-button-secondary { border-color: rgba(255, 0, 204, 0.45); color: rgba(255, 0, 204, 0.8); }
+[data-theme="haywire"] .wallet-modal-button-secondary:hover { border-color: #ff00cc; color: #ff00cc; }
+[data-theme="haywire"] .wallet-modal-divider::before,
+[data-theme="haywire"] .wallet-modal-divider::after { background: rgba(255, 0, 204, 0.28); }
+
+/* ── Inventory modal → violet ─────────────────────────────────────────── */
+[data-theme="haywire"] .inventory-modal { border-color: #aa00ff; box-shadow: 0 0 24px rgba(170, 0, 255, 0.45); }
+[data-theme="haywire"] .inventory-modal-header { border-bottom-color: #aa00ff; }
+[data-theme="haywire"] .inventory-modal-title { color: #aa00ff; }
+[data-theme="haywire"] .inventory-modal-close { border-color: #aa00ff; color: #aa00ff; }
+[data-theme="haywire"] .inventory-modal-close:hover { background: #aa00ff; color: #000; }
+[data-theme="haywire"] .inventory-coin-balance { background: rgba(170, 0, 255, 0.08); border-color: #aa00ff; }
+[data-theme="haywire"] .inventory-item { border-color: #aa00ff; background: rgba(170, 0, 255, 0.04); }
+[data-theme="haywire"] .inventory-item:hover { background: rgba(170, 0, 255, 0.09); box-shadow: 0 0 12px rgba(170, 0, 255, 0.3); }
+[data-theme="haywire"] .inventory-item-name { color: #aa00ff; }
+[data-theme="haywire"] .inventory-item-count { color: #aa00ff; background: rgba(170, 0, 255, 0.14); border-color: #aa00ff; }
+[data-theme="haywire"] .inventory-item-placeholder { border-color: #aa00ff; color: #aa00ff; background: rgba(170, 0, 255, 0.08); }
+[data-theme="haywire"] .inventory-item-description { color: rgba(170, 0, 255, 0.8); }
+[data-theme="haywire"] .inventory-item-cost { color: #aa00ff; background: rgba(170, 0, 255, 0.07); }
+[data-theme="haywire"] .inventory-action-btn { border-color: #aa00ff; color: #aa00ff; }
+[data-theme="haywire"] .inventory-action-btn:hover:not(.disabled) { background: #aa00ff; color: #000; }
+[data-theme="haywire"] .inventory-confirmation { border-color: #aa00ff; }
+[data-theme="haywire"] .inventory-confirmation h3 { color: #aa00ff; }
+[data-theme="haywire"] .inventory-confirm-btn { background: #aa00ff; border-color: #aa00ff; color: #000; }
+[data-theme="haywire"] .inventory-confirm-btn:hover { background: #8800cc; }
+[data-theme="haywire"] .inventory-cancel-btn { border-color: #aa00ff; color: #aa00ff; }
+
+/* ── Pregame modal → hot coral ────────────────────────────────────────── */
+[data-theme="haywire"] .pregame-modal { border-color: #ff0055; box-shadow: 0 0 26px rgba(255, 0, 85, 0.45); }
+[data-theme="haywire"] .pregame-modal-header { border-bottom-color: #ff0055; }
+[data-theme="haywire"] .pregame-modal-title { color: #ff0055; }
+[data-theme="haywire"] .pregame-modal-close { border-color: #ff0055; color: #ff0055; }
+[data-theme="haywire"] .pregame-modal-close:hover { background: #ff0055; color: #000; }
+[data-theme="haywire"] .pregame-modal-subtitle { color: rgba(255, 0, 85, 0.8); }
+[data-theme="haywire"] .pregame-coin-row { background: rgba(255, 0, 85, 0.07); border-color: #ff0055; }
+[data-theme="haywire"] .pregame-upgrade-card { background: rgba(255, 0, 85, 0.04); border-color: #ff0055; color: #ff0055; }
+[data-theme="haywire"] .pregame-upgrade-card:hover:not(.disabled) { background: rgba(255, 0, 85, 0.11); box-shadow: 0 0 14px rgba(255, 0, 85, 0.35); }
+[data-theme="haywire"] .pregame-upgrade-card.selected { background: rgba(255, 0, 85, 0.17); box-shadow: inset 0 0 12px rgba(255, 0, 85, 0.2); }
+[data-theme="haywire"] .pregame-upgrade-cost { border-top-color: rgba(255, 0, 85, 0.38); }
+[data-theme="haywire"] .pregame-total-label,
+[data-theme="haywire"] .pregame-total-value { color: #ff0055; }
+[data-theme="haywire"] .pregame-btn { border-color: #ff0055; }
+[data-theme="haywire"] .pregame-btn-skip { color: #ff0055; }
+[data-theme="haywire"] .pregame-btn-skip:hover { background: rgba(255, 0, 85, 0.1); }
+[data-theme="haywire"] .pregame-btn-launch { background: #ff00cc; border-color: #ff00cc; color: #000; }
+[data-theme="haywire"] .pregame-btn-launch:hover:not(:disabled) { background: #cc00aa; border-color: #cc00aa; box-shadow: 0 0 18px rgba(255, 0, 204, 0.65); }
+
+/* ── Gauntlet page → orange intensified with magenta bleed ────────────── */
+[data-theme="haywire"] .gp-title {
+    text-shadow: 0 0 20px rgba(255, 102, 0, 0.9), 0 0 50px rgba(255, 0, 204, 0.3);
+}
+[data-theme="haywire"] .gp-beacon-card:hover {
+    border-color: #ff6600;
+    box-shadow: 0 0 20px rgba(255, 102, 0, 0.25), 0 0 50px rgba(255, 0, 204, 0.1);
+}
+[data-theme="haywire"] .gp-topbar-dot {
+    background: #ff00cc;
+    box-shadow: 0 0 10px rgba(255, 0, 204, 0.9);
+}
+
+/* ── Tooltip → magenta ────────────────────────────────────────────────── */
+[data-theme="haywire"] [class*="tooltip"] {
+    border-color: #ff00cc !important;
+    color: #ff00cc !important;
+    box-shadow: 0 0 10px rgba(255, 0, 204, 0.55) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   HAYWIRE ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes hw-name-cycle {
+    0%   { color: #ff00cc; text-shadow: 0 0 16px rgba(255, 0, 204, 0.9), 0 0 32px rgba(170, 0, 255, 0.4); }
+    20%  { color: #aaff00; text-shadow: 0 0 16px rgba(170, 255, 0, 0.9), 0 0 32px rgba(100, 200, 0, 0.4); }
+    40%  { color: #00ffff; text-shadow: 0 0 16px rgba(0, 255, 255, 0.9), 0 0 32px rgba(0, 100, 255, 0.4); }
+    60%  { color: #ff5500; text-shadow: 0 0 16px rgba(255, 85, 0, 0.9), 0 0 32px rgba(255, 0, 100, 0.4); }
+    80%  { color: #aa00ff; text-shadow: 0 0 16px rgba(170, 0, 255, 0.9), 0 0 32px rgba(255, 0, 204, 0.4); }
+    100% { color: #ff00cc; text-shadow: 0 0 16px rgba(255, 0, 204, 0.9), 0 0 32px rgba(170, 0, 255, 0.4); }
+}
+
+@keyframes hw-border-cycle {
+    0%   { border-color: #ff00cc; box-shadow: var(--glow-bright), 8px 8px 0 rgba(60, 0, 40, 0.85); }
+    25%  { border-color: #aaff00; box-shadow: 0 0 25px rgba(170, 255, 0, 0.45), 0 0 50px rgba(100, 200, 0, 0.2), 8px 8px 0 rgba(20, 40, 0, 0.85); }
+    50%  { border-color: #00ffff; box-shadow: 0 0 25px rgba(0, 255, 255, 0.45), 0 0 50px rgba(0, 100, 200, 0.2), 8px 8px 0 rgba(0, 30, 50, 0.85); }
+    75%  { border-color: #ff5500; box-shadow: 0 0 25px rgba(255, 85, 0, 0.45), 0 0 50px rgba(200, 50, 0, 0.2), 8px 8px 0 rgba(50, 20, 0, 0.85); }
+    100% { border-color: #ff00cc; box-shadow: var(--glow-bright), 8px 8px 0 rgba(60, 0, 40, 0.85); }
+}
+
+@keyframes hw-start-pulse {
+    0%, 100% { box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.3), 0 0 20px rgba(255, 0, 204, 0.45); }
+    50%       { box-shadow: inset 0 0 0 1px rgba(255, 0, 204, 0.3), 0 0 35px rgba(255, 0, 204, 0.65), 0 0 60px rgba(170, 0, 255, 0.2); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CHAOS 3X — MAXOUT + AVATAR + GAMEPLAY EXTENSIONS
+   Everything faster, louder, and more broken.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Speed x3: override animation durations for existing rules ────── */
+[data-theme="haywire"] .hero-character-name {
+    animation: hw-name-cycle 0.6s linear infinite !important;
+}
+[data-theme="haywire"] .hero-panel {
+    animation: hero-panel-glow 0.8s ease-in-out infinite, hw-border-cycle 1.0s linear infinite !important;
+}
+[data-theme="haywire"] .start-game-btn-main {
+    animation: hw-name-cycle 0.5s linear infinite !important;
+}
+[data-theme="haywire"] .start-game-btn-link {
+    animation: hw-start-pulse 0.55s ease-in-out infinite !important;
+}
+[data-theme="haywire"] .nav-scan-line {
+    animation: nav-scan 0.7s linear infinite !important;
+}
+[data-theme="haywire"] .theme-toggle--haywire {
+    animation: toggle-haywire-pulse 0.35s ease-in-out infinite !important;
+    box-shadow: 0 0 30px rgba(255, 0, 204, 0.9) !important;
+}
+[data-theme="haywire"] .hero-data-stream-inner {
+    animation-duration: 2s !important;
+}
+
+/* ── Scanlines 3x more intense + animated shift ─────────────────── */
+[data-theme="haywire"] .scanlines::before {
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(255, 0, 204, 0.065),
+        rgba(255, 0, 204, 0.065) 1px,
+        transparent 1px,
+        transparent 2px
+    ) !important;
+    animation: hw-scanline-drift 0.25s linear infinite !important;
+}
+[data-theme="haywire"] .scanlines::after {
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(170, 255, 0, 0.022) 0px,
+        rgba(170, 255, 0, 0.022) 1px,
+        transparent 1px,
+        transparent 8px
+    ) !important;
+    pointer-events: none;
+}
+@keyframes hw-scanline-drift {
+    0%   { background-position: 0 0; }
+    100% { background-position: 0 4px; }
+}
+
+/* ── Avatar — toned-down neon color cycle with light RGB fringe ──── */
+@keyframes hw-avatar-chaos {
+    0% {
+        filter: drop-shadow(0 0 22px rgba(255, 0, 204, 0.85))
+                drop-shadow(0 0 45px rgba(255, 0, 204, 0.35))
+                drop-shadow(-2px 0 0 rgba(255, 0, 80, 0.6))
+                drop-shadow(2px 0 0 rgba(0, 80, 255, 0.6))
+                drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6))
+                brightness(1.25) saturate(1.8);
+    }
+    25% {
+        filter: drop-shadow(0 0 22px rgba(170, 255, 0, 0.85))
+                drop-shadow(0 0 45px rgba(100, 200, 0, 0.35))
+                drop-shadow(-2px 0 0 rgba(0, 200, 0, 0.6))
+                drop-shadow(2px 0 0 rgba(255, 0, 150, 0.6))
+                drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6))
+                brightness(1.25) saturate(1.9) hue-rotate(20deg);
+    }
+    50% {
+        filter: drop-shadow(0 0 24px rgba(0, 255, 255, 0.85))
+                drop-shadow(0 0 48px rgba(0, 100, 255, 0.35))
+                drop-shadow(-2px 0 0 rgba(200, 0, 0, 0.6))
+                drop-shadow(2px 0 0 rgba(0, 200, 0, 0.6))
+                drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6))
+                brightness(1.2) saturate(1.7) hue-rotate(-15deg);
+    }
+    75% {
+        filter: drop-shadow(0 0 22px rgba(255, 85, 0, 0.85))
+                drop-shadow(0 0 45px rgba(255, 0, 100, 0.35))
+                drop-shadow(-2px 0 0 rgba(0, 200, 200, 0.6))
+                drop-shadow(2px 0 0 rgba(255, 0, 180, 0.6))
+                drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6))
+                brightness(1.2) saturate(1.6) hue-rotate(40deg);
+    }
+    100% {
+        filter: drop-shadow(0 0 22px rgba(255, 0, 204, 0.85))
+                drop-shadow(0 0 45px rgba(255, 0, 204, 0.35))
+                drop-shadow(-2px 0 0 rgba(255, 0, 80, 0.6))
+                drop-shadow(2px 0 0 rgba(0, 80, 255, 0.6))
+                drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6))
+                brightness(1.25) saturate(1.8);
+    }
+}
+
+[data-theme="haywire"] .hero-character-image {
+    animation: hw-avatar-chaos 2.5s linear infinite !important;
+}
+
+/* ── Portrait frame — full cycling (override violet static) ─────── */
+@keyframes hw-portrait-cycle {
+    0%   { border-color: #ff00cc; box-shadow: 0 0 28px rgba(255,0,204,0.98), 0 0 65px rgba(255,0,204,0.55), inset 0 0 20px rgba(0,0,0,0.3); }
+    25%  { border-color: #aaff00; box-shadow: 0 0 28px rgba(170,255,0,0.98), 0 0 65px rgba(170,255,0,0.55), inset 0 0 20px rgba(0,0,0,0.3); }
+    50%  { border-color: #00ffff; box-shadow: 0 0 28px rgba(0,255,255,0.98), 0 0 65px rgba(0,255,255,0.55), inset 0 0 20px rgba(0,0,0,0.3); }
+    75%  { border-color: #ff5500; box-shadow: 0 0 28px rgba(255,85,0,0.98), 0 0 65px rgba(255,85,0,0.55), inset 0 0 20px rgba(0,0,0,0.3); }
+    100% { border-color: #ff00cc; box-shadow: 0 0 28px rgba(255,0,204,0.98), 0 0 65px rgba(255,0,204,0.55), inset 0 0 20px rgba(0,0,0,0.3); }
+}
+
+[data-theme="haywire"] .hero-portrait-frame {
+    animation: hw-portrait-cycle 0.7s linear infinite !important;
+}
+[data-theme="haywire"] .hero-portrait-frame::before,
+[data-theme="haywire"] .hero-portrait-frame::after {
+    animation: hw-border-cycle 0.5s linear infinite !important;
+}
+
+/* Corner brackets — 3x faster */
+[data-theme="haywire"] .hero-corner-bracket.bracket-tl { animation-duration: 0.45s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-tr { animation-duration: 0.45s !important; animation-delay: 0.11s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-bl { animation-duration: 0.45s !important; animation-delay: 0.22s !important; }
+[data-theme="haywire"] .hero-corner-bracket.bracket-br { animation-duration: 0.45s !important; animation-delay: 0.34s !important; }
+
+/* ── Gameplay screen — canvas hue-shift + vignette ──────────────── */
+[data-theme="haywire"] .game-page-container {
+    animation: hw-game-vignette 1.2s linear infinite !important;
+}
+@keyframes hw-game-vignette {
+    0%   { box-shadow: inset 0 0 100px rgba(255, 0, 204, 0.22); }
+    25%  { box-shadow: inset 0 0 100px rgba(170, 255, 0, 0.20); }
+    50%  { box-shadow: inset 0 0 100px rgba(0, 255, 255, 0.22); }
+    75%  { box-shadow: inset 0 0 100px rgba(255, 85, 0, 0.20); }
+    100% { box-shadow: inset 0 0 100px rgba(255, 0, 204, 0.22); }
+}
+
+/* Canvas filter — cycles hue + boosts saturation/contrast for in-game chaos */
+[data-theme="haywire"] .game-container canvas {
+    animation: hw-canvas-shift 2.5s linear infinite !important;
+}
+@keyframes hw-canvas-shift {
+    0%   { filter: hue-rotate(0deg)   saturate(1.5) contrast(1.12); }
+    20%  { filter: hue-rotate(25deg)  saturate(1.7) contrast(1.18); }
+    40%  { filter: hue-rotate(-18deg) saturate(1.4) contrast(1.10); }
+    60%  { filter: hue-rotate(50deg)  saturate(1.6) contrast(1.20); }
+    80%  { filter: hue-rotate(-35deg) saturate(1.5) contrast(1.15); }
+    100% { filter: hue-rotate(0deg)   saturate(1.5) contrast(1.12); }
+}
+
+/* ── CommanderWalkthrough — haywire override ────────────────────── */
+[data-theme="haywire"] .walkthrough-panel {
+    background: #03000a;
+    border-color: #ff00cc;
+    box-shadow: 0 0 18px rgba(255,0,204,0.7), 0 0 50px rgba(170,0,255,0.25), inset 0 0 20px rgba(255,0,204,0.04);
+    animation: hw-border-cycle 1.0s linear infinite !important;
+}
+[data-theme="haywire"] .walkthrough-portrait {
+    background: #0a0018;
+    border-right-color: rgba(255, 0, 204, 0.45);
+}
+[data-theme="haywire"] .walkthrough-header {
+    border-bottom-color: rgba(255, 0, 204, 0.35);
+}
+[data-theme="haywire"] .walkthrough-title {
+    animation: hw-name-cycle 0.9s linear infinite;
+}
+[data-theme="haywire"] .walkthrough-cursor {
+    background-color: #ff00cc;
+    box-shadow: 0 0 8px #ff00cc;
+    animation: hw-cursor-color 0.5s step-end infinite, walk-cursor-blink 0.6s steps(2, start) infinite !important;
+}
+[data-theme="haywire"] .portrait-scanline {
+    background: linear-gradient(to bottom, transparent 0%, rgba(255,0,204,0.2) 10%, transparent 20%);
+    animation: portrait-scan 1.2s linear infinite !important;
+}
+[data-theme="haywire"] .text-shadow-neon {
+    animation: hw-name-cycle 1.1s linear infinite;
+}
+
+/* ── DialogueCard — haywire border + rainbow text ───────────────── */
+[data-theme="haywire"] .dialogue-card-background {
+    background: rgba(4, 0, 10, 0.97) !important;
+    animation: hw-dialogue-border 0.55s linear infinite !important;
+}
+@keyframes hw-dialogue-border {
+    0%   { border-color: #ff00cc; box-shadow: 0 0 40px rgba(255,0,204,0.85), inset 0 0 20px rgba(255,0,204,0.12); }
+    25%  { border-color: #aaff00; box-shadow: 0 0 40px rgba(170,255,0,0.85), inset 0 0 20px rgba(170,255,0,0.12); }
+    50%  { border-color: #00ffff; box-shadow: 0 0 40px rgba(0,255,255,0.85), inset 0 0 20px rgba(0,255,255,0.12); }
+    75%  { border-color: #ff5500; box-shadow: 0 0 40px rgba(255,85,0,0.85), inset 0 0 20px rgba(255,85,0,0.12); }
+    100% { border-color: #ff00cc; box-shadow: 0 0 40px rgba(255,0,204,0.85), inset 0 0 20px rgba(255,0,204,0.12); }
+}
+[data-theme="haywire"] .dialogue-card-speaker {
+    animation: hw-name-cycle 0.55s linear infinite !important;
+}
+[data-theme="haywire"] .dialogue-card-text {
+    animation: hw-name-cycle 0.85s linear infinite !important;
+}
+[data-theme="haywire"] .dialogue-card-icon {
+    animation: hw-name-cycle 0.4s linear infinite !important;
+}
+[data-theme="haywire"] .dialogue-card-cursor {
+    animation: hw-cursor-color 0.35s step-end infinite, blink 0.3s step-end infinite !important;
+}
+@keyframes hw-cursor-color {
+    0%   { background: #ff00cc; }
+    25%  { background: #aaff00; }
+    50%  { background: #00ffff; }
+    75%  { background: #ff5500; }
+    100% { background: #ff00cc; }
+}
+
+/* ── VictoryScreen — rainbow apocalypse ─────────────────────────── */
+[data-theme="haywire"] .victory-background {
+    animation: hw-victory-bg 0.4s linear infinite !important;
+}
+@keyframes hw-victory-bg {
+    0%   { background: radial-gradient(circle, rgba(255, 0, 204, 0.55) 0%, rgba(4, 0, 10, 0.98) 100%); }
+    20%  { background: radial-gradient(circle, rgba(170, 255, 0, 0.5) 0%, rgba(4, 0, 10, 0.98) 100%); }
+    40%  { background: radial-gradient(circle, rgba(0, 255, 255, 0.55) 0%, rgba(4, 0, 10, 0.98) 100%); }
+    60%  { background: radial-gradient(circle, rgba(255, 85, 0, 0.5) 0%, rgba(4, 0, 10, 0.98) 100%); }
+    80%  { background: radial-gradient(circle, rgba(170, 0, 255, 0.55) 0%, rgba(4, 0, 10, 0.98) 100%); }
+    100% { background: radial-gradient(circle, rgba(255, 0, 204, 0.55) 0%, rgba(4, 0, 10, 0.98) 100%); }
+}
+[data-theme="haywire"] .victory-title,
+[data-theme="haywire"] .victory-title-large {
+    animation: hw-name-cycle 0.45s linear infinite !important;
+}
+[data-theme="haywire"] .transformation-text {
+    animation: hw-name-cycle 0.35s linear infinite, pulse 0.35s ease-in-out infinite !important;
+}
+[data-theme="haywire"] .victory-subtitle,
+[data-theme="haywire"] .victory-message {
+    animation: hw-name-cycle 1.0s linear infinite !important;
+}
+[data-theme="haywire"] .victory-button {
+    color: #000 !important;
+    animation: hw-btn-cycle 0.5s linear infinite !important;
+}
+@keyframes hw-btn-cycle {
+    0%   { background: #ff00cc; border-color: #ff00cc; box-shadow: 0 0 45px rgba(255,0,204,0.95); }
+    25%  { background: #aaff00; border-color: #aaff00; box-shadow: 0 0 45px rgba(170,255,0,0.95); }
+    50%  { background: #00ffff; border-color: #00ffff; box-shadow: 0 0 45px rgba(0,255,255,0.95); }
+    75%  { background: #ff5500; border-color: #ff5500; box-shadow: 0 0 45px rgba(255,85,0,0.95); }
+    100% { background: #ff00cc; border-color: #ff00cc; box-shadow: 0 0 45px rgba(255,0,204,0.95); }
+}
+[data-theme="haywire"] .victory-rewards {
+    border-color: #aaff00 !important;
+    animation: hw-border-cycle 0.6s linear infinite !important;
+}
+[data-theme="haywire"] .reward-item {
+    animation: hw-name-cycle 0.8s linear infinite !important;
+}
+[data-theme="haywire"] .reward-item:nth-child(2) { animation-duration: 0.6s !important; }
+[data-theme="haywire"] .reward-item:nth-child(3) { animation-duration: 0.45s !important; }
+[data-theme="haywire"] .reward-item:nth-child(4) { animation-duration: 0.7s !important; }

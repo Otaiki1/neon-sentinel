@@ -14,15 +14,18 @@
 }
 
 .inventory-modal {
-    background: #000;
-    border: 2px solid #00ff00;
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.09), transparent 22%),
+        linear-gradient(135deg, rgba(0, 255, 0, 0.045), transparent 50%),
+        rgba(3, 8, 12, 0.98);
+    border: 2px solid #00aaff;
     padding: 2rem;
     max-width: 900px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+    box-shadow: 0 0 20px rgba(0, 170, 255, 0.4);
 }
 
 .inventory-modal-header {
@@ -30,7 +33,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.5rem;
-    border-bottom: 2px solid #00ff00;
+    border-bottom: 2px solid rgba(0, 170, 255, 0.6);
     padding-bottom: 1rem;
 }
 
@@ -41,12 +44,13 @@
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
 }
 
 .inventory-modal-close {
     background: transparent;
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    border: 2px solid #00aaff;
+    color: #00aaff;
     font-size: 2rem;
     width: 40px;
     height: 40px;
@@ -58,7 +62,7 @@
 }
 
 .inventory-modal-close:hover {
-    background: #00ff00;
+    background: #ffe500;
     color: #000;
 }
 
@@ -69,33 +73,36 @@
     gap: 0.5rem;
     margin-bottom: 1.5rem;
     padding: 0.5rem 1rem;
-    background: rgba(0, 255, 0, 0.1);
-    border: 1px solid #00ff00;
+    background: rgba(255, 229, 0, 0.08);
+    border: 1px solid rgba(255, 229, 0, 0.6);
 }
 
 .inventory-coin-label {
     font-family: "Rajdhani", sans-serif;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .inventory-coin-value {
     font-family: "Share Tech Mono", monospace;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 1.2rem;
     font-weight: bold;
+    text-shadow: 0 0 8px rgba(255, 229, 0, 0.4);
 }
 
 .inventory-sessions-section {
     margin-bottom: 1.5rem;
     padding: 1rem 1rem 1.25rem;
-    background: rgba(0, 200, 255, 0.12);
-    border: 2px solid #00c8ff;
+    background: rgba(0, 255, 0, 0.08);
+    border: 2px solid rgba(0, 255, 0, 0.55);
 }
 
 .inventory-sessions-title {
     font-family: "Rajdhani", sans-serif;
-    color: #00c8ff;
+    color: #00ff00;
     font-size: 1rem;
     margin: 0 0 0.75rem 0;
     text-transform: uppercase;
@@ -112,31 +119,32 @@
 
 .inventory-sessions-label {
     font-family: "Rajdhani", sans-serif;
-    color: #00c8ff;
+    color: #00ff00;
     font-size: 1rem;
 }
 
 .inventory-sessions-value {
     font-family: "Share Tech Mono", monospace;
-    color: #00c8ff;
+    color: #ffe500;
     font-size: 1.25rem;
     font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 229, 0, 0.38);
 }
 
 .inventory-sessions-buy-btn {
     font-family: "Rajdhani", sans-serif;
     font-size: 0.95rem;
     padding: 0.5rem 1rem;
-    background: rgba(0, 200, 255, 0.2);
-    border: 2px solid #00c8ff;
-    color: #00c8ff;
+    background: rgba(255, 229, 0, 0.12);
+    border: 2px solid #ffe500;
+    color: #ffe500;
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
 .inventory-sessions-buy-btn:hover:not(.disabled) {
-    background: #00c8ff;
+    background: #ffe500;
     color: #000;
 }
 
@@ -147,7 +155,7 @@
 
 .inventory-sessions-hint {
     font-family: "JetBrains Mono", monospace;
-    color: #00c8ff;
+    color: rgba(0, 255, 0, 0.82);
     font-size: 0.8rem;
     margin: 0;
     opacity: 0.85;
@@ -160,15 +168,17 @@
 }
 
 .inventory-item {
-    border: 2px solid #00ff00;
+    border: 2px solid #00aaff;
     padding: 1rem;
-    background: rgba(0, 255, 0, 0.05);
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.08), transparent 35%),
+        rgba(4, 10, 14, 0.92);
     transition: all 0.2s;
 }
 
 .inventory-item:hover {
-    background: rgba(0, 255, 0, 0.1);
-    box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+    background: rgba(0, 170, 255, 0.08);
+    box-shadow: 0 0 10px rgba(0, 170, 255, 0.25);
 }
 
 .inventory-item-header {
@@ -176,6 +186,8 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(0, 170, 255, 0.24);
 }
 
 .inventory-item-name {
@@ -188,11 +200,11 @@
 
 .inventory-item-count {
     font-family: "Share Tech Mono", monospace;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 0.9rem;
-    background: rgba(0, 255, 0, 0.2);
+    background: rgba(255, 229, 0, 0.12);
     padding: 0.25rem 0.5rem;
-    border: 1px solid #00ff00;
+    border: 1px solid rgba(255, 229, 0, 0.55);
 }
 
 .inventory-item-icon {
@@ -214,12 +226,13 @@
     font-family: "Rajdhani", sans-serif;
     font-size: 1.5rem;
     color: #00ff00;
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(0, 255, 0, 0.08);
+    box-shadow: 0 0 12px rgba(0, 255, 0, 0.18);
 }
 
 .inventory-item-description {
     font-family: "JetBrains Mono", monospace;
-    color: #00ff00;
+    color: rgba(190, 235, 255, 0.86);
     font-size: 0.85rem;
     margin: 0.5rem 0;
     opacity: 0.8;
@@ -228,12 +241,13 @@
 
 .inventory-item-cost {
     font-family: "Share Tech Mono", monospace;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 0.9rem;
     margin: 0.5rem 0;
     padding: 0.25rem;
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(255, 229, 0, 0.08);
     text-align: center;
+    border: 1px solid rgba(255, 229, 0, 0.2);
 }
 
 .inventory-item-actions {
@@ -246,8 +260,8 @@
     flex: 1;
     padding: 0.5rem;
     background: transparent;
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    border: 2px solid #00aaff;
+    color: #00aaff;
     font-family: "Rajdhani", sans-serif;
     font-size: 0.9rem;
     cursor: pointer;
@@ -255,7 +269,22 @@
     text-transform: uppercase;
 }
 
-.inventory-action-btn:hover:not(.disabled) {
+.inventory-action-btn-purchase {
+    border-color: #00aaff;
+    color: #00aaff;
+}
+
+.inventory-action-btn-purchase:hover:not(.disabled) {
+    background: #00aaff;
+    color: #000;
+}
+
+.inventory-action-btn-activate {
+    border-color: #00ff00;
+    color: #00ff00;
+}
+
+.inventory-action-btn-activate:hover:not(.disabled) {
     background: #00ff00;
     color: #000;
 }
@@ -281,8 +310,10 @@
 }
 
 .inventory-confirmation {
-    background: #000;
-    border: 2px solid #00ff00;
+    background:
+        linear-gradient(180deg, rgba(255, 229, 0, 0.08), transparent 26%),
+        rgba(3, 8, 12, 0.98);
+    border: 2px solid #ffe500;
     padding: 2rem;
     max-width: 400px;
     width: 90%;
@@ -290,14 +321,14 @@
 
 .inventory-confirmation h3 {
     font-family: "Rajdhani", sans-serif;
-    color: #00ff00;
+    color: #ffe500;
     margin: 0 0 1rem 0;
     text-transform: uppercase;
 }
 
 .inventory-confirmation p {
     font-family: "JetBrains Mono", monospace;
-    color: #00ff00;
+    color: rgba(235, 245, 255, 0.88);
     margin: 0 0 1.5rem 0;
 }
 
@@ -310,7 +341,7 @@
 .inventory-cancel-btn {
     flex: 1;
     padding: 0.75rem;
-    border: 2px solid #00ff00;
+    border: 2px solid #00aaff;
     font-family: "Rajdhani", sans-serif;
     font-size: 1rem;
     cursor: pointer;
@@ -319,19 +350,20 @@
 }
 
 .inventory-confirm-btn {
-    background: #00ff00;
+    background: #ffe500;
+    border-color: #ffe500;
     color: #000;
 }
 
 .inventory-confirm-btn:hover {
-    background: #00cc00;
+    background: #ffd100;
 }
 
 .inventory-cancel-btn {
     background: transparent;
-    color: #00ff00;
+    color: #00aaff;
 }
 
 .inventory-cancel-btn:hover {
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(0, 170, 255, 0.08);
 }

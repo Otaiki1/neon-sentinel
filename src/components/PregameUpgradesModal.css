@@ -14,15 +14,18 @@
 }
 
 .pregame-modal {
-    background: #000;
-    border: 2px solid #00ff00;
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.08), transparent 22%),
+        linear-gradient(135deg, rgba(255, 229, 0, 0.045), transparent 58%),
+        rgba(3, 8, 12, 0.98);
+    border: 2px solid #00aaff;
     padding: 1.5rem 2rem;
     max-width: 720px;
     width: 92%;
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    box-shadow: 0 0 24px rgba(0, 255, 0, 0.45);
+    box-shadow: 0 0 24px rgba(0, 170, 255, 0.35);
 }
 
 .pregame-modal-header {
@@ -30,7 +33,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
-    border-bottom: 2px solid #00ff00;
+    border-bottom: 2px solid rgba(0, 170, 255, 0.55);
     padding-bottom: 0.75rem;
 }
 
@@ -41,12 +44,13 @@
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.12em;
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.38);
 }
 
 .pregame-modal-close {
     background: transparent;
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    border: 2px solid #00aaff;
+    color: #00aaff;
     font-size: 1.75rem;
     width: 40px;
     height: 40px;
@@ -59,13 +63,13 @@
 }
 
 .pregame-modal-close:hover {
-    background: #00ff00;
+    background: #ffe500;
     color: #000;
 }
 
 .pregame-modal-subtitle {
     font-family: "JetBrains Mono", monospace;
-    color: #00ff00;
+    color: rgba(200, 235, 255, 0.86);
     font-size: 0.85rem;
     margin: 0 0 1rem 0;
     opacity: 0.9;
@@ -78,21 +82,24 @@
     gap: 0.5rem;
     margin-bottom: 1rem;
     padding: 0.4rem 0.75rem;
-    background: rgba(0, 255, 0, 0.1);
-    border: 1px solid #00ff00;
+    background: rgba(255, 229, 0, 0.08);
+    border: 1px solid rgba(255, 229, 0, 0.5);
 }
 
 .pregame-coin-label {
     font-family: "Rajdhani", sans-serif;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 
 .pregame-coin-value {
     font-family: "Share Tech Mono", monospace;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 1.1rem;
     font-weight: bold;
+    text-shadow: 0 0 8px rgba(255, 229, 0, 0.4);
 }
 
 .pregame-upgrades-grid {
@@ -105,9 +112,11 @@
 .pregame-upgrade-card {
     text-align: left;
     padding: 0.75rem 1rem;
-    background: rgba(0, 255, 0, 0.06);
-    border: 2px solid #00ff00;
-    color: #00ff00;
+    background:
+        linear-gradient(180deg, rgba(0, 170, 255, 0.08), transparent 34%),
+        rgba(4, 10, 14, 0.92);
+    border: 2px solid #00aaff;
+    color: #00aaff;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
@@ -117,13 +126,19 @@
 }
 
 .pregame-upgrade-card:hover:not(.disabled) {
-    background: rgba(0, 255, 0, 0.15);
-    box-shadow: 0 0 12px rgba(0, 255, 0, 0.35);
+    background: rgba(0, 170, 255, 0.14);
+    box-shadow: 0 0 12px rgba(0, 170, 255, 0.28);
 }
 
 .pregame-upgrade-card.selected {
-    background: rgba(0, 255, 0, 0.2);
-    box-shadow: inset 0 0 12px rgba(0, 255, 0, 0.2);
+    background:
+        linear-gradient(180deg, rgba(0, 255, 0, 0.12), transparent 38%),
+        rgba(6, 18, 10, 0.9);
+    border-color: #00ff00;
+    color: #00ff00;
+    box-shadow:
+        inset 0 0 12px rgba(0, 255, 0, 0.12),
+        0 0 14px rgba(0, 255, 0, 0.16);
 }
 
 .pregame-upgrade-card.disabled {
@@ -152,7 +167,8 @@
     font-size: 0.85rem;
     margin-top: 0.25rem;
     padding: 0.2rem 0;
-    border-top: 1px solid rgba(0, 255, 0, 0.4);
+    border-top: 1px solid rgba(255, 229, 0, 0.25);
+    color: #ffe500;
 }
 
 .pregame-total-row {
@@ -172,7 +188,7 @@
 
 .pregame-total-value {
     font-family: "Share Tech Mono", monospace;
-    color: #00ff00;
+    color: #ffe500;
     font-size: 1.2rem;
     font-weight: bold;
 }
@@ -192,27 +208,28 @@
     letter-spacing: 0.08em;
     cursor: pointer;
     transition: all 0.2s;
-    border: 2px solid #00ff00;
+    border: 2px solid #00aaff;
 }
 
 .pregame-btn-skip {
     background: transparent;
-    color: #00ff00;
+    color: #00aaff;
 }
 
 .pregame-btn-skip:hover {
-    background: rgba(0, 255, 0, 0.15);
+    background: rgba(0, 170, 255, 0.12);
 }
 
 .pregame-btn-launch {
-    background: #00ff00;
+    background: #ffe500;
+    border-color: #ffe500;
     color: #000;
 }
 
 .pregame-btn-launch:hover:not(:disabled) {
-    background: #00cc00;
-    border-color: #00cc00;
-    box-shadow: 0 0 16px rgba(0, 255, 0, 0.5);
+    background: #ffd100;
+    border-color: #ffd100;
+    box-shadow: 0 0 16px rgba(255, 229, 0, 0.4);
 }
 
 .pregame-btn-launch:disabled {
